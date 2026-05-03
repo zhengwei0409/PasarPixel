@@ -115,3 +115,70 @@ External Services
 - **Blockchain Network:** Solana **Devnet** during development
 - **Containerisation:** Docker Compose to run all services locally
 - **Testing:** Functional testing + UAT planned
+
+
+## Project Structure
+
+```
+PasarPixel/
+├── client/                          # React frontend (Vite + Tailwind + shadcn/ui)
+│   ├── public/                      # Static assets (favicon, robots.txt)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ui/                  # shadcn/ui base components
+│   │   │   ├── layout/              # Navbar, Footer, PageWrapper
+│   │   │   └── marketplace/         # Listing cards, filters, asset preview
+│   │   ├── pages/                   # Route-level page components
+│   │   ├── hooks/                   # Custom React hooks
+│   │   ├── lib/                     # API clients, Phantom wallet utils
+│   │   ├── store/                   # Global state management
+│   │   └── types/                   # Frontend TypeScript types
+│   ├── index.html
+│   ├── vite.config.ts
+│   ├── tailwind.config.ts
+│   └── tsconfig.json
+│
+├── services/
+│   ├── auth-service/                # OAuth 2.0 + Google Sign-In
+│   │   └── src/
+│   │       ├── controllers/
+│   │       ├── middleware/
+│   │       ├── routes/
+│   │       └── types/
+│   │
+│   ├── main-api/                    # Core business logic (users, listings, orders)
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma        # Database schema
+│   │   │   └── migrations/
+│   │   └── src/
+│   │       ├── controllers/
+│   │       ├── middleware/
+│   │       ├── routes/
+│   │       ├── services/
+│   │       └── types/
+│   │
+│   └── blockchain-service/          # Solana NFT minting, transfer, verification
+│       └── src/
+│           ├── controllers/
+│           ├── routes/
+│           ├── services/
+│           └── types/
+│
+├── gateway/
+│   └── kong/
+│       └── kong.yml                 # Kong routing + rate limiting config
+│
+├── infra/
+│   ├── docker/
+│   │   └── docker-compose.yml       # Spins up all services locally
+│   └── scripts/
+│       └── seed.ts                  # Database seed script
+│
+├── shared/
+│   ├── types/                       # Shared TypeScript types across services
+│   └── utils/                       # Shared helper functions
+│
+├── .gitignore
+├── README.md
+└── CLAUDE.md
+```
