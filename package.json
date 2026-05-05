@@ -2,5 +2,11 @@
   "name": "pasarpixel",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@10.33.3"
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "dev:client": "pnpm --filter client dev",
+    "dev:auth": "pnpm --filter auth-service dev",
+    "dev:api": "pnpm --filter main-api dev",
+    "dev:blockchain": "pnpm --filter blockchain-service dev"
+  }
 }
