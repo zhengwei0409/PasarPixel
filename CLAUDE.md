@@ -4,6 +4,7 @@
 A **web-based marketplace platform** that supports both:
 - **Traditional licensing** — buyers purchase usage rights for multimedia assets
 - **Blockchain-based ownership** — assets tokenised as NFTs on the Solana blockchain
+- Monorepo with pnpm as package manager.
 
 ---
 
