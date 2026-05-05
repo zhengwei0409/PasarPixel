@@ -170,3 +170,5 @@ PasarPixel/
 ├── README.md
 └── CLAUDE.md
 ```
+
+Check `FunctionalRequirement.md` for functional requirement. 
