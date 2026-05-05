@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Wallet {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique // references Auth Service user ID (no FK across services)
+  address   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  masterNfts         MasterNft[]
+  licenseNfts        LicenseNft[]
+  sellerTransactions BlockchainTransaction[] @relation("SellerWallet")
+  buyerTransactions  BlockchainTransaction[] @relation("BuyerWallet")
+
+  @@map("wallets")
+}
+
+model MasterNft {
+  id            Int      @id @default(autoincrement())
+  ownerWalletId Int
+  assetId       Int      // references Main API asset ID (no FK across services)
+  mintAddress   String   @unique
+  metadataUri   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ownerWallet Wallet     @relation(fields: [ownerWalletId], references: [id])
+  licenseNfts LicenseNft[]
+
+  @@map("master_nfts")
+}
+
+model LicenseNft {
+  id             Int         @id @default(autoincrement())
+  masterNftId    Int
+  holderWalletId Int
+  orderItemId    Int         @unique // references Main API order_item ID (no FK across services)
+  mintAddress    String      @unique
+  metadataUri    String
+  licenseType    LicenseType
+  createdAt      DateTime    @default(now())
+
+  masterNft    MasterNft             @relation(fields: [masterNftId], references: [id])
+  holderWallet Wallet                @relation(fields: [holderWalletId], references: [id])
+  transaction  BlockchainTransaction?
+
+  @@map("license_nfts")
+}
+
+enum LicenseType {
+  PERSONAL
+  COMMERCIAL
+}
+
+model BlockchainTransaction {
+  id             Int               @id @default(autoincrement())
+  licenseNftId   Int               @unique
+  sellerWalletId Int
+  buyerWalletId  Int
+  txSignature    String            @unique
+  status         TransactionStatus @default(PENDING)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  licenseNft   LicenseNft @relation(fields: [licenseNftId], references: [id])
+  sellerWallet Wallet     @relation("SellerWallet", fields: [sellerWalletId], references: [id])
+  buyerWallet  Wallet     @relation("BuyerWallet", fields: [buyerWalletId], references: [id])
+
+  @@map("blockchain_transactions")
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
