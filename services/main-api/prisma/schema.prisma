@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model UserProfile {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique // references Auth Service user ID (no FK across services)
+  name           String
+  avatarUrl      String?
+  walletAddress  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sellerApplications SellerApplication[]
+  assets             Asset[]
+  cartItems          CartItem[]
+  orders             Order[]
+  reviews            Review[]
+  reports            Report[]
+  withdrawalRequests WithdrawalRequest[]
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+
+  @@map("user_profiles")
+}
+
+model SellerApplication {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  storeName   String
+  reason      String
+  portfolioLink String?
+  status      SellerApplicationStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user UserProfile @relation(fields: [userId], references: [userId])
+
+  @@map("seller_applications")
+}
+
+enum SellerApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Asset {
+  id             Int         @id @default(autoincrement())
+  sellerId       Int
+  title          String
+  description    String?
+  category       AssetCategory
+  listingType    ListingType
+  status         AssetStatus @default(DRAFT)
+  pricePersonal  Decimal?
+  priceCommercial Decimal?
+  isAiGenerated  Boolean     @default(false)
+  isDeleted      Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  seller     UserProfile  @relation(fields: [sellerId], references: [userId])
+  files      AssetFile[]
+  tags       AssetTag[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  reviews    Review[]
+  reports    Report[]
+
+  @@map("assets")
+}
+
+enum AssetCategory {
+  THREE_D_MODEL
+  IMAGE
+  VIDEO
+  SOUND_EFFECT
+  FONT
+  ANIMATION
+}
+
+enum ListingType {
+  TRADITIONAL
+  BLOCKCHAIN
+}
+
+enum AssetStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  TAKEN_DOWN
+}
+
+model AssetFile {
+  id        Int      @id @default(autoincrement())
+  assetId   Int
+  fileType  String
+  fileUrl   String
+  createdAt DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@map("asset_files")
+}
+
+model Tag {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  assets AssetTag[]
+
+  @@map("tags")
+}
+
+model AssetTag {
+  assetId Int
+  tagId   Int
+
+  asset Asset @relation(fields: [assetId], references: [id])
+  tag   Tag   @relation(fields: [tagId], references: [id])
+
+  @@id([assetId, tagId])
+  @@map("asset_tags")
+}
+
+model CartItem {
+  id          Int         @id @default(autoincrement())
+  userId      Int
+  assetId     Int
+  licenseType LicenseType
+  createdAt   DateTime    @default(now())
+
+  user  UserProfile @relation(fields: [userId], references: [userId])
+  asset Asset       @relation(fields: [assetId], references: [id])
+
+  @@unique([userId, assetId])
+  @@map("cart_items")
+}
+
+enum LicenseType {
+  PERSONAL
+  COMMERCIAL
+}
+
+model Order {
+  id             Int         @id @default(autoincrement())
+  buyerId        Int
+  totalAmount    Decimal
+  paymentStatus  PaymentStatus @default(PENDING)
+  stripePaymentId String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  buyer      UserProfile @relation(fields: [buyerId], references: [userId])
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model OrderItem {
+  id          Int         @id @default(autoincrement())
+  orderId     Int
+  assetId     Int
+  licenseType LicenseType
+  price       Decimal
+  licenseKey  String      @unique @default(cuid())
+  createdAt   DateTime    @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@map("order_items")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  assetId   Int
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  user  UserProfile @relation(fields: [userId], references: [userId])
+  asset Asset       @relation(fields: [assetId], references: [id])
+
+  @@unique([userId, assetId])
+  @@map("reviews")
+}
+
+model Report {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  assetId   Int
+  reason    String
+  status    ReportStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user  UserProfile @relation(fields: [userId], references: [userId])
+  asset Asset       @relation(fields: [assetId], references: [id])
+
+  @@map("reports")
+}
+
+enum ReportStatus {
+  PENDING
+  TAKEN_DOWN
+  DISMISSED
+}
+
+model WithdrawalRequest {
+  id        Int              @id @default(autoincrement())
+  sellerId  Int
+  amount    Decimal
+  status    WithdrawalStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  seller UserProfile @relation(fields: [sellerId], references: [userId])
+
+  @@map("withdrawal_requests")
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  title     String
+  body      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user UserProfile @relation(fields: [userId], references: [userId])
+
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  action      String
+  targetType  String?
+  targetId    Int?
+  createdAt   DateTime @default(now())
+
+  user UserProfile @relation(fields: [userId], references: [userId])
+
+  @@map("activity_logs")
+}

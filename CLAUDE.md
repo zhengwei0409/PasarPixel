@@ -97,18 +97,6 @@ External Services
 
 ---
 
-## Key Technical Concepts
-
-- **RESTful API** — HTTP REST endpoints for all client-server communication
-- **RBAC (Role-Based Access Control)** — Permission enforcement per role at API level
-- **Microservices** — Three independent services routed via Kong
-- **NFT (Non-Fungible Token)** — Blockchain-based digital ownership on Solana
-- **Metaplex** — NFT standard and tooling on Solana
-- **Prisma ORM** — TypeScript-native database access over PostgreSQL
-- **RabbitMQ** — Decouples services for async tasks (email, blockchain events)
-
----
-
 ## Development Notes
 
 - **Language:** TypeScript throughout (front-end and back-end)
