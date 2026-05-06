@@ -1,5 +1,14 @@
 {
   "name": "auth-service",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.12.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "~6.0.3"
+  }
 }
