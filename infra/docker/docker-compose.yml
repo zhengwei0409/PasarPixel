@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: 
+      POSTGRES_USER: pasarpixel
+      POSTGRES_PASSWORD: pasarpixel
+      POSTGRES_DB: pasarpixel
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build: 
+      context: ../../services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://pasarpixel:pasarpixel@postgres:5432/pasarpixel
+    
+volumes:
+  postgres_data:
