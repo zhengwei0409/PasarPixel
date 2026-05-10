@@ -1,9 +1,5 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { config } from "dotenv";
-
-// Load .env variables into process.env before reading them below
-config();
 
 // Tell Passport to use Google OAuth 2.0 as the authentication strategy
 passport.use(new GoogleStrategy({

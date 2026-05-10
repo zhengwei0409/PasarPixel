@@ -1,5 +1,6 @@
 import { Router } from "express";
 import passport from "../config/passport";
+import jwt from "jsonwebtoken";
 
 // Router is a mini Express app — define routes here, then attach to main app in index.ts
 const router = Router();
@@ -13,8 +14,18 @@ router.get("/google", passport.authenticate("google", { scope: ["profile", "emai
 // session: false — we use JWT instead of server-side sessions
 // If authentication fails, redirect to /login; if successful, run the next handler
 router.get("/google/callback", passport.authenticate("google", { failureRedirect: "/login", session: false }), (req, res) => {
-    // TODO: issue JWT here instead of this placeholder response
-    res.send("Login succesful!");
+    
+    const user = req.user as any;
+
+    const payload = {
+        googleID: user.id,
+        email: user.emails?.[0]?.value,
+        name: user.displayName,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET!,{ expiresIn: "7d" });
+
+    res.json({token});
 })
 
 export default router;

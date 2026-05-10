@@ -1,3 +1,6 @@
+import { config } from "dotenv";
+config();
+
 import express from "express";
 import passport from "./config/passport";
 import router from "./routes/auth.routes";
