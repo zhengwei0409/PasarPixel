@@ -1,5 +1,6 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { prisma } from "../lib/prisma";
 
 // Tell Passport to use Google OAuth 2.0 as the authentication strategy
 passport.use(new GoogleStrategy({
@@ -14,7 +15,15 @@ passport.use(new GoogleStrategy({
     // done(null, profile) tells Passport "success, here is the user"
     // done(error, false) tells Passport "something went wrong, login failed"
     try {
-        done(null, profile);
+        const user = await prisma.user.upsert({
+            where: { googleId: profile.id },
+            update: { email: profile.emails?.[0]?.value ?? ""},
+            create: {
+                googleId: profile.id,
+                email: profile.emails?.[0]?.value ?? "",
+            },
+        });
+        done(null, user);
     } catch (error) {
         done(error as Error, false);
     }
