@@ -24,7 +24,7 @@ router.get("/google/callback", passport.authenticate("google", { failureRedirect
 
     const token = jwt.sign(payload, process.env.JWT_SECRET!,{ expiresIn: "7d" });
 
-    res.json({token});
+    res.redirect(`http://localhost:5173/auth/callback?token=${token}`)
 })
 
 export default router;

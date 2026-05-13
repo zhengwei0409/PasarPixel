@@ -10,6 +10,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+
+
   auth-service:
     build: 
       context: ../../services/auth-service
@@ -18,8 +20,19 @@ services:
       - "3001:3001"
     depends_on:
       - postgres
+    env_file:
+      - ../../services/auth-service/.env
     environment:
       DATABASE_URL: postgresql://pasarpixel:pasarpixel@postgres:5432/pasarpixel
+
+  client: 
+    build:
+      context: ../../client
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - auth-service
     
 volumes:
   postgres_data:
