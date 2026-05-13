@@ -27,5 +27,5 @@ export function useAuth() {
         window.location.href = '/login';
     }
 
-    return { user, logout};
+    return { user, logout };
 }

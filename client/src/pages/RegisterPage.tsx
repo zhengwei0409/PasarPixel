@@ -3,31 +3,31 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "../components/ui/button";
-import { useLogin } from "../hooks/useLogin";
+import { useRegister } from "../hooks/useRegister";
 
 const schema = z.object({
     email: z.string().email("Invalid email"),
-    password: z.string().min(1, "Password is required"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
 });
 
-type LoginForm = z.infer<typeof schema>;
+type RegisterForm = z.infer<typeof schema>;
 
-export default function LoginPage() {
-    const { login, loading, error } = useLogin();
-    const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
+export default function RegisterPage() {
+    const { register: registerUser, loading, error } = useRegister();
+    const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
         resolver: zodResolver(schema),
     });
-
-    const handleGoogleLogin = () => {
-        window.location.href = "http://localhost:3001/auth/google";
-    };
 
     return (
         <div className="min-h-screen flex items-center justify-center">
             <div className="w-full max-w-sm space-y-6">
-                <h1 className="text-2xl font-bold">Login</h1>
+                <h1 className="text-2xl font-bold">Create an account</h1>
 
-                <form onSubmit={handleSubmit((data) => login(data.email, data.password))} className="space-y-4">
+                <form onSubmit={handleSubmit((data) => registerUser(data.email, data.password))} className="space-y-4">
                     <div className="space-y-1">
                         <label className="text-sm font-medium">Email</label>
                         <input
@@ -48,27 +48,27 @@ export default function LoginPage() {
                         {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
                     </div>
 
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium">Confirm Password</label>
+                        <input
+                            {...register("confirmPassword")}
+                            type="password"
+                            className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
+                        />
+                        {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>}
+                    </div>
+
                     {error && <p className="text-sm text-red-500">{error}</p>}
 
                     <Button type="submit" className="w-full" disabled={loading}>
-                        {loading ? "Logging in..." : "Login"}
+                        {loading ? "Creating account..." : "Register"}
                     </Button>
                 </form>
 
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <div className="flex-1 border-t" />
-                    or
-                    <div className="flex-1 border-t" />
-                </div>
-
-                <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
-                    Login with Google
-                </Button>
-
                 <p className="text-sm text-center text-gray-500">
-                    Don't have an account?{" "}
-                    <Link to="/register" className="underline text-black">
-                        Register
+                    Already have an account?{" "}
+                    <Link to="/login" className="underline text-black">
+                        Login
                     </Link>
                 </p>
             </div>
