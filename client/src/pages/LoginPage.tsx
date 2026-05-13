@@ -3,6 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { useLogin } from "../hooks/useLogin";
 
 const schema = z.object({
@@ -29,22 +31,14 @@ export default function LoginPage() {
 
                 <form onSubmit={handleSubmit((data) => login(data.email, data.password))} className="space-y-4">
                     <div className="space-y-1">
-                        <label className="text-sm font-medium">Email</label>
-                        <input
-                            {...register("email")}
-                            type="email"
-                            className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
-                        />
+                        <Label>Email</Label>
+                        <Input {...register("email")} type="email" />
                         {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-sm font-medium">Password</label>
-                        <input
-                            {...register("password")}
-                            type="password"
-                            className="w-full border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black"
-                        />
+                        <Label>Password</Label>
+                        <Input {...register("password")} type="password" />
                         {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
                     </div>
 
