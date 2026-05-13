@@ -1,9 +1,13 @@
 import { Router } from "express";
 import passport from "../config/passport";
 import jwt from "jsonwebtoken";
+import { register, login } from "../controllers/auth.controller";
 
 // Router is a mini Express app — define routes here, then attach to main app in index.ts
 const router = Router();
+
+router.post("/register", register);
+router.post("/login", login);
 
 // Route 1: Redirect user to Google's login page
 // scope tells Google what info we want access to: profile (name, photo) and email
