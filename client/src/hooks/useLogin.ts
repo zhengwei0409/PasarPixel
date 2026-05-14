@@ -12,8 +12,9 @@ export function useLogin() {
         setError(null);
 
         try {
-            const res = await authApi.post<{ token: string }>("/auth/login", { email, password });
-            localStorage.setItem("token", res.data.token);
+            const res = await authApi.post<{ accessToken: string; refreshToken: string }>("/auth/login", { email, password });
+            localStorage.setItem("accessToken", res.data.accessToken);
+            localStorage.setItem("refreshToken", res.data.refreshToken);
             navigate("/dashboard");
         } catch (err: any) {
             setError(err.response?.data?.error ?? "Something went wrong");
