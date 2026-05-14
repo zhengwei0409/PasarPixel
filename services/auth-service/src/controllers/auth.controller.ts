@@ -79,3 +79,49 @@ export async function login(req: Request, res: Response) {
 
     res.json({ accessToken, refreshToken });
 }
+
+export async function refreshToken(req: Request, res: Response) {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+        res.status(400).json({ error: "Refresh token is required" });
+        return;
+    }
+
+    const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
+
+    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+        res.status(401).json({ error: "Invalid or expired refresh token" });
+        return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: stored.userId } });
+    if (!user) {
+        res.status(401).json({ error: "User not found" });
+        return;
+    }
+
+    const accessToken = jwt.sign(
+        { sub: user.id, email: user.email },
+        process.env.JWT_SECRET!,
+        { expiresIn: "15m" }
+    );
+
+    res.json({ accessToken });
+}
+
+export async function logout(req: Request, res: Response) {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+        res.status(400).json({ error: "Refresh token is required" });
+        return;
+    }
+
+    await prisma.refreshToken.updateMany({
+        where: { token: refreshToken, revokedAt: null },
+        data: { revokedAt: new Date() },
+    });
+
+    res.json({ message: "Logged out successfully" });
+}
