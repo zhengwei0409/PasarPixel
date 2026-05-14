@@ -125,3 +125,22 @@ export async function logout(req: Request, res: Response) {
 
     res.json({ message: "Logged out successfully" });
 }
+
+export async function googleCallback(req: Request, res: Response) {
+    const user = req.user as any;
+
+    const accessToken = jwt.sign(
+        { sub: user.id, email: user.email },
+        process.env.JWT_SECRET!,
+        { expiresIn: "15m" }
+    );
+
+    const refreshToken = crypto.randomBytes(64).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await prisma.refreshToken.create({
+        data: { userId: user.id, token: refreshToken, expiresAt },
+    });
+
+    res.redirect(`http://localhost:5173/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+}
