@@ -1,6 +1,8 @@
 import { Router } from "express";
 import passport from "../config/passport";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { prisma } from "../lib/prisma";
 import { register, login, refreshToken, logout } from "../controllers/auth.controller";
 
 // Router is a mini Express app — define routes here, then attach to main app in index.ts
@@ -19,18 +21,24 @@ router.get("/google", passport.authenticate("google", { scope: ["profile", "emai
 // passport.authenticate exchanges the code for an access token, then fetches user info from Google
 // session: false — we use JWT instead of server-side sessions
 // If authentication fails, redirect to /login; if successful, run the next handler
-router.get("/google/callback", passport.authenticate("google", { failureRedirect: "/login", session: false }), (req, res) => {
-    
+router.get("/google/callback", passport.authenticate("google", { failureRedirect: "/login", session: false }), async (req, res) => {
+
     const user = req.user as any;
 
-    const payload = {
-        sub: user.id,
-        email: user.email,
-    };
+    const accessToken = jwt.sign(
+        { sub: user.id, email: user.email },
+        process.env.JWT_SECRET!,
+        { expiresIn: "15m" }
+    );
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET!,{ expiresIn: "7d" });
+    const refreshToken = crypto.randomBytes(64).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    res.redirect(`http://localhost:5173/auth/callback?token=${token}`)
+    await prisma.refreshToken.create({
+        data: { userId: user.id, token: refreshToken, expiresAt },
+    });
+
+    res.redirect(`http://localhost:5173/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
 })
 
 export default router;
