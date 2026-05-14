@@ -1,7 +1,21 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { prisma } from "../lib/prisma";
+
+function generateTokens(userId: number, email: string) {
+    const accessToken = jwt.sign(
+        { sub: userId, email },
+        process.env.JWT_SECRET!,
+        { expiresIn: "15m" }
+    );
+
+    const refreshToken = crypto.randomBytes(64).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    return { accessToken, refreshToken, expiresAt };
+}
 
 export async function register(req: Request, res: Response) {
     const { email, password } = req.body;
@@ -23,13 +37,13 @@ export async function register(req: Request, res: Response) {
         data: { email, passwordHash },
     });
 
-    const token = jwt.sign(
-        { sub: user.id, email: user.email },
-        process.env.JWT_SECRET!,
-        { expiresIn: "7d" }
-    );
+    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email);
 
-    res.status(201).json({ token });
+    await prisma.refreshToken.create({
+        data: { userId: user.id, token: refreshToken, expiresAt },
+    });
+
+    res.status(201).json({ accessToken, refreshToken });
 }
 
 export async function login(req: Request, res: Response) {
@@ -57,11 +71,11 @@ export async function login(req: Request, res: Response) {
         return;
     }
 
-    const token = jwt.sign(
-        { sub: user.id, email: user.email },
-        process.env.JWT_SECRET!,
-        { expiresIn: "7d" }
-    );
+    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email);
 
-    res.json({ token });
+    await prisma.refreshToken.create({
+        data: { userId: user.id, token: refreshToken, expiresAt },
+    });
+
+    res.json({ accessToken, refreshToken });
 }
