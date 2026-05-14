@@ -1,31 +1,69 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import authApi from '../lib/authApi';
 
 interface User {
-  id: string
-  email: string
-  name: string
+  sub: string;
+  email: string;
 };
 
-export function useAuth() {
-    const [user, setUser] = useState<User | null>(null);
+function parseJwt(token: string) {
+    return JSON.parse(atob(token.split('.')[1]));
+}
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+function isTokenExpiringSoon(token: string): boolean {
+    try {
+        const { exp } = parseJwt(token);
+        return exp * 1000 - Date.now() < 2 * 60 * 1000;
+    } catch {
+        return true;
+    }
+}
+
+export async function getAccessToken(): Promise<string | null> {
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+
+    if (!accessToken || !refreshToken) return null;
+
+    if (!isTokenExpiringSoon(accessToken)) return accessToken;
+
+    try {
+        const res = await authApi.post<{ accessToken: string }>('/auth/refresh', { refreshToken });
+        localStorage.setItem('accessToken', res.data.accessToken);
+        return res.data.accessToken;
+    } catch {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        return null;
+    }
+}
+
+export function useAuth() {
+    const [user, setUser] = useState<User | null>(() => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) return null;
 
         try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            setUser(payload);
+            return parseJwt(accessToken);
         } catch {
-            localStorage.removeItem('token');
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            return null;
         }
-    }, [])
+    });
 
-    const logout = () => {
-        localStorage.removeItem('token');
+    const logout = async () => {
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        if (refreshToken) {
+            await authApi.post('/auth/logout', { refreshToken }).catch(() => {});
+        }
+
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         setUser(null);
         window.location.href = '/login';
-    }
+    };
 
     return { user, logout };
 }
