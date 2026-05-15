@@ -154,7 +154,7 @@ export async function forgotPassword(req: Request, res: Response) {
 
     const resetUrl = `http://localhost:5173/reset-password?token=${token}`;
 
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
         from: "PasarPixel <onboarding@resend.dev>",
         to: email,
         subject: "Reset your password",
@@ -164,6 +164,12 @@ export async function forgotPassword(req: Request, res: Response) {
             <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>
         `,
     });
+
+    if (error) {
+        console.error("Resend error:", error);
+    } else {
+        console.log("Email sent:", data);
+    }
 
     res.json({ message: "If that email exists, a reset link has been sent" });
 }

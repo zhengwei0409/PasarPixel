@@ -61,12 +61,7 @@ export default function RegisterPage() {
                         Login
                     </Link>
                 </p>
-
-                    <div className="space-y-1">
-                        <Label>Email</Label>
-                        <Input {...register("email")} type="email" />
-                        {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
-                    </div>
+                
             </div>
         </div>
     );
