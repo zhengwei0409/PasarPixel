@@ -189,6 +189,18 @@ export async function resetPassword(req: Request, res: Response) {
         return;
     }
 
+    const user = await prisma.user.findUnique({ where: { id: record.userId } });
+    if (!user) {
+        res.status(400).json({ error: "User not found" });
+        return;
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash!);
+    if (isSamePassword) {
+        res.status(400).json({ error: "New password must be different from your current password" });
+        return;
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 10);
 
     await prisma.user.update({
