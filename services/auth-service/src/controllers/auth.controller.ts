@@ -243,14 +243,8 @@ export async function googleCallback(req: Request, res: Response) {
         create: { userId: user.id, roleId: buyerRole!.id },
     });
 
-    const accessToken = jwt.sign(
-        { sub: user.id, email: user.email },
-        process.env.JWT_SECRET!,
-        { expiresIn: "15m" }
-    );
-
-    const refreshToken = crypto.randomBytes(64).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const roles = await getUserRoles(user.id);
+    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email, roles);
 
     await prisma.refreshToken.create({
         data: { userId: user.id, token: refreshToken, expiresAt },
