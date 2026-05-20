@@ -3,6 +3,7 @@ config();
 
 import express from 'express';
 import { authenticate, requireRole } from './middleware/auth.middleware';
+import { startConsumer } from './lib/consumer';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -27,5 +28,6 @@ app.get("/test/admin", authenticate, requireRole("ADMIN"), (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Main API runnning on port ${PORT}`);
+    startConsumer().catch(console.error);
 });
 
