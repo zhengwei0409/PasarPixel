@@ -45,7 +45,13 @@ export async function register(req: Request, res: Response) {
         data: { userId: user.id, roleId: buyerRole!.id },
     });
 
-    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email);
+    const userRoles = await prisma.userRole.findMany({
+        where: { userId: user.id },
+        include: { role: true },
+    });
+    const roles = userRoles.map((ur) => ur.role.name);
+
+    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email, roles);
 
     await prisma.refreshToken.create({
         data: { userId: user.id, token: refreshToken, expiresAt },
@@ -79,7 +85,13 @@ export async function login(req: Request, res: Response) {
         return;
     }
 
-    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email);
+    const userRoles = await prisma.userRole.findMany({
+        where: { userId: user.id },
+        include: { role: true },
+    });
+    const roles = userRoles.map((ur) => ur.role.name);
+
+    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email, roles);
 
     await prisma.refreshToken.create({
         data: { userId: user.id, token: refreshToken, expiresAt },
