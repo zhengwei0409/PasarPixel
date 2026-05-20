@@ -224,6 +224,13 @@ export async function resetPassword(req: Request, res: Response) {
 export async function googleCallback(req: Request, res: Response) {
     const user = req.user as any;
 
+    const buyerRole = await prisma.role.findUnique({ where: { name: "BUYER" } });
+    await prisma.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: buyerRole!.id } },
+        update: {},
+        create: { userId: user.id, roleId: buyerRole!.id },
+    });
+
     const accessToken = jwt.sign(
         { sub: user.id, email: user.email },
         process.env.JWT_SECRET!,
