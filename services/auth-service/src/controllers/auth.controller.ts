@@ -7,9 +7,9 @@ import { prisma } from "../lib/prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-function generateTokens(userId: number, email: string) {
+function generateTokens(userId: number, email: string, roles: string[]) {
     const accessToken = jwt.sign(
-        { sub: userId, email },
+        { sub: userId, email, roles },
         process.env.JWT_SECRET!,
         { expiresIn: "15m" }
     );
