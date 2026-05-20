@@ -7,6 +7,14 @@ import { prisma } from "../lib/prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+async function getUserRoles(userId: number): Promise<string[]> {
+    const userRoles = await prisma.userRole.findMany({
+        where: { userId },
+        include: { role: true },
+    });
+    return userRoles.map((ur) => ur.role.name);
+}
+
 function generateTokens(userId: number, email: string, roles: string[]) {
     const accessToken = jwt.sign(
         { sub: userId, email, roles },
@@ -45,11 +53,7 @@ export async function register(req: Request, res: Response) {
         data: { userId: user.id, roleId: buyerRole!.id },
     });
 
-    const userRoles = await prisma.userRole.findMany({
-        where: { userId: user.id },
-        include: { role: true },
-    });
-    const roles = userRoles.map((ur) => ur.role.name);
+    const roles = await getUserRoles(user.id);
 
     const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email, roles);
 
@@ -85,11 +89,7 @@ export async function login(req: Request, res: Response) {
         return;
     }
 
-    const userRoles = await prisma.userRole.findMany({
-        where: { userId: user.id },
-        include: { role: true },
-    });
-    const roles = userRoles.map((ur) => ur.role.name);
+    const roles = await getUserRoles(user.id);
 
     const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email, roles);
 
