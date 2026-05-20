@@ -121,8 +121,9 @@ export async function refreshToken(req: Request, res: Response) {
         return;
     }
 
+    const roles = await getUserRoles(user.id);
     const accessToken = jwt.sign(
-        { sub: user.id, email: user.email },
+        { sub: user.id, email: user.email, roles },
         process.env.JWT_SECRET!,
         { expiresIn: "15m" }
     );
