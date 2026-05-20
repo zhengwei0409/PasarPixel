@@ -40,6 +40,11 @@ export async function register(req: Request, res: Response) {
         data: { email, passwordHash },
     });
 
+    const buyerRole = await prisma.role.findUnique({ where: { name: "BUYER" } });
+    await prisma.userRole.create({
+        data: { userId: user.id, roleId: buyerRole!.id },
+    });
+
     const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email);
 
     await prisma.refreshToken.create({
