@@ -253,3 +253,26 @@ export async function googleCallback(req: Request, res: Response) {
 
     res.redirect(`http://localhost:5173/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
 }
+
+export async function me(req: Request, res: Response) {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.status(401).json({ error: "Missing or invalid Authorization header" });
+        return;
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET!) as unknown as {
+            sub: number;
+            email: string;
+            roles: string[];
+        };
+
+        res.json({ userId: payload.sub, email: payload.email, roles: payload.roles });
+    } catch {
+        res.status(401).json({ error: "Invalid or expired token" });
+    }
+}
