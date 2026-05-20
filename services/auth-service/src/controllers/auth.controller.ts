@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { Resend } from "resend";
 import { prisma } from "../lib/prisma";
+import { publishUserRegistered } from "../lib/publisher";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -60,6 +61,8 @@ export async function register(req: Request, res: Response) {
     await prisma.refreshToken.create({
         data: { userId: user.id, token: refreshToken, expiresAt },
     });
+
+    await publishUserRegistered({ userId: user.id, name: user.email, email: user.email });
 
     res.status(201).json({ accessToken, refreshToken });
 }
@@ -238,6 +241,12 @@ export async function googleCallback(req: Request, res: Response) {
     const user = req.user as any;
 
     const buyerRole = await prisma.role.findUnique({ where: { name: "BUYER" } });
+
+    const existingRole = await prisma.userRole.findUnique({
+        where: { userId_roleId: { userId: user.id, roleId: buyerRole!.id } },
+    });
+    const isNewUser = !existingRole;
+
     await prisma.userRole.upsert({
         where: { userId_roleId: { userId: user.id, roleId: buyerRole!.id } },
         update: {},
@@ -250,6 +259,10 @@ export async function googleCallback(req: Request, res: Response) {
     await prisma.refreshToken.create({
         data: { userId: user.id, token: refreshToken, expiresAt },
     });
+
+    if (isNewUser) {
+        await publishUserRegistered({ userId: user.id, name: user.displayName ?? user.email, email: user.email });
+    }
 
     res.redirect(`http://localhost:5173/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
 }
