@@ -8,6 +8,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
+import SellerApplicationPage from './pages/SellerApplicationPage';
+import AdminApplicationsPage from './pages/AdminApplicationsPage';
 
 
 function App() {
@@ -23,6 +25,8 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/seller-application" element={<SellerApplicationPage />} />
+        <Route path="/admin/applications" element={<AdminApplicationsPage />} />
       </Route>
     </Routes>
   )
