@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useLogin } from "../hooks/useLogin";
+import { getErrorMessage } from "../lib/errors";
 
 const schema = z.object({
     email: z.string().email("Invalid email"),
@@ -15,7 +16,7 @@ const schema = z.object({
 type LoginForm = z.infer<typeof schema>;
 
 export default function LoginPage() {
-    const { login, loading, error } = useLogin();
+    const { mutate: login, isPending, error } = useLogin();
     const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
         resolver: zodResolver(schema),
     });
@@ -29,7 +30,7 @@ export default function LoginPage() {
             <div className="w-full max-w-sm space-y-6">
                 <h1 className="text-2xl font-bold">Login</h1>
 
-                <form onSubmit={handleSubmit((data) => login(data.email, data.password))} className="space-y-4">
+                <form onSubmit={handleSubmit((data) => login(data))} className="space-y-4">
                     <div className="space-y-1">
                         <Label>Email</Label>
                         <Input {...register("email")} type="email" />
@@ -42,10 +43,10 @@ export default function LoginPage() {
                         {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
                     </div>
 
-                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    {error && <p className="text-sm text-red-500">{getErrorMessage(error)}</p>}
 
-                    <Button type="submit" className="w-full" disabled={loading}>
-                        {loading ? "Logging in..." : "Login"}
+                    <Button type="submit" className="w-full" disabled={isPending}>
+                        {isPending ? "Logging in..." : "Login"}
                     </Button>
 
                     <div className="text-right">

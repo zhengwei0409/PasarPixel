@@ -1,11 +1,11 @@
 import axios from "axios";
 import { getAccessToken } from "../hooks/useAuth";
 
-const mainApi = axios.create({
+const mainClient = axios.create({
     baseURL: "http://localhost:3002",
 });
 
-mainApi.interceptors.request.use(async (config) => {
+mainClient.interceptors.request.use(async (config) => {
     const token = await getAccessToken();
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -13,4 +13,4 @@ mainApi.interceptors.request.use(async (config) => {
     return config;
 });
 
-export default mainApi;
+export default mainClient;

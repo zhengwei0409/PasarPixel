@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import mainApi from "../lib/mainApi";
+import { useProfile } from "../hooks/useProfile";
+import { useUpdateProfile } from "../hooks/useUpdateProfile";
 
 interface ProfileForm {
     name: string;
@@ -14,64 +15,39 @@ interface ProfileForm {
     linkedin: string;
 }
 
-interface UserProfile {
-    name: string;
-    bio: string | null;
-    phone: string | null;
-    socialLinks: { github?: string; twitter?: string; linkedin?: string } | null;
-}
-
 export default function ProfilePage() {
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [success, setSuccess] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { data: profile, isLoading, isError } = useProfile();
+    const { mutate: saveProfile, isPending, isSuccess, error: saveError } = useUpdateProfile();
 
     const { register, handleSubmit, reset } = useForm<ProfileForm>();
 
     useEffect(() => {
-        mainApi.get<UserProfile>("/profile/me").then((res) => {
-            const { name, bio, phone, socialLinks } = res.data;
-            reset({
-                name: name ?? "",
-                bio: bio ?? "",
-                phone: phone ?? "",
-                github: socialLinks?.github ?? "",
-                twitter: socialLinks?.twitter ?? "",
-                linkedin: socialLinks?.linkedin ?? "",
-            });
-            setLoading(false);
-        }).catch(() => {
-            setError("Failed to load profile.");
-            setLoading(false);
+        if (!profile) return;
+        reset({
+            name: profile.name ?? "",
+            bio: profile.bio ?? "",
+            phone: profile.phone ?? "",
+            github: profile.socialLinks?.github ?? "",
+            twitter: profile.socialLinks?.twitter ?? "",
+            linkedin: profile.socialLinks?.linkedin ?? "",
         });
-    }, [reset]);
+    }, [profile, reset]);
 
-    async function onSubmit(data: ProfileForm) {
-        setSaving(true);
-        setSuccess(false);
-        setError(null);
+    const onSubmit = (data: ProfileForm) => {
+        saveProfile({
+            name: data.name,
+            bio: data.bio,
+            phone: data.phone,
+            socialLinks: {
+                github: data.github,
+                twitter: data.twitter,
+                linkedin: data.linkedin,
+            },
+        });
+    };
 
-        try {
-            await mainApi.patch("/profile/me", {
-                name: data.name,
-                bio: data.bio,
-                phone: data.phone,
-                socialLinks: {
-                    github: data.github,
-                    twitter: data.twitter,
-                    linkedin: data.linkedin,
-                },
-            });
-            setSuccess(true);
-        } catch {
-            setError("Failed to save profile.");
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    if (loading) return <p className="p-8">Loading...</p>;
+    if (isLoading) return <p className="p-8">Loading...</p>;
+    if (isError) return <p className="p-8 text-red-500">Failed to load profile.</p>;
 
     return (
         <div className="min-h-screen flex items-center justify-center">
@@ -109,11 +85,11 @@ export default function ProfilePage() {
                         <Input {...register("linkedin")} placeholder="https://linkedin.com/in/username" />
                     </div>
 
-                    {success && <p className="text-sm text-green-600">Profile saved successfully.</p>}
-                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    {isSuccess && <p className="text-sm text-green-600">Profile saved successfully.</p>}
+                    {saveError && <p className="text-sm text-red-500">Failed to save profile.</p>}
 
-                    <Button type="submit" className="w-full" disabled={saving}>
-                        {saving ? "Saving..." : "Save Profile"}
+                    <Button type="submit" className="w-full" disabled={isPending}>
+                        {isPending ? "Saving..." : "Save Profile"}
                     </Button>
                 </form>
             </div>

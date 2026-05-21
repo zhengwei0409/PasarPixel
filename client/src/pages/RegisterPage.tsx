@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useRegister } from "../hooks/useRegister";
+import { getErrorMessage } from "../lib/errors";
 
 const schema = z.object({
     email: z.string().email("Invalid email"),
@@ -19,7 +20,7 @@ const schema = z.object({
 type RegisterForm = z.infer<typeof schema>;
 
 export default function RegisterPage() {
-    const { register: registerUser, loading, error } = useRegister();
+    const { mutate: registerUser, isPending, error } = useRegister();
     const { register, handleSubmit, formState: { errors } } = useForm<RegisterForm>({
         resolver: zodResolver(schema),
     });
@@ -29,7 +30,7 @@ export default function RegisterPage() {
             <div className="w-full max-w-sm space-y-6">
                 <h1 className="text-2xl font-bold">Create an account</h1>
 
-                <form onSubmit={handleSubmit((data) => registerUser(data.email, data.password))} className="space-y-4">
+                <form onSubmit={handleSubmit((data) => registerUser({ email: data.email, password: data.password }))} className="space-y-4">
                     <div className="space-y-1">
                         <Label>Email</Label>
                         <Input {...register("email")} type="email" />
@@ -48,10 +49,10 @@ export default function RegisterPage() {
                         {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>}
                     </div>
 
-                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    {error && <p className="text-sm text-red-500">{getErrorMessage(error)}</p>}
 
-                    <Button type="submit" className="w-full" disabled={loading}>
-                        {loading ? "Creating account..." : "Register"}
+                    <Button type="submit" className="w-full" disabled={isPending}>
+                        {isPending ? "Creating account..." : "Register"}
                     </Button>
                 </form>
 
@@ -61,7 +62,7 @@ export default function RegisterPage() {
                         Login
                     </Link>
                 </p>
-                
+
             </div>
         </div>
     );

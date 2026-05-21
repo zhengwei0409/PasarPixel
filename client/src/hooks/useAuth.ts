@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import authApi from '../lib/authApi';
+import authClient from '../lib/authClient';
 
 interface User {
   sub: string;
@@ -28,7 +28,7 @@ export async function getAccessToken(): Promise<string | null> {
     if (!isTokenExpiringSoon(accessToken)) return accessToken;
 
     try {
-        const res = await authApi.post<{ accessToken: string }>('/auth/refresh', { refreshToken });
+        const res = await authClient.post<{ accessToken: string }>('/auth/refresh', { refreshToken });
         localStorage.setItem('accessToken', res.data.accessToken);
         return res.data.accessToken;
     } catch {
@@ -56,7 +56,7 @@ export function useAuth() {
         const refreshToken = localStorage.getItem('refreshToken');
 
         if (refreshToken) {
-            await authApi.post('/auth/logout', { refreshToken }).catch(() => {});
+            await authClient.post('/auth/logout', { refreshToken }).catch(() => {});
         }
 
         localStorage.removeItem('accessToken');

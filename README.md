@@ -8,7 +8,7 @@ A web-based marketplace for buying and selling digital assets — supporting bot
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query |
 | API Gateway | Kong |
 | Backend | Node.js, Express.js, TypeScript |
 | Database | PostgreSQL, Prisma ORM |
@@ -25,7 +25,7 @@ A web-based marketplace for buying and selling digital assets — supporting bot
 
 ```
 PasarPixel/
-├── client/                  # React frontend
+├── client/                  # React frontend (4-layer: lib → services → hooks → pages)
 ├── services/
 │   ├── auth-service/        # Authentication & authorisation (OAuth 2.0, Google Sign-In)
 │   ├── main-api/            # Core business logic (users, listings, orders)

@@ -1,27 +1,16 @@
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import authApi from "../lib/authApi";
+import { register } from "../services/authService";
 
 export function useRegister() {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
-    const register = async (email: string, password: string) => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            const res = await authApi.post<{ accessToken: string; refreshToken: string }>("/auth/register", { email, password });
-            localStorage.setItem("accessToken", res.data.accessToken);
-            localStorage.setItem("refreshToken", res.data.refreshToken);
+    return useMutation({
+        mutationFn: register,
+        onSuccess: (tokens) => {
+            localStorage.setItem("accessToken", tokens.accessToken);
+            localStorage.setItem("refreshToken", tokens.refreshToken);
             navigate("/dashboard");
-        } catch (err: any) {
-            setError(err.response?.data?.error ?? "Something went wrong");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return { register, loading, error };
+        },
+    });
 }

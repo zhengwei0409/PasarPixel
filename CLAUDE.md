@@ -46,6 +46,9 @@ External Services
 | Vite | Build tool & dev server |
 | Tailwind CSS | Utility-first styling |
 | shadcn/ui | Pre-built accessible UI components |
+| TanStack Query | Server state management (caching, refetching, mutations) |
+| React Hook Form + Zod | Form state & validation |
+| Axios | HTTP client |
 | Phantom Wallet | Solana wallet integration |
 
 ### API Gateway
@@ -117,11 +120,11 @@ PasarPixel/
 │   │   │   ├── ui/                  # shadcn/ui base components
 │   │   │   ├── layout/              # Navbar, Footer, PageWrapper
 │   │   │   └── marketplace/         # Listing cards, filters, asset preview
-│   │   ├── pages/                   # Route-level page components
-│   │   ├── hooks/                   # Custom React hooks
-│   │   ├── lib/                     # API clients, Phantom wallet utils
-│   │   ├── store/                   # Global state management
-│   │   └── types/                   # Frontend TypeScript types
+│   │   ├── pages/                   # Route-level page components (UI only)
+│   │   ├── hooks/                   # TanStack Query hooks (useX, useUpdateX)
+│   │   ├── services/                # API functions: one function per endpoint
+│   │   ├── types/                   # Shared TypeScript types
+│   │   └── lib/                     # Infrastructure (axios clients, queryClient, helpers)
 │   ├── index.html
 │   ├── vite.config.ts
 │   ├── tailwind.config.ts
@@ -174,3 +177,4 @@ PasarPixel/
 
 Check `FunctionalRequirement.md` for functional requirement. 
 Check `DatabaseRelationship.md` for database info. 
+
