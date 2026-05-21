@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import passport from "./config/passport";
 import router from "./routes/auth.routes";
+import { startConsumer } from "./lib/consumer";
 
 const app = express();
 const PORT = 3001;
@@ -24,4 +25,5 @@ app.get('/health', (req,res) => {
 
 app.listen(PORT, () => {
     console.log(`Auth service running on port ${PORT}`);
+    startConsumer().catch(console.error);
 })
