@@ -53,11 +53,14 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_started
+      auth-service:
+        condition: service_started
     env_file:
       - ../../services/main-api/.env
     environment:
       DATABASE_URL: postgresql://pasarpixel:pasarpixel@postgres:5432/pasarpixel
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      AUTH_SERVICE_URL: http://auth-service:3001
 
   client:
     build:
