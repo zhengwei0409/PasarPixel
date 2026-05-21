@@ -22,8 +22,8 @@ services:
 
   auth-service:
     build:
-      context: ../../services/auth-service
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/auth-service/Dockerfile
     ports:
       - "3001:3001"
     depends_on:
@@ -37,8 +37,8 @@ services:
 
   main-api:
     build:
-      context: ../../services/main-api
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/main-api/Dockerfile
     ports:
       - "3002:3002"
     depends_on:
