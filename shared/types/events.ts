@@ -3,3 +3,7 @@ export interface UserRegisteredEvent {
   name: string;
   email: string;
 }
+
+export interface SellerApprovedEvent {
+  userId: number;
+}

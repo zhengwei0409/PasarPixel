@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { publishSellerApproved } from "../lib/publisher";
 
 export async function submitApplication(req: Request, res: Response) {
     const userId = req.user!.userId;
@@ -45,4 +46,66 @@ export async function getMyApplication(req: Request, res: Response) {
     }
 
     res.json(application);
+}
+
+export async function listApplications(req: Request, res: Response) {
+    const { status } = req.query;
+
+    const applications = await prisma.sellerApplication.findMany({
+        where: status ? { status: status as any } : undefined,
+        include: { user: { select: { name: true, avatarUrl: true } } },
+        orderBy: { createdAt: "desc" },
+    });
+
+    res.json(applications);
+}
+
+export async function approveApplication(req: Request, res: Response) {
+    const id = parseInt(req.params.id as string);
+
+    const application = await prisma.sellerApplication.findUnique({ where: { id } });
+    if (!application) {
+        res.status(404).json({ error: "Application not found" });
+        return;
+    }
+    if (application.status !== "PENDING") {
+        res.status(409).json({ error: "Application is not pending" });
+        return;
+    }
+
+    await prisma.sellerApplication.update({
+        where: { id },
+        data: { status: "APPROVED", reviewedAt: new Date() },
+    });
+
+    await publishSellerApproved({ userId: application.userId });
+
+    res.json({ message: "Application approved" });
+}
+
+export async function rejectApplication(req: Request, res: Response) {
+    const id = parseInt(req.params.id as string);
+    const { adminNote } = req.body;
+
+    if (!adminNote) {
+        res.status(400).json({ error: "adminNote is required when rejecting" });
+        return;
+    }
+
+    const application = await prisma.sellerApplication.findUnique({ where: { id } });
+    if (!application) {
+        res.status(404).json({ error: "Application not found" });
+        return;
+    }
+    if (application.status !== "PENDING") {
+        res.status(409).json({ error: "Application is not pending" });
+        return;
+    }
+
+    await prisma.sellerApplication.update({
+        where: { id },
+        data: { status: "REJECTED", adminNote, reviewedAt: new Date() },
+    });
+
+    res.json({ message: "Application rejected" });
 }
