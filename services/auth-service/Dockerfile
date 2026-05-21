@@ -4,11 +4,14 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY services/auth-service/package.json ./services/auth-service/
-WORKDIR /app/services/auth-service
-RUN pnpm install
+COPY services/main-api/package.json ./services/main-api/
+COPY services/blockchain-service/package.json ./services/blockchain-service/
+COPY client/package.json ./client/
 
-WORKDIR /app
+RUN pnpm install --frozen-lockfile --filter auth-service...
+
 COPY shared ./shared
 COPY services/auth-service ./services/auth-service
 
@@ -18,4 +21,4 @@ RUN pnpm run build
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+CMD ["pnpm", "start"]
