@@ -15,3 +15,20 @@ export async function getMyProfile(req: Request, res: Response) {
 
     res.json(profile);
 }
+
+export async function updateMyProfile(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const { name, bio, phone, socialLinks } = req.body;
+
+    const updated = await prisma.userProfile.update({
+        where: { userId },
+        data: {
+            ...(name !== undefined && { name }),
+            ...(bio !== undefined && { bio }),
+            ...(phone !== undefined && { phone }),
+            ...(socialLinks !== undefined && { socialLinks }),
+        },
+    });
+
+    res.json(updated);
+}
