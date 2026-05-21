@@ -19,6 +19,8 @@ WORKDIR /app/services/auth-service
 RUN npx prisma generate
 RUN pnpm run build
 
+RUN chmod +x docker-entrypoint.sh
+
 EXPOSE 3001
 
-CMD ["pnpm", "start"]
+CMD ["./docker-entrypoint.sh"]

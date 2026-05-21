@@ -9,7 +9,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    environment: 
+    environment:
       POSTGRES_USER: pasarpixel
       POSTGRES_PASSWORD: pasarpixel
       POSTGRES_DB: pasarpixel
@@ -17,6 +17,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pasarpixel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 
 
@@ -27,8 +32,10 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     env_file:
       - ../../services/auth-service/.env
     environment:
@@ -42,8 +49,10 @@ services:
     ports:
       - "3002:3002"
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     env_file:
       - ../../services/main-api/.env
     environment:
