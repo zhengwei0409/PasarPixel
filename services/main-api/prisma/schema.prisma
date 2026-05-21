@@ -33,14 +33,17 @@ model UserProfile {
 }
 
 model SellerApplication {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  storeName   String
-  reason      String
-  portfolioLink String?
-  status      SellerApplicationStatus @default(PENDING)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  Int                     @id @default(autoincrement())
+  userId              Int
+  storeName           String
+  reason              String
+  portfolioLink       String?
+  idVerificationUrl   String?
+  status              SellerApplicationStatus @default(PENDING)
+  adminNote           String?
+  reviewedAt          DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   user UserProfile @relation(fields: [userId], references: [userId])
 
