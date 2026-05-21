@@ -4,6 +4,7 @@ config();
 import express from 'express';
 import { authenticate, requireRole } from './middleware/auth.middleware';
 import { startConsumer } from './lib/consumer';
+import profileRoutes from './routes/profile.routes';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -13,6 +14,8 @@ app.use(express.json());
 app.get("/health", (req, res) => {
     res.json({ status: "ok", service: "main-api"});
 });
+
+app.use("/profile", profileRoutes);
 
 app.get("/test/buyer", authenticate, requireRole("BUYER"), (req, res) => {
     res.json({ message: "Hello, Buyer!", user: req.user });
