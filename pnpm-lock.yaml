@@ -173,6 +173,9 @@ importers:
 
   services/main-api:
     dependencies:
+      '@prisma/client':
+        specifier: ^6.16.2
+        version: 6.19.3(prisma@6.19.3(typescript@6.0.3))(typescript@6.0.3)
       amqplib:
         specifier: ^2.0.1
         version: 2.0.1
@@ -195,6 +198,9 @@ importers:
       '@types/node':
         specifier: ^24.12.2
         version: 24.12.2
+      prisma:
+        specifier: ^6.16.2
+        version: 6.19.3(typescript@6.0.3)
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@types/node@24.12.2)(typescript@6.0.3)
