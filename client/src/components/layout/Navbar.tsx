@@ -14,9 +14,12 @@ export default function Navbar() {
             <div className="flex items-center gap-2">
                 {user ? (
                     <>
-                        <span className="text-sm text-muted-foreground">
+                        <Link
+                            to="/profile"
+                            className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+                        >
                             {user.email}
-                        </span>
+                        </Link>
                         <Button variant="outline" size="sm" onClick={logout}>
                             Logout
                         </Button>
