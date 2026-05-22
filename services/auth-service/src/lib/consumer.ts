@@ -1,12 +1,15 @@
 import { getRabbitChannel } from './rabbitmq';
 import { prisma } from './prisma';
 import { SellerApprovedEvent } from '../../../../shared/types/events';
+import { EXCHANGE_SELLER_APPROVED } from '../../../../shared/utils/messaging';
 
-const QUEUE = 'seller.approved';
+const QUEUE = 'seller.approved.auth';
 
 export async function startConsumer(): Promise<void> {
     const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_SELLER_APPROVED, 'fanout', { durable: true });
     await channel.assertQueue(QUEUE, { durable: true });
+    await channel.bindQueue(QUEUE, EXCHANGE_SELLER_APPROVED, '');
 
     channel.consume(QUEUE, async (msg) => {
         if (!msg) return;
@@ -30,5 +33,5 @@ export async function startConsumer(): Promise<void> {
         console.log(`Assigned SELLER role to user ${event.userId}`);
     });
 
-    console.log('Auth-service consumer listening on queue: seller.approved');
+    console.log(`Auth-service consumer listening on queue: ${QUEUE}`);
 }

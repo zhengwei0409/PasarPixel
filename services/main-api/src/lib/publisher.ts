@@ -1,10 +1,9 @@
 import { getRabbitChannel } from './rabbitmq';
 import { SellerApprovedEvent } from '../../../../shared/types/events';
-
-const SELLER_APPROVED_QUEUE = 'seller.approved';
+import { EXCHANGE_SELLER_APPROVED } from '../../../../shared/utils/messaging';
 
 export async function publishSellerApproved(event: SellerApprovedEvent): Promise<void> {
     const channel = await getRabbitChannel();
-    await channel.assertQueue(SELLER_APPROVED_QUEUE, { durable: true });
-    channel.sendToQueue(SELLER_APPROVED_QUEUE, Buffer.from(JSON.stringify(event)));
+    await channel.assertExchange(EXCHANGE_SELLER_APPROVED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_SELLER_APPROVED, '', Buffer.from(JSON.stringify(event)));
 }

@@ -78,9 +78,17 @@ export async function approveApplication(req: Request, res: Response) {
         data: { status: "APPROVED", reviewedAt: new Date() },
     });
 
+    const userProfile = await prisma.userProfile.findUnique({
+        where: { userId: application.userId },
+    });
+    if (!userProfile?.email) {
+        res.status(500).json({ error: "User email not found; cannot notify seller" });
+        return;
+    }
+
     await publishSellerApproved({
         userId: application.userId,
-        email: '',
+        email: userProfile.email,
         storeName: application.storeName,
     });
 
