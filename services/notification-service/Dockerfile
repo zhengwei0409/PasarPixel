@@ -17,8 +17,11 @@ COPY shared ./shared
 COPY services/notification-service ./services/notification-service
 
 WORKDIR /app/services/notification-service
+RUN npx prisma generate
 RUN pnpm run build
+
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 3003
 
-CMD ["pnpm", "start"]
+CMD ["./docker-entrypoint.sh"]
