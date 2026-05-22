@@ -4,6 +4,7 @@ import authClient from '../lib/authClient';
 interface User {
   sub: string;
   email: string;
+  roles: string[];
 };
 
 function parseJwt(token: string) {

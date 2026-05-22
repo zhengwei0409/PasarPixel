@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
 import SellerApplicationPage from './pages/SellerApplicationPage';
 import AdminApplicationsPage from './pages/AdminApplicationsPage';
+import ForbiddenPage from './pages/ForbiddenPage';
 
 
 function App() {
@@ -21,11 +22,15 @@ function App() {
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/forbidden" element={<ForbiddenPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/seller-application" element={<SellerApplicationPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
         <Route path="/admin/applications" element={<AdminApplicationsPage />} />
       </Route>
     </Routes>

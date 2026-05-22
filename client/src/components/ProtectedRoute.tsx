@@ -1,10 +1,19 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
-export default function ProtectedRoute() {
-  const token = localStorage.getItem('accessToken');
+interface ProtectedRouteProps {
+  allowedRoles?: string[];
+}
 
-  if (!token) {
+export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
+  const { user } = useAuth();
+
+  if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.some((r) => user.roles.includes(r))) {
+    return <Navigate to="/forbidden" replace />;
   }
 
   return <Outlet />;
