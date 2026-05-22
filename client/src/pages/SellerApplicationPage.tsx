@@ -47,7 +47,7 @@ export default function SellerApplicationPage() {
 
     if (isLoading) return <p className="p-8">Loading...</p>;
 
-    if (application) {
+    if (application && application.status !== "REJECTED") {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="w-full max-w-md space-y-4">
@@ -77,7 +77,22 @@ export default function SellerApplicationPage() {
     return (
         <div className="min-h-screen flex items-center justify-center">
             <div className="w-full max-w-md space-y-6">
-                <h1 className="text-2xl font-bold">Apply to Become a Seller</h1>
+                <h1 className="text-2xl font-bold">
+                    {application?.status === "REJECTED" ? "Reapply to Become a Seller" : "Apply to Become a Seller"}
+                </h1>
+
+                {application?.status === "REJECTED" && (
+                    <div className="border border-red-200 bg-red-50 rounded-lg p-4 space-y-2">
+                        <p className="text-sm font-semibold text-red-700">Your previous application was rejected</p>
+                        {application.adminNote && (
+                            <div>
+                                <p className="text-xs text-gray-500">Admin note</p>
+                                <p className="text-sm text-gray-800">{application.adminNote}</p>
+                            </div>
+                        )}
+                        <p className="text-xs text-gray-600">Please address the feedback above before resubmitting.</p>
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="space-y-1">
