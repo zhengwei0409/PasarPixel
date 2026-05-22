@@ -2,11 +2,8 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { Resend } from "resend";
 import { prisma } from "../lib/prisma";
-import { publishUserRegistered } from "../lib/publisher";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { publishUserRegistered, publishPasswordReset } from "../lib/publisher";
 
 async function getUserRoles(userId: number): Promise<string[]> {
     const userRoles = await prisma.userRole.findMany({
@@ -173,24 +170,11 @@ export async function forgotPassword(req: Request, res: Response) {
         data: { userId: user.id, token, expiresAt },
     });
 
-    const resetUrl = `http://localhost:5173/reset-password?token=${token}`;
-
-    const { data, error } = await resend.emails.send({
-        from: "PasarPixel <onboarding@resend.dev>",
-        to: email,
-        subject: "Reset your password",
-        html: `
-            <p>You requested a password reset.</p>
-            <p><a href="${resetUrl}">Click here to reset your password</a></p>
-            <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>
-        `,
+    await publishPasswordReset({
+        userId: user.id,
+        email: user.email,
+        resetToken: token,
     });
-
-    if (error) {
-        console.error("Resend error:", error);
-    } else {
-        console.log("Email sent:", data);
-    }
 
     res.json({ message: "If that email exists, a reset link has been sent" });
 }
