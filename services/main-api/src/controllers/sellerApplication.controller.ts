@@ -78,7 +78,11 @@ export async function approveApplication(req: Request, res: Response) {
         data: { status: "APPROVED", reviewedAt: new Date() },
     });
 
-    await publishSellerApproved({ userId: application.userId });
+    await publishSellerApproved({
+        userId: application.userId,
+        email: '',
+        storeName: application.storeName,
+    });
 
     res.json({ message: "Application approved" });
 }

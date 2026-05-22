@@ -6,6 +6,12 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   postgres:
     image: postgres:16-alpine
@@ -35,7 +41,7 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ../../services/auth-service/.env
     environment:
@@ -52,7 +58,7 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
       auth-service:
         condition: service_started
     env_file:
@@ -72,7 +78,7 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
     env_file:
       - ../../services/notification-service/.env
     environment:

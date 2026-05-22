@@ -3,6 +3,7 @@ config();
 
 import express from "express";
 import cors from "cors";
+import { startConsumers } from "./consumers";
 
 const app = express();
 const PORT = 3003;
@@ -14,6 +15,11 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', service: 'notification-service' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Notification service running on port ${PORT}`);
+    try {
+        await startConsumers();
+    } catch (err) {
+        console.error('Failed to start consumers:', err);
+    }
 });
