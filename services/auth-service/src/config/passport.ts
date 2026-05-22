@@ -15,14 +15,32 @@ passport.use(new GoogleStrategy({
     // done(null, profile) tells Passport "success, here is the user"
     // done(error, false) tells Passport "something went wrong, login failed"
     try {
-        const user = await prisma.user.upsert({
-            where: { googleId: profile.id },
-            update: { email: profile.emails?.[0]?.value ?? ""},
-            create: {
-                googleId: profile.id,
-                email: profile.emails?.[0]?.value ?? "",
-            },
-        });
+        const email = profile.emails?.[0]?.value;
+        if (!email) {
+            return done(new Error("Google account did not return an email"), false);
+        }
+
+        // 1. Returning Google user
+        let user = await prisma.user.findUnique({ where: { googleId: profile.id } });
+
+        // 2. Existing email account — link Google to it
+        if (!user) {
+            const existing = await prisma.user.findUnique({ where: { email } });
+            if (existing) {
+                user = await prisma.user.update({
+                    where: { id: existing.id },
+                    data: { googleId: profile.id, isVerified: true },
+                });
+            }
+        }
+
+        // 3. Brand new user
+        if (!user) {
+            user = await prisma.user.create({
+                data: { googleId: profile.id, email, isVerified: true },
+            });
+        }
+
         done(null, user);
     } catch (error) {
         done(error as Error, false);
