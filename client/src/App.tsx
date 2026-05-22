@@ -11,10 +11,13 @@ import ProfilePage from './pages/ProfilePage';
 import SellerApplicationPage from './pages/SellerApplicationPage';
 import AdminApplicationsPage from './pages/AdminApplicationsPage';
 import ForbiddenPage from './pages/ForbiddenPage';
+import Navbar from './components/layout/Navbar';
 
 
 function App() {
   return (
+    <>
+    <Navbar />
     <Routes>
       <Route path='/' element={<HomePage/>} />
       <Route path="/login" element={<LoginPage />} />
@@ -34,6 +37,7 @@ function App() {
         <Route path="/admin/applications" element={<AdminApplicationsPage />} />
       </Route>
     </Routes>
+    </>
   )
 }
 
