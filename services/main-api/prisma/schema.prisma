@@ -26,7 +26,6 @@ model UserProfile {
   reviews            Review[]
   reports            Report[]
   withdrawalRequests WithdrawalRequest[]
-  notifications      Notification[]
   activityLogs       ActivityLog[]
 
   @@map("user_profiles")
@@ -246,20 +245,6 @@ enum WithdrawalStatus {
   APPROVED
   REJECTED
   PAID
-}
-
-model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  type      String
-  title     String
-  body      String?
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user UserProfile @relation(fields: [userId], references: [userId])
-
-  @@map("notifications")
 }
 
 model ActivityLog {
