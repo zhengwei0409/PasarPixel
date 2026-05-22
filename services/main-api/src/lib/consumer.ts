@@ -18,10 +18,11 @@ export async function startConsumer(): Promise<void> {
 
     await prisma.userProfile.upsert({
       where: { userId: event.userId },
-      update: {},
+      update: { email: event.email },
       create: {
         userId: event.userId,
         name: event.name,
+        email: event.email,
       },
     });
 

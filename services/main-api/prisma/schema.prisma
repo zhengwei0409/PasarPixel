@@ -11,6 +11,7 @@ model UserProfile {
   id             Int      @id @default(autoincrement())
   userId         Int      @unique // references Auth Service user ID (no FK across services)
   name           String
+  email          String?  // denormalised from Auth Service; populated via user.registered event
   avatarUrl      String?
   bio            String?
   phone          String?
