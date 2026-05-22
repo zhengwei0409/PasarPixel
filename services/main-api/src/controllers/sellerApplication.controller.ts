@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { publishSellerApproved } from "../lib/publisher";
+import { publishSellerApproved, publishSellerRejected } from "../lib/publisher";
 
 export async function submitApplication(req: Request, res: Response) {
     const userId = req.user!.userId;
@@ -117,6 +117,21 @@ export async function rejectApplication(req: Request, res: Response) {
     await prisma.sellerApplication.update({
         where: { id },
         data: { status: "REJECTED", adminNote, reviewedAt: new Date() },
+    });
+
+    const userProfile = await prisma.userProfile.findUnique({
+        where: { userId: application.userId },
+    });
+    if (!userProfile?.email) {
+        res.status(500).json({ error: "User email not found; cannot notify seller" });
+        return;
+    }
+
+    await publishSellerRejected({
+        userId: application.userId,
+        email: userProfile.email,
+        storeName: application.storeName,
+        adminNote,
     });
 
     res.json({ message: "Application rejected" });
