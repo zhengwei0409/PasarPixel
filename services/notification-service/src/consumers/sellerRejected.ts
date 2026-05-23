@@ -22,15 +22,19 @@ export async function startSellerRejectedConsumer(): Promise<void> {
             const noteLine = event.adminNote ? `Reason: ${event.adminNote}` : '';
             const body = `We're sorry — your seller application for "${event.storeName}" was rejected. ${noteLine}`.trim();
 
-            await sendEmail({
-                to: event.email,
-                subject: title,
-                html: `
-                    <p>We're sorry — your seller application for <strong>${event.storeName}</strong> was rejected.</p>
-                    ${event.adminNote ? `<p><strong>Reason:</strong> ${event.adminNote}</p>` : ''}
-                    <p>You may submit a new application after addressing the feedback.</p>
-                `,
-            });
+            try {
+                await sendEmail({
+                    to: event.email,
+                    subject: title,
+                    html: `
+                        <p>We're sorry — your seller application for <strong>${event.storeName}</strong> was rejected.</p>
+                        ${event.adminNote ? `<p><strong>Reason:</strong> ${event.adminNote}</p>` : ''}
+                        <p>You may submit a new application after addressing the feedback.</p>
+                    `,
+                });
+            } catch (emailErr) {
+                console.error(`Email send failed for user ${event.userId}, continuing with in-app notification:`, emailErr);
+            }
 
             await prisma.notification.create({
                 data: {

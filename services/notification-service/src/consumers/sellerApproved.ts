@@ -21,15 +21,19 @@ export async function startSellerApprovedConsumer(): Promise<void> {
             const title = 'Your seller application is approved';
             const body = `Congratulations! Your store "${event.storeName}" has been approved. You can now start listing assets on PasarPixel.`;
 
-            await sendEmail({
-                to: event.email,
-                subject: title,
-                html: `
-                    <p>Congratulations!</p>
-                    <p>Your store <strong>${event.storeName}</strong> has been approved on PasarPixel.</p>
-                    <p>You can now start listing your digital assets for sale.</p>
-                `,
-            });
+            try {
+                await sendEmail({
+                    to: event.email,
+                    subject: title,
+                    html: `
+                        <p>Congratulations!</p>
+                        <p>Your store <strong>${event.storeName}</strong> has been approved on PasarPixel.</p>
+                        <p>You can now start listing your digital assets for sale.</p>
+                    `,
+                });
+            } catch (emailErr) {
+                console.error(`Email send failed for user ${event.userId}, continuing with in-app notification:`, emailErr);
+            }
 
             await prisma.notification.create({
                 data: {

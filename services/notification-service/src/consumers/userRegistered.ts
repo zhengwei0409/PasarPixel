@@ -21,11 +21,15 @@ export async function startUserRegisteredConsumer(): Promise<void> {
             const title = 'Welcome to PasarPixel';
             const body = `Hi ${event.name}, welcome to PasarPixel! Start exploring digital assets now.`;
 
-            await sendEmail({
-                to: event.email,
-                subject: title,
-                html: `<p>Hi ${event.name},</p><p>Welcome to PasarPixel! Start exploring digital assets now.</p>`,
-            });
+            try {
+                await sendEmail({
+                    to: event.email,
+                    subject: title,
+                    html: `<p>Hi ${event.name},</p><p>Welcome to PasarPixel! Start exploring digital assets now.</p>`,
+                });
+            } catch (emailErr) {
+                console.error(`Email send failed for user ${event.userId}, continuing with in-app notification:`, emailErr);
+            }
 
             await prisma.notification.create({
                 data: {
