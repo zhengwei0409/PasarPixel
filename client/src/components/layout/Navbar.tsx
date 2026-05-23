@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
     const { user, logout } = useAuth();
@@ -14,6 +15,7 @@ export default function Navbar() {
             <div className="flex items-center gap-2">
                 {user ? (
                     <>
+                        <NotificationBell />
                         <Link
                             to="/profile"
                             className="text-sm text-muted-foreground hover:text-foreground hover:underline"
