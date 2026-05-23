@@ -2,7 +2,6 @@ import { config } from "dotenv";
 config();
 
 import express from "express";
-import cors from "cors";
 import passport from "./config/passport";
 import router from "./routes/auth.routes";
 import { startConsumer } from "./lib/consumer";
@@ -10,7 +9,6 @@ import { startConsumer } from "./lib/consumer";
 const app = express();
 const PORT = 3001;
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
 
 // Initialize Passport — must be registered before any routes that use it

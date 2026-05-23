@@ -35,8 +35,8 @@ services:
     build:
       context: ../..
       dockerfile: services/auth-service/Dockerfile
-    ports:
-      - "3001:3001"
+    expose:
+      - "3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,8 +52,8 @@ services:
     build:
       context: ../..
       dockerfile: services/main-api/Dockerfile
-    ports:
-      - "3002:3002"
+    expose:
+      - "3002"
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,8 +72,8 @@ services:
     build:
       context: ../..
       dockerfile: services/notification-service/Dockerfile
-    ports:
-      - "3003:3003"
+    expose:
+      - "3003"
     depends_on:
       postgres:
         condition: service_healthy
