@@ -18,9 +18,10 @@ Client Layer (React SPA + Phantom Wallet)
 API Gateway Layer (Kong)
         ↓ Routes by URL path
 Backend Services Layer
-  ├── Auth Service         → authentication & authorisation (OAuth 2.0, Google Sign-In)
-  ├── Main API Service     → core business logic (users, listings, orders, admin panel)
-  └── Blockchain Service  → NFT minting, transfer, ownership verification
+  ├── Auth Service          → authentication & authorisation (OAuth 2.0, Google Sign-In)
+  ├── Main API Service      → core business logic (users, listings, orders, admin panel)
+  ├── Notification Service  → email (Resend) + in-app notifications (RabbitMQ consumers + REST API)
+  └── Blockchain Service    → NFT minting, transfer, ownership verification
         ↓ async tasks
 Message Queue Layer (RabbitMQ)
         ↓
@@ -59,9 +60,10 @@ External Services
 ### Back-End Services
 | Technology | Role |
 |---|---|
-| Node.js + Express.js | Main API Service |
+| Node.js + Express.js | Auth, Main API, Notification services |
 | TypeScript | Type safety across back-end |
 | OAuth 2.0 + Google Sign-In | Auth Service |
+| Resend | Notification Service — transactional email |
 | Solana + Metaplex | Blockchain Service — NFT operations |
 
 ### Data & Storage
@@ -108,6 +110,15 @@ External Services
 - **Containerisation:** Docker Compose to run all services locally
 - **Testing:** Functional testing + UAT planned
 
+### Architectural Conventions
+
+- **API Gateway:** All client traffic goes through Kong (`http://localhost:8000`). Backend services are not exposed to the host — they communicate over Docker's internal network. CORS is configured once at Kong, not per-service.
+- **Frontend HTTP:** One `apiClient.ts` (axios) with base URL `import.meta.env.VITE_API_URL`. Token interceptor auto-attaches Bearer except for public auth paths.
+- **Service-to-service auth:** Services that need to know the caller's identity (main-api, notification-service) call `auth-service`'s `/auth/me` via HTTP to verify the JWT and fetch roles — not by sharing `JWT_SECRET`.
+- **Pub/sub events:** RabbitMQ **fanout exchanges**. Exchange name = event name (e.g. `user.registered`). Each consumer service binds its own named queue (e.g. `user.registered.main-api`, `user.registered.notification`) so all consumers receive every message.
+- **Notification consumers** must isolate email failures from in-app writes — wrap `sendEmail()` in its own try/catch so a Resend failure doesn't drop the DB notification record.
+- **Shared constants:** Exchange names live in `shared/utils/messaging.ts`. Event payload types live in `shared/types/events.ts`.
+
 
 ## Project Structure
 
@@ -124,30 +135,44 @@ PasarPixel/
 │   │   ├── hooks/                   # TanStack Query hooks (useX, useUpdateX)
 │   │   ├── services/                # API functions: one function per endpoint
 │   │   ├── types/                   # Shared TypeScript types
-│   │   └── lib/                     # Infrastructure (axios clients, queryClient, helpers)
+│   │   └── lib/                     # Infrastructure (apiClient, queryClient, helpers)
+│   ├── .env                         # VITE_API_URL (Kong gateway URL)
 │   ├── index.html
 │   ├── vite.config.ts
 │   ├── tailwind.config.ts
 │   └── tsconfig.json
 │
 ├── services/
-│   ├── auth-service/                # OAuth 2.0 + Google Sign-In
+│   ├── auth-service/                # OAuth 2.0 + Google Sign-In, publishes user.registered & password.reset events
 │   │   └── src/
 │   │       ├── controllers/
 │   │       ├── middleware/
 │   │       ├── routes/
+│   │       ├── lib/                 # rabbitmq publisher, consumer, prisma
 │   │       └── types/
 │   │
-│   ├── main-api/                    # Core business logic (users, listings, orders)
+│   ├── main-api/                    # Core business logic (users, listings, seller applications)
 │   │   ├── prisma/
 │   │   │   ├── schema.prisma        # Database schema
 │   │   │   └── migrations/
 │   │   └── src/
 │   │       ├── controllers/
-│   │       ├── middleware/
+│   │       ├── middleware/          # auth.middleware verifies JWT via HTTP call to auth-service
 │   │       ├── routes/
+│   │       ├── lib/                 # rabbitmq publisher (seller.approved/rejected), consumer (user.registered)
 │   │       ├── services/
 │   │       └── types/
+│   │
+│   ├── notification-service/        # Email (Resend) + in-app notifications
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma        # Notification model
+│   │   │   └── migrations/
+│   │   └── src/
+│   │       ├── consumers/           # RabbitMQ consumers (user.registered, password.reset, seller.approved, seller.rejected)
+│   │       ├── controllers/         # REST API for notification list / mark-read
+│   │       ├── middleware/          # auth.middleware (same pattern as main-api)
+│   │       ├── routes/
+│   │       └── lib/                 # rabbitmq, prisma, resend
 │   │
 │   └── blockchain-service/          # Solana NFT minting, transfer, verification
 │       └── src/
@@ -158,17 +183,17 @@ PasarPixel/
 │
 ├── gateway/
 │   └── kong/
-│       └── kong.yml                 # Kong routing + rate limiting config
+│       └── kong.yml                 # Kong routes (DB-less mode) + global CORS plugin
 │
 ├── infra/
 │   ├── docker/
-│   │   └── docker-compose.yml       # Spins up all services locally
+│   │   └── docker-compose.yml       # Spins up all services locally (Kong is the only host-exposed gateway)
 │   └── scripts/
 │       └── seed.ts                  # Database seed script
 │
 ├── shared/
-│   ├── types/                       # Shared TypeScript types across services
-│   └── utils/                       # Shared helper functions
+│   ├── types/                       # Shared event payloads (UserRegisteredEvent, SellerApprovedEvent, etc.)
+│   └── utils/                       # Shared helpers (messaging.ts — RabbitMQ exchange name constants)
 │
 ├── .gitignore
 ├── README.md
