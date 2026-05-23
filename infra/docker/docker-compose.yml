@@ -85,6 +85,28 @@ services:
       DATABASE_URL: postgresql://pasarpixel:pasarpixel@postgres:5432/pasarpixel
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
 
+  kong:
+    image: kong:3.7
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    ports:
+      - "8000:8000"
+      # WARNING: admin port 8001 is exposed for local dev only.
+      # In production: remove this line or restrict to internal network.
+      - "8001:8001"
+    volumes:
+      - ../../gateway/kong:/kong:ro
+    depends_on:
+      - auth-service
+      - main-api
+      - notification-service
+
   client:
     build:
       context: ../../client
