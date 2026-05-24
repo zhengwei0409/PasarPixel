@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { AssetCategory, ListingType } from "@prisma/client";
+import { getPresignedUploadUrl } from "../lib/s3";
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
 
 const VALID_CATEGORIES: AssetCategory[] = [
     "THREE_D_MODEL",
@@ -50,4 +54,60 @@ export async function createAsset(req: Request, res: Response) {
     });
 
     res.status(201).json(asset);
+}
+
+function sanitizeFileName(name: string): string {
+    return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+export async function getUploadUrl(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+    const { fileName, fileType, fileSize } = req.body;
+
+    if (!fileName || !fileType || typeof fileSize !== "number") {
+        res.status(400).json({ error: "fileName, fileType, and fileSize are required" });
+        return;
+    }
+
+    if (fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
+        res.status(400).json({ error: `fileSize must be between 1 and ${MAX_FILE_SIZE} bytes (100 MB)` });
+        return;
+    }
+
+    const asset = await prisma.asset.findUnique({
+        where: { id: assetId },
+        include: { files: true },
+    });
+    if (!asset) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.status !== "DRAFT") {
+        res.status(409).json({ error: "Files can only be added to draft assets" });
+        return;
+    }
+
+    const currentTotal = asset.files.reduce((sum, f) => sum + f.fileSize, 0);
+    if (currentTotal + fileSize > MAX_TOTAL_SIZE) {
+        res.status(400).json({
+            error: `Total listing size would exceed ${MAX_TOTAL_SIZE} bytes (500 MB)`,
+        });
+        return;
+    }
+
+    const safeName = sanitizeFileName(fileName);
+    const key = `assets/${userId}/${assetId}/${Date.now()}-${safeName}`;
+
+    const result = await getPresignedUploadUrl({
+        key,
+        contentType: fileType,
+        contentLength: fileSize,
+    });
+
+    res.json({ uploadUrl: result.url, key: result.key, expiresIn: result.expiresIn });
 }

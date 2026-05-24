@@ -109,6 +109,7 @@ model AssetFile {
   assetId   Int
   fileType  String
   fileUrl   String
+  fileSize  Int
   createdAt DateTime @default(now())
 
   asset Asset @relation(fields: [assetId], references: [id])
