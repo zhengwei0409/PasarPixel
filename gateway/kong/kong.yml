@@ -21,6 +21,10 @@ services:
         paths:
           - /seller-applications
         strip_path: false
+      - name: assets-route
+        paths:
+          - /assets
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003

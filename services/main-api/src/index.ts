@@ -6,6 +6,7 @@ import { authenticate, requireRole } from './middleware/auth.middleware';
 import { startConsumer } from './lib/consumer';
 import profileRoutes from './routes/profile.routes';
 import sellerApplicationRoutes from './routes/sellerApplication.routes';
+import assetRoutes from './routes/asset.routes';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -18,6 +19,7 @@ app.get("/health", (req, res) => {
 
 app.use("/profile", profileRoutes);
 app.use("/seller-applications", sellerApplicationRoutes);
+app.use("/assets", assetRoutes);
 
 app.get("/test/buyer", authenticate, requireRole("BUYER"), (req, res) => {
     res.json({ message: "Hello, Buyer!", user: req.user });
