@@ -1,73 +1,92 @@
-# React + TypeScript + Vite
+# PasarPixel — Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The React frontend for **PasarPixel**, a web-based marketplace for digital multimedia assets. Buyers can purchase usage licences or acquire blockchain-backed NFT ownership via Solana; sellers can list and manage their digital products.
 
-Currently, two official plugins are available:
+All HTTP traffic is routed through the Kong API Gateway — the client never calls backend services directly.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Technology | Role |
+|---|---|
+| React 19 + TypeScript | UI library with static type safety |
+| Vite | Build tool & dev server |
+| Tailwind CSS v4 | Utility-first styling |
+| shadcn/ui + Radix UI | Accessible, pre-built UI components |
+| TanStack Query v5 | Server state management (caching, refetching, mutations) |
+| React Hook Form + Zod | Form state & schema validation |
+| Axios | HTTP client with JWT interceptor |
+| React Router v7 | Client-side routing |
+| Phantom Wallet | Solana wallet integration |
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Project Structure
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── pages/          # Route-level page components (UI only, no data-fetching logic)
+├── components/
+│   ├── ui/         # shadcn/ui base components
+│   └── layout/     # Navbar, Footer, PageWrapper, ProtectedRoute
+├── hooks/          # TanStack Query hooks — one hook per resource (useAuth, useProfile, ...)
+├── services/       # API functions — one function per endpoint (authService, profileService, ...)
+├── types/          # Shared TypeScript types (auth, profile, notification, sellerApplication)
+└── lib/
+    ├── apiClient.ts    # Axios instance — base URL from VITE_API_URL, auto-attaches Bearer token
+    ├── queryClient.ts  # TanStack Query client config
+    ├── errors.ts       # Centralised error handling helpers
+    └── utils.ts        # General utility functions
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Getting Started
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerequisites
+
+- Docker + Docker Compose
+- The `.env` file configured (see below)
+
+### Configure environment
+
+```env
+VITE_API_URL=http://localhost:8000   # Kong gateway — do not point directly at individual services
 ```
+
+### Start the full stack
+
+Run everything (client + all backend services + Kong) from the repo root:
+
+```bash
+docker compose up --build
+```
+
+The client will be available at `http://localhost:5173`.
+
+---
+
+## Architecture Notes
+
+- **Single API client** — `src/lib/apiClient.ts` is the only place that creates an Axios instance. All services import from it. The JWT Bearer token is attached automatically via a request interceptor; public auth paths are excluded.
+- **Pages vs hooks** — Pages are pure UI. All data-fetching and mutation logic lives in `src/hooks/`. Pages consume hooks and pass data down to components.
+- **Services layer** — `src/services/` contains plain async functions that call the API. Hooks wrap these functions with TanStack Query (`useQuery` / `useMutation`). Services have no query caching knowledge.
+- **Protected routes** — `src/components/ProtectedRoute.tsx` guards routes by role (Admin, Seller, Buyer). Unauthenticated users are redirected to `/login`; unauthorised users land on `/403`.
+
+---
+
+## Available Scripts
+
+These are for one-off local use (e.g. type-checking, linting) — normal development runs via Docker Compose.
+
+| Script | Description |
+|---|---|
+| `pnpm build` | Type-check + production build |
+| `pnpm lint` | Run ESLint |
+
+---
+
+## Docker
+
+A `Dockerfile` is included for containerised deployments. The image is built and orchestrated alongside the backend services via the root `docker-compose.yml`.
