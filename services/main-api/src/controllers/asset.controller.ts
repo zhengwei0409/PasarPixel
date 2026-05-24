@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { AssetCategory, ListingType } from "@prisma/client";
-import { getPresignedUploadUrl } from "../lib/s3";
+import { getPresignedUploadUrl, deleteObject, extractKeyFromUrl } from "../lib/s3";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -174,4 +174,36 @@ export async function registerFile(req: Request, res: Response) {
     });
 
     res.status(201).json(file);
+}
+
+export async function deleteFile(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+    const fileId = parseInt(req.params.fileId as string);
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.status !== "DRAFT") {
+        res.status(409).json({ error: "Files can only be deleted from draft assets" });
+        return;
+    }
+
+    const file = await prisma.assetFile.findUnique({ where: { id: fileId } });
+    if (!file || file.assetId !== assetId) {
+        res.status(404).json({ error: "File not found" });
+        return;
+    }
+
+    const key = extractKeyFromUrl(file.fileUrl);
+    await deleteObject(key);
+    await prisma.assetFile.delete({ where: { id: fileId } });
+
+    res.status(204).send();
 }
