@@ -111,3 +111,67 @@ export async function getUploadUrl(req: Request, res: Response) {
 
     res.json({ uploadUrl: result.url, key: result.key, expiresIn: result.expiresIn });
 }
+
+function buildPublicFileUrl(key: string): string {
+    const bucket = process.env.S3_BUCKET_NAME!;
+    const region = process.env.AWS_REGION!;
+    return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+}
+
+export async function registerFile(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+    const { key, fileType, fileSize } = req.body;
+
+    if (!key || !fileType || typeof fileSize !== "number") {
+        res.status(400).json({ error: "key, fileType, and fileSize are required" });
+        return;
+    }
+
+    if (fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
+        res.status(400).json({ error: `fileSize must be between 1 and ${MAX_FILE_SIZE} bytes (100 MB)` });
+        return;
+    }
+
+    const expectedPrefix = `assets/${userId}/${assetId}/`;
+    if (!key.startsWith(expectedPrefix)) {
+        res.status(403).json({ error: "Key does not belong to this asset" });
+        return;
+    }
+
+    const asset = await prisma.asset.findUnique({
+        where: { id: assetId },
+        include: { files: true },
+    });
+    if (!asset) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.status !== "DRAFT") {
+        res.status(409).json({ error: "Files can only be added to draft assets" });
+        return;
+    }
+
+    const currentTotal = asset.files.reduce((sum, f) => sum + f.fileSize, 0);
+    if (currentTotal + fileSize > MAX_TOTAL_SIZE) {
+        res.status(400).json({
+            error: `Total listing size would exceed ${MAX_TOTAL_SIZE} bytes (500 MB)`,
+        });
+        return;
+    }
+
+    const file = await prisma.assetFile.create({
+        data: {
+            assetId,
+            fileType,
+            fileSize,
+            fileUrl: buildPublicFileUrl(key),
+        },
+    });
+
+    res.status(201).json(file);
+}
