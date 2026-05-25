@@ -31,6 +31,9 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["BUYER"]} />}>
         <Route path="/seller-application" element={<SellerApplicationPage />} />
       </Route>
 

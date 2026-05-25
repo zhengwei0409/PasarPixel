@@ -19,19 +19,21 @@ export default function DashboardPage() {
                 </p>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Become a Seller</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
-                            <p className="text-sm text-gray-600">
-                                Apply for seller access or check the status of your application.
-                            </p>
-                            <Button asChild className="w-full">
-                                <Link to="/seller-application">Seller Application</Link>
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    {!isAdmin && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Become a Seller</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <p className="text-sm text-gray-600">
+                                    Apply for seller access or check the status of your application.
+                                </p>
+                                <Button asChild className="w-full">
+                                    <Link to="/seller-application">Seller Application</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {isSeller && (
                         <Card>

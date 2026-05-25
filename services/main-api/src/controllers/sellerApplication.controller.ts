@@ -6,6 +6,11 @@ export async function submitApplication(req: Request, res: Response) {
     const userId = req.user!.userId;
     const { storeName, reason, portfolioLink, idVerificationUrl } = req.body;
 
+    if (req.user!.roles.includes("ADMIN")) {
+        res.status(403).json({ error: "Admins cannot apply as sellers" });
+        return;
+    }
+
     if (!storeName || !reason) {
         res.status(400).json({ error: "storeName and reason are required" });
         return;
