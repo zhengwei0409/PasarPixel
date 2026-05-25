@@ -7,6 +7,9 @@
     "build": "tsc",
     "start": "node dist/services/main-api/src/index.js"
   },
+  "prisma": {
+    "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1053.0",
     "@aws-sdk/s3-request-presigner": "^3.1053.0",
@@ -23,6 +26,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^24.12.2",
     "prisma": "^6.16.2",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.3"
   }
