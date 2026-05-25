@@ -176,6 +176,27 @@ export async function registerFile(req: Request, res: Response) {
     res.status(201).json(file);
 }
 
+export async function getAssetById(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+
+    const asset = await prisma.asset.findUnique({
+        where: { id: assetId },
+        include: { files: true },
+    });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+
+    if (asset.status === "DRAFT" && asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not have access to this asset" });
+        return;
+    }
+
+    res.json(asset);
+}
+
 export async function deleteFile(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);

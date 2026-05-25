@@ -1,12 +1,21 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     createAsset,
+    getAsset,
     getUploadUrl,
     uploadToS3,
     registerFile,
     deleteFile,
 } from "../services/assetService";
 import type { Asset, AssetFile, CreateAssetPayload } from "../types/asset";
+
+export function useAsset(assetId: number | null) {
+    return useQuery({
+        queryKey: ["asset", assetId],
+        queryFn: () => getAsset(assetId as number),
+        enabled: assetId != null,
+    });
+}
 
 export function useCreateAsset() {
     return useMutation({

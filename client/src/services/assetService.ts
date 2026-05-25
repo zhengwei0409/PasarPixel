@@ -3,6 +3,7 @@ import apiClient from "../lib/apiClient";
 import type {
     Asset,
     AssetFile,
+    AssetWithFiles,
     CreateAssetPayload,
     GetUploadUrlPayload,
     GetUploadUrlResponse,
@@ -11,6 +12,11 @@ import type {
 
 export async function createAsset(payload: CreateAssetPayload): Promise<Asset> {
     const res = await apiClient.post<Asset>("/assets", payload);
+    return res.data;
+}
+
+export async function getAsset(assetId: number): Promise<AssetWithFiles> {
+    const res = await apiClient.get<AssetWithFiles>(`/assets/${assetId}`);
     return res.data;
 }
 

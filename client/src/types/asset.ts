@@ -40,6 +40,10 @@ export interface AssetFile {
     createdAt: string;
 }
 
+export interface AssetWithFiles extends Asset {
+    files: AssetFile[];
+}
+
 export interface CreateAssetPayload {
     title: string;
     description?: string;
