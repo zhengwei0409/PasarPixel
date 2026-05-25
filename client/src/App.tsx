@@ -9,6 +9,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
 import SellerApplicationPage from './pages/SellerApplicationPage';
+import SellerUploadPage from './pages/SellerUploadPage';
 import AdminApplicationsPage from './pages/AdminApplicationsPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import Navbar from './components/layout/Navbar';
@@ -31,6 +32,10 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/seller-application" element={<SellerApplicationPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["SELLER"]} />}>
+        <Route path="/seller/upload" element={<SellerUploadPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
