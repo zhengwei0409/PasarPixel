@@ -1,3 +1,85 @@
+import { Link } from "react-router-dom";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { useAuth } from "../hooks/useAuth";
+
+// TODO: This is a prototype UI for testing purposes only. Replace with proper dashboard design in future.
 export default function DashboardPage() {
-  return <div>Dashboard Page</div>
+    const { user } = useAuth();
+    const isSeller = user?.roles.includes("SELLER");
+    const isAdmin = user?.roles.includes("ADMIN");
+
+    return (
+        <div className="min-h-screen p-8">
+            <div className="max-w-3xl mx-auto space-y-6">
+                <h1 className="text-2xl font-bold">Dashboard</h1>
+                <p className="text-sm text-gray-600">
+                    Logged in as <span className="font-medium">{user?.email}</span>
+                    {user?.roles.length ? ` · ${user.roles.join(", ")}` : ""}
+                </p>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Become a Seller</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <p className="text-sm text-gray-600">
+                                Apply for seller access or check the status of your application.
+                            </p>
+                            <Button asChild className="w-full">
+                                <Link to="/seller-application">Seller Application</Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {isSeller && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Upload Asset</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <p className="text-sm text-gray-600">
+                                    Create a new asset listing and upload files.
+                                </p>
+                                <Button asChild className="w-full">
+                                    <Link to="/seller/upload">Upload New Asset</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Profile</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <p className="text-sm text-gray-600">
+                                Update your profile details.
+                            </p>
+                            <Button asChild variant="outline" className="w-full">
+                                <Link to="/profile">Edit Profile</Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {isAdmin && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Admin</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <p className="text-sm text-gray-600">
+                                    Review pending seller applications.
+                                </p>
+                                <Button asChild variant="outline" className="w-full">
+                                    <Link to="/admin/applications">Seller Applications</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 }
