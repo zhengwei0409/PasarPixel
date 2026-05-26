@@ -176,6 +176,29 @@ export async function registerFile(req: Request, res: Response) {
     res.status(201).json(file);
 }
 
+export async function browseAssets(_req: Request, res: Response) {
+    const page = 1;
+    const pageSize = 20;
+
+    const where = { status: "PUBLISHED" as const, isDeleted: false };
+
+    const [items, total] = await Promise.all([
+        prisma.asset.findMany({
+            where,
+            include: {
+                files: true,
+                seller: { select: { userId: true, name: true, avatarUrl: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+        }),
+        prisma.asset.count({ where }),
+    ]);
+
+    res.json({ items, total, page, pageSize });
+}
+
 export async function getMyAssets(req: Request, res: Response) {
     const userId = req.user!.userId;
 
