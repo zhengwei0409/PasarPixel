@@ -197,6 +197,39 @@ export async function getAssetById(req: Request, res: Response) {
     res.json(asset);
 }
 
+export async function submitForReview(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+
+    const asset = await prisma.asset.findUnique({
+        where: { id: assetId },
+        include: { files: true },
+    });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.status !== "DRAFT") {
+        res.status(409).json({ error: "Only draft assets can be submitted for review" });
+        return;
+    }
+    if (asset.files.length === 0) {
+        res.status(400).json({ error: "Asset must have at least one file before submission" });
+        return;
+    }
+
+    const updated = await prisma.asset.update({
+        where: { id: assetId },
+        data: { status: "PENDING_REVIEW" },
+    });
+
+    res.json(updated);
+}
+
 export async function deleteFile(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);
