@@ -176,9 +176,29 @@ export async function registerFile(req: Request, res: Response) {
     res.status(201).json(file);
 }
 
-export async function browseAssets(_req: Request, res: Response) {
-    const page = 1;
-    const pageSize = 20;
+const VALID_SORTS = ["newest", "price_asc", "price_desc"] as const;
+type SortOption = (typeof VALID_SORTS)[number];
+
+function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
+    const n = parseInt(String(value ?? ""), 10);
+    if (isNaN(n) || n < 1) return fallback;
+    if (max !== undefined && n > max) return max;
+    return n;
+}
+
+export async function browseAssets(req: Request, res: Response) {
+    const page = parsePositiveInt(req.query.page, 1);
+    const pageSize = parsePositiveInt(req.query.pageSize, 20, 50);
+    const sort: SortOption = VALID_SORTS.includes(req.query.sort as SortOption)
+        ? (req.query.sort as SortOption)
+        : "newest";
+
+    const orderBy =
+        sort === "price_asc"
+            ? { pricePersonal: "asc" as const }
+            : sort === "price_desc"
+              ? { pricePersonal: "desc" as const }
+              : { createdAt: "desc" as const };
 
     const where = { status: "PUBLISHED" as const, isDeleted: false };
 
@@ -189,7 +209,7 @@ export async function browseAssets(_req: Request, res: Response) {
                 files: true,
                 seller: { select: { userId: true, name: true, avatarUrl: true } },
             },
-            orderBy: { createdAt: "desc" },
+            orderBy,
             skip: (page - 1) * pageSize,
             take: pageSize,
         }),
