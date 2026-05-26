@@ -10,6 +10,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
 import SellerApplicationPage from './pages/SellerApplicationPage';
 import SellerUploadPage from './pages/SellerUploadPage';
+import MySellerListingsPage from './pages/MySellerListingsPage';
 import AdminApplicationsPage from './pages/AdminApplicationsPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import Navbar from './components/layout/Navbar';
@@ -39,6 +40,7 @@ function App() {
 
       <Route element={<ProtectedRoute allowedRoles={["SELLER"]} />}>
         <Route path="/seller/upload" element={<SellerUploadPage />} />
+        <Route path="/seller/listings" element={<MySellerListingsPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>

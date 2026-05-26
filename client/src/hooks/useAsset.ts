@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     createAsset,
     getAsset,
+    getMyAssets,
     getUploadUrl,
     uploadToS3,
     registerFile,
     deleteFile,
+    submitForReview,
 } from "../services/assetService";
 import type { Asset, AssetFile, CreateAssetPayload } from "../types/asset";
 
@@ -14,6 +16,13 @@ export function useAsset(assetId: number | null) {
         queryKey: ["asset", assetId],
         queryFn: () => getAsset(assetId as number),
         enabled: assetId != null,
+    });
+}
+
+export function useMyAssets() {
+    return useQuery({
+        queryKey: ["assets", "mine"],
+        queryFn: () => getMyAssets(),
     });
 }
 
@@ -62,6 +71,17 @@ export function useDeleteAssetFile() {
         mutationFn: ({ assetId, fileId }) => deleteFile(assetId, fileId),
         onSuccess: (_data, vars) => {
             queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
+        },
+    });
+}
+
+export function useSubmitForReview() {
+    const queryClient = useQueryClient();
+    return useMutation<Asset, Error, number>({
+        mutationFn: (assetId: number) => submitForReview(assetId),
+        onSuccess: (_data, assetId) => {
+            queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
         },
     });
 }

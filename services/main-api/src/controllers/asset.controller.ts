@@ -176,6 +176,18 @@ export async function registerFile(req: Request, res: Response) {
     res.status(201).json(file);
 }
 
+export async function getMyAssets(req: Request, res: Response) {
+    const userId = req.user!.userId;
+
+    const assets = await prisma.asset.findMany({
+        where: { sellerId: userId, isDeleted: false },
+        include: { _count: { select: { files: true } } },
+        orderBy: { createdAt: "desc" },
+    });
+
+    res.json(assets);
+}
+
 export async function getAssetById(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);

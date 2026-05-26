@@ -51,6 +51,22 @@ export default function DashboardPage() {
                         </Card>
                     )}
 
+                    {isSeller && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>My Listings</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <p className="text-sm text-gray-600">
+                                    View all your assets and their review status.
+                                </p>
+                                <Button asChild className="w-full">
+                                    <Link to="/seller/listings">View My Listings</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Profile</CardTitle>

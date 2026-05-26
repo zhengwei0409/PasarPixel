@@ -14,7 +14,7 @@ import {
     SelectValue,
 } from "../components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { useCreateAsset } from "../hooks/useAsset";
+import { useAsset, useCreateAsset, useSubmitForReview } from "../hooks/useAsset";
 import AssetUploader from "../components/marketplace/AssetUploader";
 import { getErrorMessage } from "../lib/errors";
 import type { AssetCategory, ListingType } from "../types/asset";
@@ -53,6 +53,12 @@ type FormData = z.infer<typeof schema>;
 export default function SellerUploadPage() {
     const [assetId, setAssetId] = useState<number | null>(null);
     const { mutate: create, isPending, error } = useCreateAsset();
+    const { data: asset } = useAsset(assetId);
+    const {
+        mutate: submit,
+        isPending: isSubmitting,
+        error: submitError,
+    } = useSubmitForReview();
 
     const {
         register,
@@ -221,16 +227,45 @@ export default function SellerUploadPage() {
                 {assetId && (
                     <Card>
                         <CardHeader>
-                            <CardTitle>3. Submit for Review</CardTitle>
+                            <CardTitle>
+                                {asset?.status === "PENDING_REVIEW"
+                                    ? "3. Submit for Review ✓"
+                                    : "3. Submit for Review"}
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <p className="text-sm text-gray-600">
-                                Once you've uploaded all files, submit the asset for admin
-                                review. (Coming soon)
-                            </p>
-                            <Button disabled className="w-full">
-                                Submit for Review
-                            </Button>
+                            {asset?.status === "PENDING_REVIEW" ? (
+                                <p className="text-sm text-green-600">
+                                    Submitted! An admin will review your asset shortly.
+                                </p>
+                            ) : (
+                                <>
+                                    <p className="text-sm text-gray-600">
+                                        Once you've uploaded all files, submit the asset for
+                                        admin review.
+                                    </p>
+                                    {submitError && (
+                                        <p className="text-sm text-red-500">
+                                            {getErrorMessage(submitError)}
+                                        </p>
+                                    )}
+                                    <Button
+                                        className="w-full"
+                                        disabled={
+                                            isSubmitting ||
+                                            !asset ||
+                                            asset.files.length === 0
+                                        }
+                                        onClick={() => submit(assetId)}
+                                    >
+                                        {isSubmitting
+                                            ? "Submitting..."
+                                            : !asset || asset.files.length === 0
+                                              ? "Upload at least one file first"
+                                              : "Submit for Review"}
+                                    </Button>
+                                </>
+                            )}
                         </CardContent>
                     </Card>
                 )}

@@ -3,6 +3,7 @@ import apiClient from "../lib/apiClient";
 import type {
     Asset,
     AssetFile,
+    AssetWithFileCount,
     AssetWithFiles,
     CreateAssetPayload,
     GetUploadUrlPayload,
@@ -17,6 +18,11 @@ export async function createAsset(payload: CreateAssetPayload): Promise<Asset> {
 
 export async function getAsset(assetId: number): Promise<AssetWithFiles> {
     const res = await apiClient.get<AssetWithFiles>(`/assets/${assetId}`);
+    return res.data;
+}
+
+export async function getMyAssets(): Promise<AssetWithFileCount[]> {
+    const res = await apiClient.get<AssetWithFileCount[]>("/assets/mine");
     return res.data;
 }
 
@@ -56,4 +62,9 @@ export async function registerFile(
 
 export async function deleteFile(assetId: number, fileId: number): Promise<void> {
     await apiClient.delete(`/assets/${assetId}/files/${fileId}`);
+}
+
+export async function submitForReview(assetId: number): Promise<Asset> {
+    const res = await apiClient.post<Asset>(`/assets/${assetId}/submit`);
+    return res.data;
 }

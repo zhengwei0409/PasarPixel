@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
-import { createAsset, getUploadUrl, registerFile, deleteFile, getAssetById, submitForReview } from "../controllers/asset.controller";
+import { createAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getMyAssets, submitForReview } from "../controllers/asset.controller";
 
 const router = Router();
 
 router.post("/", authenticate, requireRole("SELLER"), createAsset);
+router.get("/mine", authenticate, requireRole("SELLER"), getMyAssets);
 router.get("/:id", authenticate, getAssetById);
 router.post("/:id/upload-url", authenticate, requireRole("SELLER"), getUploadUrl);
 router.post("/:id/files", authenticate, requireRole("SELLER"), registerFile);
