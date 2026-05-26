@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
-import { createAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset } from "../controllers/asset.controller";
+import { createAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, takeDownAsset } from "../controllers/asset.controller";
 
 const router = Router();
 
@@ -14,5 +14,6 @@ router.delete("/:id/files/:fileId", authenticate, requireRole("SELLER"), deleteF
 router.post("/:id/submit", authenticate, requireRole("SELLER"), submitForReview);
 router.patch("/:id/approve", authenticate, requireRole("ADMIN"), approveAsset);
 router.patch("/:id/reject", authenticate, requireRole("ADMIN"), rejectAsset);
+router.delete("/:id", authenticate, requireRole("SELLER"), takeDownAsset);
 
 export default router;

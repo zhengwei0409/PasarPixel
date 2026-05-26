@@ -180,12 +180,38 @@ export async function getMyAssets(req: Request, res: Response) {
     const userId = req.user!.userId;
 
     const assets = await prisma.asset.findMany({
-        where: { sellerId: userId, isDeleted: false },
+        where: { sellerId: userId },
         include: { _count: { select: { files: true } } },
         orderBy: { createdAt: "desc" },
     });
 
     res.json(assets);
+}
+
+export async function takeDownAsset(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.isDeleted) {
+        res.status(409).json({ error: "Asset is already taken down" });
+        return;
+    }
+
+    const updated = await prisma.asset.update({
+        where: { id: assetId },
+        data: { status: "TAKEN_DOWN", isDeleted: true },
+    });
+
+    res.json(updated);
 }
 
 export async function getPendingReviewAssets(_req: Request, res: Response) {

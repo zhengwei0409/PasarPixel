@@ -11,6 +11,7 @@ import {
     rejectAsset,
     deleteFile,
     submitForReview,
+    takeDownAsset,
 } from "../services/assetService";
 import type { Asset, AssetFile, CreateAssetPayload } from "../types/asset";
 
@@ -43,6 +44,17 @@ export function useApproveAsset() {
         onSuccess: (_data, assetId) => {
             queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "pending-review"] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
+    });
+}
+
+export function useTakeDownAsset() {
+    const queryClient = useQueryClient();
+    return useMutation<Asset, Error, number>({
+        mutationFn: (assetId: number) => takeDownAsset(assetId),
+        onSuccess: (_data, assetId) => {
+            queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
         },
     });

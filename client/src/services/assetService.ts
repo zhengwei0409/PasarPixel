@@ -84,3 +84,8 @@ export async function rejectAsset(assetId: number, reason: string): Promise<Asse
     const res = await apiClient.patch<Asset>(`/assets/${assetId}/reject`, { reason });
     return res.data;
 }
+
+export async function takeDownAsset(assetId: number): Promise<Asset> {
+    const res = await apiClient.delete<Asset>(`/assets/${assetId}`);
+    return res.data;
+}

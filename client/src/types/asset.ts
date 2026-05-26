@@ -27,6 +27,7 @@ export interface Asset {
     priceCommercial: string | null;
     isAiGenerated: boolean;
     isDeleted: boolean;
+    rejectionReason: string | null;
     createdAt: string;
     updatedAt: string;
 }

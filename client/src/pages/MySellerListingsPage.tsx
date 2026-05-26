@@ -1,7 +1,16 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMyAssets } from "../hooks/useAsset";
+import { useMyAssets, useTakeDownAsset } from "../hooks/useAsset";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "../components/ui/dialog";
 import { getErrorMessage } from "../lib/errors";
 import type { AssetCategory, AssetStatus } from "../types/asset";
 
@@ -32,6 +41,19 @@ const STATUS_LABELS: Record<AssetStatus, string> = {
 
 export default function MySellerListingsPage() {
     const { data: assets, isLoading, error } = useMyAssets();
+    const {
+        mutate: takeDown,
+        isPending: isTakingDown,
+        error: takeDownError,
+    } = useTakeDownAsset();
+    const [takingDownId, setTakingDownId] = useState<number | null>(null);
+
+    const closeDialog = () => setTakingDownId(null);
+
+    const handleConfirmTakeDown = () => {
+        if (takingDownId == null) return;
+        takeDown(takingDownId, { onSuccess: () => closeDialog() });
+    };
 
     return (
         <div className="min-h-screen p-8">
@@ -71,26 +93,83 @@ export default function MySellerListingsPage() {
                                     </span>
                                 </div>
                             </CardHeader>
-                            <CardContent className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1">
-                                <span>{CATEGORY_LABELS[asset.category]}</span>
-                                <span>
-                                    {asset.listingType === "BLOCKCHAIN"
-                                        ? "Blockchain (NFT)"
-                                        : "Traditional"}
-                                </span>
-                                <span>{asset._count.files} file(s)</span>
-                                <span>
-                                    Created{" "}
-                                    {new Date(asset.createdAt).toLocaleDateString()}
-                                </span>
-                                {asset.isAiGenerated && (
-                                    <span className="text-purple-700">AI-generated</span>
+                            <CardContent className="space-y-3">
+                                <div className="text-sm text-gray-600 flex flex-wrap gap-x-6 gap-y-1">
+                                    <span>{CATEGORY_LABELS[asset.category]}</span>
+                                    <span>
+                                        {asset.listingType === "BLOCKCHAIN"
+                                            ? "Blockchain (NFT)"
+                                            : "Traditional"}
+                                    </span>
+                                    <span>{asset._count.files} file(s)</span>
+                                    <span>
+                                        Created{" "}
+                                        {new Date(asset.createdAt).toLocaleDateString()}
+                                    </span>
+                                    {asset.isAiGenerated && (
+                                        <span className="text-purple-700">AI-generated</span>
+                                    )}
+                                </div>
+                                {asset.status === "REJECTED" && asset.rejectionReason && (
+                                    <p className="text-sm text-red-700">
+                                        <span className="font-medium">
+                                            Rejection reason:
+                                        </span>{" "}
+                                        {asset.rejectionReason}
+                                    </p>
+                                )}
+                                {asset.status !== "TAKEN_DOWN" && (
+                                    <div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setTakingDownId(asset.id)}
+                                        >
+                                            Take Down
+                                        </Button>
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             </div>
+
+            <Dialog
+                open={takingDownId != null}
+                onOpenChange={(open) => {
+                    if (!open) closeDialog();
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Take down this asset?</DialogTitle>
+                        <DialogDescription>
+                            The asset will be hidden from the marketplace. You can keep this
+                            entry for your records but it can't be republished.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {takeDownError && (
+                        <p className="text-sm text-red-500">
+                            {getErrorMessage(takeDownError)}
+                        </p>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={closeDialog}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            disabled={isTakingDown}
+                            onClick={handleConfirmTakeDown}
+                        >
+                            {isTakingDown ? "Taking down..." : "Confirm Take Down"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
