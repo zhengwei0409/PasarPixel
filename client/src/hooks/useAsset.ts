@@ -9,9 +9,10 @@ import {
     uploadToS3,
     registerFile,
     rejectAsset,
+    deleteAsset,
     deleteFile,
+    cancelSubmission,
     submitForReview,
-    takeDownAsset,
 } from "../services/assetService";
 import type { Asset, AssetFile, CreateAssetPayload } from "../types/asset";
 
@@ -49,10 +50,21 @@ export function useApproveAsset() {
     });
 }
 
-export function useTakeDownAsset() {
+export function useDeleteAsset() {
+    const queryClient = useQueryClient();
+    return useMutation<Asset | null, Error, number>({
+        mutationFn: (assetId: number) => deleteAsset(assetId),
+        onSuccess: (_data, assetId) => {
+            queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
+    });
+}
+
+export function useCancelSubmission() {
     const queryClient = useQueryClient();
     return useMutation<Asset, Error, number>({
-        mutationFn: (assetId: number) => takeDownAsset(assetId),
+        mutationFn: (assetId: number) => cancelSubmission(assetId),
         onSuccess: (_data, assetId) => {
             queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });

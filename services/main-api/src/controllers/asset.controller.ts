@@ -188,11 +188,14 @@ export async function getMyAssets(req: Request, res: Response) {
     res.json(assets);
 }
 
-export async function takeDownAsset(req: Request, res: Response) {
+export async function deleteOrTakeDownAsset(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);
 
-    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    const asset = await prisma.asset.findUnique({
+        where: { id: assetId },
+        include: { files: true },
+    });
     if (!asset) {
         res.status(404).json({ error: "Asset not found" });
         return;
@@ -201,14 +204,53 @@ export async function takeDownAsset(req: Request, res: Response) {
         res.status(403).json({ error: "You do not own this asset" });
         return;
     }
-    if (asset.isDeleted) {
-        res.status(409).json({ error: "Asset is already taken down" });
+
+    if (asset.status === "DRAFT") {
+        for (const file of asset.files) {
+            const key = extractKeyFromUrl(file.fileUrl);
+            await deleteObject(key);
+        }
+        await prisma.assetFile.deleteMany({ where: { assetId } });
+        await prisma.asset.delete({ where: { id: assetId } });
+        res.status(204).send();
+        return;
+    }
+
+    if (asset.status === "PUBLISHED") {
+        const updated = await prisma.asset.update({
+            where: { id: assetId },
+            data: { status: "TAKEN_DOWN", isDeleted: true },
+        });
+        res.json(updated);
+        return;
+    }
+
+    res.status(409).json({
+        error: `Cannot delete asset in ${asset.status} status. Use cancel-submission for PENDING_REVIEW.`,
+    });
+}
+
+export async function cancelSubmission(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.status !== "PENDING_REVIEW") {
+        res.status(409).json({ error: "Only assets pending review can have their submission cancelled" });
         return;
     }
 
     const updated = await prisma.asset.update({
         where: { id: assetId },
-        data: { status: "TAKEN_DOWN", isDeleted: true },
+        data: { status: "DRAFT" },
     });
 
     res.json(updated);

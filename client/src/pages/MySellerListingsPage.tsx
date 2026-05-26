@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMyAssets, useTakeDownAsset } from "../hooks/useAsset";
+import {
+    useCancelSubmission,
+    useDeleteAsset,
+    useMyAssets,
+} from "../hooks/useAsset";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
@@ -39,21 +43,67 @@ const STATUS_LABELS: Record<AssetStatus, string> = {
     TAKEN_DOWN: "Taken Down",
 };
 
+type PendingAction =
+    | { kind: "delete-draft"; assetId: number }
+    | { kind: "take-down"; assetId: number }
+    | { kind: "cancel-submission"; assetId: number };
+
+const ACTION_COPY: Record<
+    PendingAction["kind"],
+    { buttonLabel: string; title: string; description: string; confirmLabel: string; pendingLabel: string }
+> = {
+    "delete-draft": {
+        buttonLabel: "Delete Draft",
+        title: "Delete this draft?",
+        description: "The draft and any uploaded files will be permanently removed. This cannot be undone.",
+        confirmLabel: "Delete Draft",
+        pendingLabel: "Deleting...",
+    },
+    "take-down": {
+        buttonLabel: "Take Down",
+        title: "Take down this asset?",
+        description: "The asset will be hidden from the marketplace. You can keep this entry for your records but it can't be republished.",
+        confirmLabel: "Confirm Take Down",
+        pendingLabel: "Taking down...",
+    },
+    "cancel-submission": {
+        buttonLabel: "Cancel Submission",
+        title: "Cancel submission?",
+        description: "The asset will return to draft so you can edit it and resubmit later.",
+        confirmLabel: "Confirm Cancel",
+        pendingLabel: "Cancelling...",
+    },
+};
+
 export default function MySellerListingsPage() {
     const { data: assets, isLoading, error } = useMyAssets();
     const {
-        mutate: takeDown,
-        isPending: isTakingDown,
-        error: takeDownError,
-    } = useTakeDownAsset();
-    const [takingDownId, setTakingDownId] = useState<number | null>(null);
+        mutate: deleteAsset,
+        isPending: isDeleting,
+        error: deleteError,
+    } = useDeleteAsset();
+    const {
+        mutate: cancelSubmit,
+        isPending: isCancelling,
+        error: cancelError,
+    } = useCancelSubmission();
 
-    const closeDialog = () => setTakingDownId(null);
+    const [pending, setPending] = useState<PendingAction | null>(null);
 
-    const handleConfirmTakeDown = () => {
-        if (takingDownId == null) return;
-        takeDown(takingDownId, { onSuccess: () => closeDialog() });
+    const closeDialog = () => setPending(null);
+
+    const handleConfirm = () => {
+        if (!pending) return;
+        if (pending.kind === "cancel-submission") {
+            cancelSubmit(pending.assetId, { onSuccess: () => closeDialog() });
+        } else {
+            deleteAsset(pending.assetId, { onSuccess: () => closeDialog() });
+        }
     };
+
+    const isPending = isDeleting || isCancelling;
+    const actionError = deleteError || cancelError;
+    const copy = pending ? ACTION_COPY[pending.kind] : null;
 
     return (
         <div className="min-h-screen p-8">
@@ -118,12 +168,49 @@ export default function MySellerListingsPage() {
                                         {asset.rejectionReason}
                                     </p>
                                 )}
-                                {asset.status !== "TAKEN_DOWN" && (
+                                {asset.status === "DRAFT" && (
                                     <div>
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => setTakingDownId(asset.id)}
+                                            onClick={() =>
+                                                setPending({
+                                                    kind: "delete-draft",
+                                                    assetId: asset.id,
+                                                })
+                                            }
+                                        >
+                                            Delete Draft
+                                        </Button>
+                                    </div>
+                                )}
+                                {asset.status === "PENDING_REVIEW" && (
+                                    <div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                setPending({
+                                                    kind: "cancel-submission",
+                                                    assetId: asset.id,
+                                                })
+                                            }
+                                        >
+                                            Cancel Submission
+                                        </Button>
+                                    </div>
+                                )}
+                                {asset.status === "PUBLISHED" && (
+                                    <div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                                setPending({
+                                                    kind: "take-down",
+                                                    assetId: asset.id,
+                                                })
+                                            }
                                         >
                                             Take Down
                                         </Button>
@@ -136,38 +223,39 @@ export default function MySellerListingsPage() {
             </div>
 
             <Dialog
-                open={takingDownId != null}
+                open={pending != null}
                 onOpenChange={(open) => {
                     if (!open) closeDialog();
                 }}
             >
                 <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Take down this asset?</DialogTitle>
-                        <DialogDescription>
-                            The asset will be hidden from the marketplace. You can keep this
-                            entry for your records but it can't be republished.
-                        </DialogDescription>
-                    </DialogHeader>
+                    {copy && (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>{copy.title}</DialogTitle>
+                                <DialogDescription>{copy.description}</DialogDescription>
+                            </DialogHeader>
 
-                    {takeDownError && (
-                        <p className="text-sm text-red-500">
-                            {getErrorMessage(takeDownError)}
-                        </p>
+                            {actionError && (
+                                <p className="text-sm text-red-500">
+                                    {getErrorMessage(actionError)}
+                                </p>
+                            )}
+
+                            <DialogFooter>
+                                <Button variant="outline" onClick={closeDialog}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    disabled={isPending}
+                                    onClick={handleConfirm}
+                                >
+                                    {isPending ? copy.pendingLabel : copy.confirmLabel}
+                                </Button>
+                            </DialogFooter>
+                        </>
                     )}
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={closeDialog}>
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            disabled={isTakingDown}
-                            onClick={handleConfirmTakeDown}
-                        >
-                            {isTakingDown ? "Taking down..." : "Confirm Take Down"}
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

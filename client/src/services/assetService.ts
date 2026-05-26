@@ -85,7 +85,12 @@ export async function rejectAsset(assetId: number, reason: string): Promise<Asse
     return res.data;
 }
 
-export async function takeDownAsset(assetId: number): Promise<Asset> {
+export async function deleteAsset(assetId: number): Promise<Asset | null> {
     const res = await apiClient.delete<Asset>(`/assets/${assetId}`);
+    return res.status === 204 ? null : res.data;
+}
+
+export async function cancelSubmission(assetId: number): Promise<Asset> {
+    const res = await apiClient.post<Asset>(`/assets/${assetId}/cancel-submission`);
     return res.data;
 }
