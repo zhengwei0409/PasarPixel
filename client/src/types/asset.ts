@@ -86,3 +86,27 @@ export interface RegisterFilePayload {
     fileType: string;
     fileSize: number;
 }
+
+export interface BrowseAssetItem extends AssetWithFiles {
+    seller: { userId: number; name: string; avatarUrl: string | null };
+}
+
+export type BrowseSort = "newest" | "price_asc" | "price_desc";
+
+export interface BrowseAssetsParams {
+    page?: number;
+    pageSize?: number;
+    sort?: BrowseSort;
+    category?: AssetCategory;
+    listingType?: ListingType;
+    minPrice?: number;
+    maxPrice?: number;
+    keyword?: string;
+}
+
+export interface BrowseAssetsResponse {
+    items: BrowseAssetItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+}

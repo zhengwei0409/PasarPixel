@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     approveAsset,
+    browseAssets,
     createAsset,
     getAsset,
     getMyAssets,
@@ -15,13 +16,26 @@ import {
     submitForReview,
     updateAsset,
 } from "../services/assetService";
-import type { Asset, AssetFile, CreateAssetPayload, UpdateAssetPayload } from "../types/asset";
+import type {
+    Asset,
+    AssetFile,
+    BrowseAssetsParams,
+    CreateAssetPayload,
+    UpdateAssetPayload,
+} from "../types/asset";
 
 export function useAsset(assetId: number | null) {
     return useQuery({
         queryKey: ["asset", assetId],
         queryFn: () => getAsset(assetId as number),
         enabled: assetId != null,
+    });
+}
+
+export function useBrowseAssets(params: BrowseAssetsParams) {
+    return useQuery({
+        queryKey: ["assets", "browse", params],
+        queryFn: () => browseAssets(params),
     });
 }
 

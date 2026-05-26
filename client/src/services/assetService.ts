@@ -6,6 +6,8 @@ import type {
     AssetWithFileCount,
     AssetWithFiles,
     AssetWithSeller,
+    BrowseAssetsParams,
+    BrowseAssetsResponse,
     CreateAssetPayload,
     GetUploadUrlPayload,
     GetUploadUrlResponse,
@@ -98,5 +100,10 @@ export async function deleteAsset(assetId: number): Promise<Asset | null> {
 
 export async function cancelSubmission(assetId: number): Promise<Asset> {
     const res = await apiClient.post<Asset>(`/assets/${assetId}/cancel-submission`);
+    return res.data;
+}
+
+export async function browseAssets(params: BrowseAssetsParams = {}): Promise<BrowseAssetsResponse> {
+    const res = await apiClient.get<BrowseAssetsResponse>("/assets/browse", { params });
     return res.data;
 }
