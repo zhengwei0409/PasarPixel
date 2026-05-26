@@ -68,6 +68,7 @@ model Asset {
   priceCommercial Decimal?
   isAiGenerated  Boolean     @default(false)
   isDeleted      Boolean     @default(false)
+  rejectionReason String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 

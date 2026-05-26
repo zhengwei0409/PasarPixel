@@ -242,6 +242,54 @@ export async function submitForReview(req: Request, res: Response) {
     res.json(updated);
 }
 
+export async function approveAsset(req: Request, res: Response) {
+    const assetId = parseInt(req.params.id as string);
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.status !== "PENDING_REVIEW") {
+        res.status(409).json({ error: "Only assets pending review can be approved" });
+        return;
+    }
+
+    const updated = await prisma.asset.update({
+        where: { id: assetId },
+        data: { status: "PUBLISHED", rejectionReason: null },
+    });
+
+    res.json(updated);
+}
+
+export async function rejectAsset(req: Request, res: Response) {
+    const assetId = parseInt(req.params.id as string);
+    const { reason } = req.body;
+
+    if (typeof reason !== "string" || reason.trim().length === 0) {
+        res.status(400).json({ error: "reason is required" });
+        return;
+    }
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.status !== "PENDING_REVIEW") {
+        res.status(409).json({ error: "Only assets pending review can be rejected" });
+        return;
+    }
+
+    const updated = await prisma.asset.update({
+        where: { id: assetId },
+        data: { status: "REJECTED", rejectionReason: reason.trim() },
+    });
+
+    res.json(updated);
+}
+
 export async function deleteFile(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);
