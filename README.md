@@ -34,8 +34,7 @@ PasarPixel/
 ├── gateway/
 │   └── kong/                 # Kong API gateway config (kong.yml, DB-less mode)
 ├── infra/
-│   ├── docker/               # Docker Compose for local development
-│   └── scripts/              # Database seed scripts
+│   └── docker/               # Docker Compose for local development
 └── shared/
     ├── types/                # Shared event payloads + DTOs across services
     └── utils/                # Shared helpers (e.g. RabbitMQ exchange names)

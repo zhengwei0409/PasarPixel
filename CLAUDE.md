@@ -186,10 +186,8 @@ PasarPixel/
 │       └── kong.yml                 # Kong routes (DB-less mode) + global CORS plugin
 │
 ├── infra/
-│   ├── docker/
-│   │   └── docker-compose.yml       # Spins up all services locally (Kong is the only host-exposed gateway)
-│   └── scripts/
-│       └── seed.ts                  # Database seed script
+│   └── docker/
+│       └── docker-compose.yml       # Spins up all services locally (Kong is the only host-exposed gateway)
 │
 ├── shared/
 │   ├── types/                       # Shared event payloads (UserRegisteredEvent, SellerApprovedEvent, etc.)
