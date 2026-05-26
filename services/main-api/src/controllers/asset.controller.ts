@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { AssetCategory, ListingType } from "@prisma/client";
 import { getPresignedUploadUrl, deleteObject, extractKeyFromUrl } from "../lib/s3";
@@ -200,7 +201,37 @@ export async function browseAssets(req: Request, res: Response) {
               ? { pricePersonal: "desc" as const }
               : { createdAt: "desc" as const };
 
-    const where = { status: "PUBLISHED" as const, isDeleted: false };
+    const where: Prisma.AssetWhereInput = {
+        status: "PUBLISHED",
+        isDeleted: false,
+    };
+
+    const category = req.query.category as string | undefined;
+    if (category && VALID_CATEGORIES.includes(category as AssetCategory)) {
+        where.category = category as AssetCategory;
+    }
+
+    const listingType = req.query.listingType as string | undefined;
+    if (listingType && VALID_LISTING_TYPES.includes(listingType as ListingType)) {
+        where.listingType = listingType as ListingType;
+    }
+
+    const priceFilter: Prisma.DecimalFilter = {};
+    const minPrice = parseFloat(String(req.query.minPrice ?? ""));
+    const maxPrice = parseFloat(String(req.query.maxPrice ?? ""));
+    if (!isNaN(minPrice) && minPrice >= 0) priceFilter.gte = minPrice;
+    if (!isNaN(maxPrice) && maxPrice >= 0) priceFilter.lte = maxPrice;
+    if (Object.keys(priceFilter).length > 0) {
+        where.pricePersonal = priceFilter;
+    }
+
+    const keyword = (req.query.keyword as string | undefined)?.trim();
+    if (keyword) {
+        where.OR = [
+            { title: { contains: keyword, mode: "insensitive" } },
+            { description: { contains: keyword, mode: "insensitive" } },
+        ];
+    }
 
     const [items, total] = await Promise.all([
         prisma.asset.findMany({
