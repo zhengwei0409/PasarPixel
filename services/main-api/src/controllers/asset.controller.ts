@@ -188,6 +188,19 @@ export async function getMyAssets(req: Request, res: Response) {
     res.json(assets);
 }
 
+export async function getPendingReviewAssets(_req: Request, res: Response) {
+    const assets = await prisma.asset.findMany({
+        where: { status: "PENDING_REVIEW", isDeleted: false },
+        include: {
+            _count: { select: { files: true } },
+            seller: { select: { userId: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: "asc" },
+    });
+
+    res.json(assets);
+}
+
 export async function getAssetById(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);

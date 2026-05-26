@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+    approveAsset,
     createAsset,
     getAsset,
     getMyAssets,
+    getPendingReviewAssets,
     getUploadUrl,
     uploadToS3,
     registerFile,
+    rejectAsset,
     deleteFile,
     submitForReview,
 } from "../services/assetService";
@@ -23,6 +26,42 @@ export function useMyAssets() {
     return useQuery({
         queryKey: ["assets", "mine"],
         queryFn: () => getMyAssets(),
+    });
+}
+
+export function usePendingReviewAssets() {
+    return useQuery({
+        queryKey: ["assets", "pending-review"],
+        queryFn: () => getPendingReviewAssets(),
+    });
+}
+
+export function useApproveAsset() {
+    const queryClient = useQueryClient();
+    return useMutation<Asset, Error, number>({
+        mutationFn: (assetId: number) => approveAsset(assetId),
+        onSuccess: (_data, assetId) => {
+            queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "pending-review"] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
+    });
+}
+
+export interface RejectAssetVars {
+    assetId: number;
+    reason: string;
+}
+
+export function useRejectAsset() {
+    const queryClient = useQueryClient();
+    return useMutation<Asset, Error, RejectAssetVars>({
+        mutationFn: ({ assetId, reason }) => rejectAsset(assetId, reason),
+        onSuccess: (_data, vars) => {
+            queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "pending-review"] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
     });
 }
 

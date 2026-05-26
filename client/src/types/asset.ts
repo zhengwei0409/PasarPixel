@@ -48,6 +48,10 @@ export interface AssetWithFileCount extends Asset {
     _count: { files: number };
 }
 
+export interface AssetWithSeller extends AssetWithFileCount {
+    seller: { userId: number; name: string; email: string | null };
+}
+
 export interface CreateAssetPayload {
     title: string;
     description?: string;

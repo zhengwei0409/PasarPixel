@@ -88,10 +88,13 @@ export default function DashboardPage() {
                             </CardHeader>
                             <CardContent className="space-y-2">
                                 <p className="text-sm text-gray-600">
-                                    Review pending seller applications.
+                                    Review pending seller applications and asset uploads.
                                 </p>
                                 <Button asChild variant="outline" className="w-full">
                                     <Link to="/admin/applications">Seller Applications</Link>
+                                </Button>
+                                <Button asChild variant="outline" className="w-full">
+                                    <Link to="/admin/assets/pending">Pending Asset Reviews</Link>
                                 </Button>
                             </CardContent>
                         </Card>

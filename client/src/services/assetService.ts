@@ -5,6 +5,7 @@ import type {
     AssetFile,
     AssetWithFileCount,
     AssetWithFiles,
+    AssetWithSeller,
     CreateAssetPayload,
     GetUploadUrlPayload,
     GetUploadUrlResponse,
@@ -66,5 +67,20 @@ export async function deleteFile(assetId: number, fileId: number): Promise<void>
 
 export async function submitForReview(assetId: number): Promise<Asset> {
     const res = await apiClient.post<Asset>(`/assets/${assetId}/submit`);
+    return res.data;
+}
+
+export async function getPendingReviewAssets(): Promise<AssetWithSeller[]> {
+    const res = await apiClient.get<AssetWithSeller[]>("/assets/pending-review");
+    return res.data;
+}
+
+export async function approveAsset(assetId: number): Promise<Asset> {
+    const res = await apiClient.patch<Asset>(`/assets/${assetId}/approve`);
+    return res.data;
+}
+
+export async function rejectAsset(assetId: number, reason: string): Promise<Asset> {
+    const res = await apiClient.patch<Asset>(`/assets/${assetId}/reject`, { reason });
     return res.data;
 }
