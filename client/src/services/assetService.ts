@@ -10,10 +10,16 @@ import type {
     GetUploadUrlPayload,
     GetUploadUrlResponse,
     RegisterFilePayload,
+    UpdateAssetPayload,
 } from "../types/asset";
 
 export async function createAsset(payload: CreateAssetPayload): Promise<Asset> {
     const res = await apiClient.post<Asset>("/assets", payload);
+    return res.data;
+}
+
+export async function updateAsset(assetId: number, payload: UpdateAssetPayload): Promise<Asset> {
+    const res = await apiClient.patch<Asset>(`/assets/${assetId}`, payload);
     return res.data;
 }
 

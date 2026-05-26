@@ -61,6 +61,14 @@ export interface CreateAssetPayload {
     isAiGenerated?: boolean;
 }
 
+export interface UpdateAssetPayload {
+    title?: string;
+    description?: string;
+    category?: AssetCategory;
+    listingType?: ListingType;
+    isAiGenerated?: boolean;
+}
+
 export interface GetUploadUrlPayload {
     fileName: string;
     fileType: string;

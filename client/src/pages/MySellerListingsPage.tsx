@@ -169,7 +169,12 @@ export default function MySellerListingsPage() {
                                     </p>
                                 )}
                                 {asset.status === "DRAFT" && (
-                                    <div>
+                                    <div className="flex gap-2">
+                                        <Button asChild size="sm">
+                                            <Link to={`/seller/upload/${asset.id}`}>
+                                                Continue Draft
+                                            </Link>
+                                        </Button>
                                         <Button
                                             size="sm"
                                             variant="outline"

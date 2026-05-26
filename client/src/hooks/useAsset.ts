@@ -13,8 +13,9 @@ import {
     deleteFile,
     cancelSubmission,
     submitForReview,
+    updateAsset,
 } from "../services/assetService";
-import type { Asset, AssetFile, CreateAssetPayload } from "../types/asset";
+import type { Asset, AssetFile, CreateAssetPayload, UpdateAssetPayload } from "../types/asset";
 
 export function useAsset(assetId: number | null) {
     return useQuery({
@@ -90,8 +91,28 @@ export function useRejectAsset() {
 }
 
 export function useCreateAsset() {
+    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (payload: CreateAssetPayload) => createAsset(payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
+    });
+}
+
+export interface UpdateAssetVars {
+    assetId: number;
+    payload: UpdateAssetPayload;
+}
+
+export function useUpdateAsset() {
+    const queryClient = useQueryClient();
+    return useMutation<Asset, Error, UpdateAssetVars>({
+        mutationFn: ({ assetId, payload }) => updateAsset(assetId, payload),
+        onSuccess: (_data, vars) => {
+            queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
     });
 }
 

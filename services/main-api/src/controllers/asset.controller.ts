@@ -230,6 +230,59 @@ export async function deleteOrTakeDownAsset(req: Request, res: Response) {
     });
 }
 
+export async function updateAsset(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+    const { title, description, category, listingType, isAiGenerated } = req.body;
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.status !== "DRAFT") {
+        res.status(409).json({ error: "Only draft assets can be edited" });
+        return;
+    }
+
+    if (title !== undefined && (typeof title !== "string" || title.trim().length === 0)) {
+        res.status(400).json({ error: "title must be a non-empty string" });
+        return;
+    }
+    if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
+        res.status(400).json({ error: `category must be one of: ${VALID_CATEGORIES.join(", ")}` });
+        return;
+    }
+    if (listingType !== undefined && !VALID_LISTING_TYPES.includes(listingType)) {
+        res.status(400).json({ error: `listingType must be one of: ${VALID_LISTING_TYPES.join(", ")}` });
+        return;
+    }
+
+    const data: {
+        title?: string;
+        description?: string | null;
+        category?: AssetCategory;
+        listingType?: ListingType;
+        isAiGenerated?: boolean;
+    } = {};
+    if (title !== undefined) data.title = title.trim();
+    if (description !== undefined) data.description = description || null;
+    if (category !== undefined) data.category = category;
+    if (listingType !== undefined) data.listingType = listingType;
+    if (isAiGenerated !== undefined) data.isAiGenerated = Boolean(isAiGenerated);
+
+    const updated = await prisma.asset.update({
+        where: { id: assetId },
+        data,
+    });
+
+    res.json(updated);
+}
+
 export async function cancelSubmission(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);

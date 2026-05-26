@@ -41,6 +41,7 @@ function App() {
 
       <Route element={<ProtectedRoute allowedRoles={["SELLER"]} />}>
         <Route path="/seller/upload" element={<SellerUploadPage />} />
+        <Route path="/seller/upload/:assetId" element={<SellerUploadPage />} />
         <Route path="/seller/listings" element={<MySellerListingsPage />} />
       </Route>
 
