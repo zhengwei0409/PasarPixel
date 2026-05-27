@@ -17,6 +17,17 @@ function formatPrice(price: string | null): string {
     return `$${Number(price).toFixed(2)}`;
 }
 
+function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function extractFileName(fileUrl: string): string {
+    const last = fileUrl.split("/").pop() ?? "file";
+    return last.replace(/^\d+-/, "");
+}
+
 export default function AssetDetailPage() {
     const { id } = useParams<{ id: string }>();
     const assetId = id ? parseInt(id, 10) : NaN;
@@ -102,6 +113,39 @@ export default function AssetDetailPage() {
                         </div>
                     )}
                 </div>
+            </div>
+
+            <div className="mt-10">
+                <h2 className="mb-3 text-sm font-medium">
+                    Files included ({asset.files.length})
+                </h2>
+                {asset.files.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No files attached.</p>
+                ) : (
+                    <ul className="divide-y rounded-lg border">
+                        {asset.files.map((file) => (
+                            <li
+                                key={file.id}
+                                className="flex items-center justify-between gap-4 px-4 py-3"
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-medium">
+                                        {extractFileName(file.fileUrl)}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {file.fileType}
+                                    </p>
+                                </div>
+                                <span className="shrink-0 text-xs text-muted-foreground">
+                                    {formatFileSize(file.fileSize)}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Files are available for download after purchase.
+                </p>
             </div>
         </div>
     );
