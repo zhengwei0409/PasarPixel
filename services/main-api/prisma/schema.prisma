@@ -113,12 +113,13 @@ enum AssetStatus {
 }
 
 model AssetFile {
-  id        Int      @id @default(autoincrement())
-  assetId   Int
-  fileType  String
-  fileUrl   String
-  fileSize  Int
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  assetId    Int
+  fileType   String
+  fileUrl    String
+  previewUrl String?
+  fileSize   Int
+  createdAt  DateTime @default(now())
 
   asset Asset @relation(fields: [assetId], references: [id])
 
