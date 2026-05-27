@@ -282,8 +282,8 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                             </Select>
                         </div>
                         <p className="text-xs text-gray-500">
-                            Leave a tier blank to disable it. At least one tier must have a
-                            price before submission.
+                            Leave a tier blank to disable it, or set it to 0 for free. At
+                            least one tier must be set before submission.
                         </p>
                     </>
                 )}
@@ -492,7 +492,12 @@ export default function SellerUploadPage() {
                                     disabled={
                                         isSubmitting || !asset || asset.files.length === 0
                                     }
-                                    onClick={() => urlAssetId && submit(urlAssetId)}
+                                    onClick={() =>
+                                        urlAssetId &&
+                                        submit(urlAssetId, {
+                                            onSuccess: () => navigate("/seller/listings"),
+                                        })
+                                    }
                                 >
                                     {isSubmitting
                                         ? "Submitting..."

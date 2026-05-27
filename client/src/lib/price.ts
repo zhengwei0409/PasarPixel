@@ -21,6 +21,7 @@ export function formatPrice(
     if (amount === null || amount === undefined || amount === "") return "—";
     const n = typeof amount === "number" ? amount : parseFloat(amount);
     if (isNaN(n)) return "—";
+    if (n === 0) return "Free";
     const converted = convertFiat(n, from, displayIn);
     return `${CURRENCY_SYMBOL[displayIn]}${converted.toFixed(2)}`;
 }
@@ -29,5 +30,6 @@ export function formatSol(amount: number | string | null | undefined): string {
     if (amount === null || amount === undefined || amount === "") return "—";
     const n = typeof amount === "number" ? amount : parseFloat(amount);
     if (isNaN(n)) return "—";
+    if (n === 0) return "Free";
     return `${n.toFixed(2)} SOL`;
 }

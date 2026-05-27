@@ -21,6 +21,7 @@ function startingPriceLabel(asset: BrowseAssetItem): string {
         .filter((n): n is number => n !== null && !isNaN(n));
     if (prices.length === 0) return "—";
     const min = Math.min(...prices);
+    if (min === 0) return "Free";
     return `from ${formatPrice(min, asset.currency)}`;
 }
 
