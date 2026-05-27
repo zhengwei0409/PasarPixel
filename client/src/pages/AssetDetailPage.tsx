@@ -100,9 +100,41 @@ export default function AssetDetailPage() {
                         </span>
                     </div>
 
-                    <p className="text-sm text-muted-foreground">by {asset.seller.name}</p>
+                    <div className="flex items-center gap-3 rounded-lg border p-3">
+                        {asset.seller.avatarUrl ? (
+                            <img
+                                src={asset.seller.avatarUrl}
+                                alt={asset.seller.name}
+                                className="h-10 w-10 rounded-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+                                {asset.seller.name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs text-muted-foreground">Seller</p>
+                            <p className="truncate text-sm font-medium">{asset.seller.name}</p>
+                        </div>
+                    </div>
 
-                    <p className="text-2xl font-semibold">{formatPrice(asset.pricePersonal)}</p>
+                    <div className="rounded-lg border p-4">
+                        <p className="mb-1 text-xs text-muted-foreground">Price</p>
+                        <p className="mb-3 text-2xl font-semibold">
+                            {formatPrice(asset.pricePersonal)}
+                        </p>
+                        <Button
+                            className="w-full"
+                            size="lg"
+                            disabled
+                            title="Purchase flow coming soon"
+                        >
+                            Buy for {formatPrice(asset.pricePersonal)}
+                        </Button>
+                        <p className="mt-2 text-center text-xs text-muted-foreground">
+                            Purchase flow coming soon
+                        </p>
+                    </div>
 
                     {asset.description && (
                         <div>
