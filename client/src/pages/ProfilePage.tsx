@@ -6,6 +6,7 @@ import { Label } from "../components/ui/label";
 import { useProfile } from "../hooks/useProfile";
 import { useUpdateProfile } from "../hooks/useUpdateProfile";
 import { useUploadAvatar, useDeleteAvatar } from "../hooks/useAvatar";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
@@ -76,17 +77,14 @@ export default function ProfilePage() {
                 <h1 className="text-2xl font-bold">My Profile</h1>
 
                 <div className="flex items-center gap-4">
-                    {profile?.avatarUrl ? (
-                        <img
-                            src={profile.avatarUrl}
-                            alt="Avatar"
-                            className="h-20 w-20 rounded-full object-cover"
-                        />
-                    ) : (
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted text-2xl font-medium text-muted-foreground">
+                    <Avatar size="lg" className="size-20!">
+                        {profile?.avatarUrl && (
+                            <AvatarImage src={profile.avatarUrl} alt={profile?.name ?? "Avatar"} />
+                        )}
+                        <AvatarFallback className="text-2xl">
                             {(profile?.name ?? "?").charAt(0).toUpperCase()}
-                        </div>
-                    )}
+                        </AvatarFallback>
+                    </Avatar>
                     <div className="space-y-2">
                         <input
                             ref={fileInputRef}

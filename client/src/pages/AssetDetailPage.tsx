@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { usePublicAsset } from "@/hooks/useAsset";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { AssetCategory } from "@/types/asset";
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
@@ -101,17 +102,17 @@ export default function AssetDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-3 rounded-lg border p-3">
-                        {asset.seller.avatarUrl ? (
-                            <img
-                                src={asset.seller.avatarUrl}
-                                alt={asset.seller.name}
-                                className="h-10 w-10 rounded-full object-cover"
-                            />
-                        ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+                        <Avatar size="lg">
+                            {asset.seller.avatarUrl && (
+                                <AvatarImage
+                                    src={asset.seller.avatarUrl}
+                                    alt={asset.seller.name}
+                                />
+                            )}
+                            <AvatarFallback>
                                 {asset.seller.name.charAt(0).toUpperCase()}
-                            </div>
-                        )}
+                            </AvatarFallback>
+                        </Avatar>
                         <div className="min-w-0 flex-1">
                             <p className="text-xs text-muted-foreground">Seller</p>
                             <p className="truncate text-sm font-medium">{asset.seller.name}</p>
