@@ -10,6 +10,7 @@ import {
     putObjectBuffer,
 } from "../lib/s3";
 import { watermarkImage } from "../lib/watermark";
+import { generateVideoPreview } from "../lib/videoPreview";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -260,6 +261,19 @@ export async function registerFile(req: Request, res: Response) {
             });
         } catch (err) {
             console.error("Watermark generation failed", { key, err });
+        }
+    } else if (fileType.startsWith("video/")) {
+        try {
+            const original = await getObjectBuffer(key);
+            const preview = await generateVideoPreview(original);
+            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.mp4";
+            previewUrl = await putObjectBuffer({
+                key: previewKey,
+                body: preview,
+                contentType: "video/mp4",
+            });
+        } catch (err) {
+            console.error("Video preview generation failed", { key, err });
         }
     }
 
