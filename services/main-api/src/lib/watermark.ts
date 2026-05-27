@@ -13,17 +13,24 @@ export async function watermarkImage(input: Buffer): Promise<Buffer> {
   const scale = targetWidth / width;
   const targetHeight = Math.round(height * scale);
 
-  const tileSize = Math.max(160, Math.round(targetWidth / 4));
-  const fontSize = Math.max(18, Math.round(tileSize / 8));
+  const fontSize = Math.max(24, Math.round(targetWidth / 22));
+  const stepX = Math.round(fontSize * 12);
+  const stepY = Math.round(fontSize * 8);
+
+  const texts: string[] = [];
+  for (let y = -stepY; y < targetHeight + stepY; y += stepY) {
+    for (let x = -stepX; x < targetWidth + stepX; x += stepX) {
+      texts.push(
+        `<text x="${x}" y="${y}" font-family="sans-serif" font-weight="bold" font-size="${fontSize}" fill="white" fill-opacity="0.45" stroke="black" stroke-opacity="0.25" stroke-width="1">${WATERMARK_TEXT}</text>`,
+      );
+    }
+  }
 
   const svg = `
     <svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <pattern id="wm" x="0" y="0" width="${tileSize}" height="${tileSize}" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
-          <text x="0" y="${tileSize / 2}" font-family="Arial, sans-serif" font-size="${fontSize}" fill="white" fill-opacity="0.35" stroke="black" stroke-opacity="0.15" stroke-width="0.5">${WATERMARK_TEXT}</text>
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#wm)" />
+      <g transform="rotate(-30 ${targetWidth / 2} ${targetHeight / 2})">
+        ${texts.join("\n")}
+      </g>
     </svg>
   `;
 
