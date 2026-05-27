@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
     const { user, logout } = useAuth();
+    const { data: profile } = useProfile();
 
     return (
         <nav className="flex items-center justify-between border-b px-6 py-3">
@@ -26,8 +29,16 @@ export default function Navbar() {
                         <NotificationBell />
                         <Link
                             to="/profile"
-                            className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+                            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
                         >
+                            <Avatar size="sm">
+                                {profile?.avatarUrl && (
+                                    <AvatarImage src={profile.avatarUrl} alt={user.email} />
+                                )}
+                                <AvatarFallback>
+                                    {(profile?.name ?? user.email).charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
                             {user.email}
                         </Link>
                         <Button variant="outline" size="sm" onClick={logout}>

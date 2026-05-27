@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { BrowseAssetItem } from "@/types/asset";
 
 const CATEGORY_LABELS: Record<BrowseAssetItem["category"], string> = {
@@ -43,7 +44,17 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
                         {CATEGORY_LABELS[asset.category]}
                     </span>
                 </div>
-                <p className="text-xs text-muted-foreground">by {asset.seller.name}</p>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Avatar size="sm">
+                        {asset.seller.avatarUrl && (
+                            <AvatarImage src={asset.seller.avatarUrl} alt={asset.seller.name} />
+                        )}
+                        <AvatarFallback>
+                            {asset.seller.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate">by {asset.seller.name}</span>
+                </div>
                 <p className="text-sm font-semibold">{formatPrice(asset.pricePersonal)}</p>
             </div>
         </Link>
