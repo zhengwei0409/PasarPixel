@@ -81,6 +81,7 @@ type AssetData = NonNullable<ReturnType<typeof usePublicAsset>["data"]>;
 
 function AssetDetailContent({ asset }: { asset: AssetData }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
+    const videoFile = asset.files.find((f) => f.fileType.startsWith("video/"));
     const isBlockchain = asset.listingType === "BLOCKCHAIN";
     const hasPersonal = asset.pricePersonal !== null;
     const hasCommercial = asset.priceCommercial !== null;
@@ -96,7 +97,14 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
         <div className="mx-auto max-w-6xl px-6 py-8">
             <div className="grid gap-8 md:grid-cols-2">
                 <div className="aspect-square w-full overflow-hidden rounded-lg border bg-muted">
-                    {thumbnail ? (
+                    {videoFile && videoFile.previewUrl ? (
+                        <video
+                            src={videoFile.previewUrl}
+                            controls
+                            controlsList="nodownload"
+                            className="h-full w-full object-cover"
+                        />
+                    ) : thumbnail ? (
                         <img
                             src={thumbnail.previewUrl ?? thumbnail.fileUrl}
                             alt={asset.title}
