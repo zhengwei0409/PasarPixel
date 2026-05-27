@@ -41,6 +41,7 @@ export interface AssetFile {
     assetId: number;
     fileType: string;
     fileUrl: string;
+    previewUrl: string | null;
     fileSize: number;
     createdAt: string;
 }
