@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { AssetCategory, ListingType } from "@prisma/client";
+import { AssetCategory, ListingType, Currency } from "@prisma/client";
 import { getPresignedUploadUrl, deleteObject, extractKeyFromUrl } from "../lib/s3";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -17,6 +17,69 @@ const VALID_CATEGORIES: AssetCategory[] = [
 ];
 
 const VALID_LISTING_TYPES: ListingType[] = ["TRADITIONAL", "BLOCKCHAIN"];
+
+const VALID_CURRENCIES: Currency[] = ["USD", "MYR"];
+
+type PricingInput = {
+    pricePersonal?: unknown;
+    priceCommercial?: unknown;
+    priceSol?: unknown;
+    currency?: unknown;
+};
+
+type PricingFields = {
+    pricePersonal: Prisma.Decimal | null;
+    priceCommercial: Prisma.Decimal | null;
+    priceSol: Prisma.Decimal | null;
+    currency: Currency;
+};
+
+function parsePrice(value: unknown, field: string): Prisma.Decimal | null | string {
+    if (value === undefined || value === null || value === "") return null;
+    const n = typeof value === "number" ? value : parseFloat(String(value));
+    if (isNaN(n) || n < 0) return `${field} must be a non-negative number`;
+    return new Prisma.Decimal(n);
+}
+
+function validatePricing(
+    input: PricingInput,
+    listingType: ListingType,
+): { ok: true; data: PricingFields } | { ok: false; error: string } {
+    const personal = parsePrice(input.pricePersonal, "pricePersonal");
+    if (typeof personal === "string") return { ok: false, error: personal };
+    const commercial = parsePrice(input.priceCommercial, "priceCommercial");
+    if (typeof commercial === "string") return { ok: false, error: commercial };
+    const sol = parsePrice(input.priceSol, "priceSol");
+    if (typeof sol === "string") return { ok: false, error: sol };
+
+    let currency: Currency = "USD";
+    if (input.currency !== undefined && input.currency !== null) {
+        if (!VALID_CURRENCIES.includes(input.currency as Currency)) {
+            return { ok: false, error: `currency must be one of: ${VALID_CURRENCIES.join(", ")}` };
+        }
+        currency = input.currency as Currency;
+    }
+
+    if (listingType === "BLOCKCHAIN") {
+        if (personal !== null || commercial !== null) {
+            return { ok: false, error: "Blockchain listings cannot set fiat prices" };
+        }
+    } else {
+        if (sol !== null) {
+            return { ok: false, error: "Traditional listings cannot set SOL price" };
+        }
+    }
+
+    return {
+        ok: true,
+        data: {
+            pricePersonal: personal,
+            priceCommercial: commercial,
+            priceSol: sol,
+            currency,
+        },
+    };
+}
 
 export async function createAsset(req: Request, res: Response) {
     const userId = req.user!.userId;
@@ -37,6 +100,12 @@ export async function createAsset(req: Request, res: Response) {
         return;
     }
 
+    const pricing = validatePricing(req.body, listingType);
+    if (!pricing.ok) {
+        res.status(400).json({ error: pricing.error });
+        return;
+    }
+
     const profile = await prisma.userProfile.findUnique({ where: { userId } });
     if (!profile) {
         res.status(404).json({ error: "User profile not found" });
@@ -51,6 +120,10 @@ export async function createAsset(req: Request, res: Response) {
             category,
             listingType,
             isAiGenerated: Boolean(isAiGenerated),
+            pricePersonal: pricing.data.pricePersonal,
+            priceCommercial: pricing.data.priceCommercial,
+            priceSol: pricing.data.priceSol,
+            currency: pricing.data.currency,
         },
     });
 
@@ -364,12 +437,35 @@ export async function updateAsset(req: Request, res: Response) {
         category?: AssetCategory;
         listingType?: ListingType;
         isAiGenerated?: boolean;
+        pricePersonal?: Prisma.Decimal | null;
+        priceCommercial?: Prisma.Decimal | null;
+        priceSol?: Prisma.Decimal | null;
+        currency?: Currency;
     } = {};
     if (title !== undefined) data.title = title.trim();
     if (description !== undefined) data.description = description || null;
     if (category !== undefined) data.category = category;
     if (listingType !== undefined) data.listingType = listingType;
     if (isAiGenerated !== undefined) data.isAiGenerated = Boolean(isAiGenerated);
+
+    const pricingTouched =
+        req.body.pricePersonal !== undefined ||
+        req.body.priceCommercial !== undefined ||
+        req.body.priceSol !== undefined ||
+        req.body.currency !== undefined;
+
+    if (pricingTouched) {
+        const effectiveListingType = (listingType ?? asset.listingType) as ListingType;
+        const pricing = validatePricing(req.body, effectiveListingType);
+        if (!pricing.ok) {
+            res.status(400).json({ error: pricing.error });
+            return;
+        }
+        if (req.body.pricePersonal !== undefined) data.pricePersonal = pricing.data.pricePersonal;
+        if (req.body.priceCommercial !== undefined) data.priceCommercial = pricing.data.priceCommercial;
+        if (req.body.priceSol !== undefined) data.priceSol = pricing.data.priceSol;
+        if (req.body.currency !== undefined) data.currency = pricing.data.currency;
+    }
 
     const updated = await prisma.asset.update({
         where: { id: assetId },
