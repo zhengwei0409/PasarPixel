@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { usePublicAsset } from "@/hooks/useAsset";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AiBadge } from "@/components/marketplace/AiBadge";
 import type { AssetCategory, Currency } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
 
@@ -110,7 +111,10 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
 
                 <div className="space-y-4">
                     <div className="flex items-start justify-between gap-3">
-                        <h1 className="text-2xl font-semibold">{asset.title}</h1>
+                        <div className="space-y-2">
+                            <h1 className="text-2xl font-semibold">{asset.title}</h1>
+                            {asset.isAiGenerated && <AiBadge />}
+                        </div>
                         <span className="shrink-0 rounded bg-muted px-2 py-1 text-xs uppercase text-muted-foreground">
                             {CATEGORY_LABELS[asset.category]}
                         </span>
