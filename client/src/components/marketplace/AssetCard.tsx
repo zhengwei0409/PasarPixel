@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AiBadge } from "@/components/marketplace/AiBadge";
 import type { BrowseAssetItem } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
 
@@ -33,7 +34,7 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
             to={`/assets/${asset.id}`}
             className="group block overflow-hidden rounded-lg border bg-card transition hover:shadow-md"
         >
-            <div className="aspect-square w-full bg-muted">
+            <div className="relative aspect-square w-full bg-muted">
                 {thumbnail ? (
                     <img
                         src={thumbnail.fileUrl}
@@ -45,6 +46,7 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
                         No preview
                     </div>
                 )}
+                {asset.isAiGenerated && <AiBadge className="absolute left-2 top-2" />}
             </div>
             <div className="space-y-1 p-3">
                 <div className="flex items-start justify-between gap-2">
