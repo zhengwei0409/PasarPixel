@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-RUN apk add --no-cache fontconfig ttf-dejavu
+RUN apk add --no-cache fontconfig ttf-dejavu ffmpeg
 
 RUN npm install -g pnpm
 
