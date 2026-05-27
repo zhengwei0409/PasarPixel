@@ -1,10 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useProfile } from "../hooks/useProfile";
 import { useUpdateProfile } from "../hooks/useUpdateProfile";
+import { useUploadAvatar, useDeleteAvatar } from "../hooks/useAvatar";
+
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
 interface ProfileForm {
     name: string;
@@ -18,8 +21,26 @@ interface ProfileForm {
 export default function ProfilePage() {
     const { data: profile, isLoading, isError } = useProfile();
     const { mutate: saveProfile, isPending, isSuccess, error: saveError } = useUpdateProfile();
+    const uploadAvatar = useUploadAvatar();
+    const removeAvatar = useDeleteAvatar();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { register, handleSubmit, reset } = useForm<ProfileForm>();
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            alert("Please select an image file.");
+            return;
+        }
+        if (file.size > MAX_AVATAR_SIZE) {
+            alert("Image must be smaller than 5 MB.");
+            return;
+        }
+        uploadAvatar.mutate(file);
+    };
 
     useEffect(() => {
         if (!profile) return;
@@ -53,6 +74,57 @@ export default function ProfilePage() {
         <div className="min-h-screen flex items-center justify-center">
             <div className="w-full max-w-md space-y-6">
                 <h1 className="text-2xl font-bold">My Profile</h1>
+
+                <div className="flex items-center gap-4">
+                    {profile?.avatarUrl ? (
+                        <img
+                            src={profile.avatarUrl}
+                            alt="Avatar"
+                            className="h-20 w-20 rounded-full object-cover"
+                        />
+                    ) : (
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted text-2xl font-medium text-muted-foreground">
+                            {(profile?.name ?? "?").charAt(0).toUpperCase()}
+                        </div>
+                    )}
+                    <div className="space-y-2">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleAvatarChange}
+                        />
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploadAvatar.isPending || removeAvatar.isPending}
+                            >
+                                {uploadAvatar.isPending ? "Uploading..." : "Upload picture"}
+                            </Button>
+                            {profile?.avatarUrl && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => removeAvatar.mutate()}
+                                    disabled={uploadAvatar.isPending || removeAvatar.isPending}
+                                >
+                                    Remove
+                                </Button>
+                            )}
+                        </div>
+                        {uploadAvatar.error && (
+                            <p className="text-xs text-red-500">Upload failed.</p>
+                        )}
+                        {removeAvatar.error && (
+                            <p className="text-xs text-red-500">Remove failed.</p>
+                        )}
+                    </div>
+                </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="space-y-1">
