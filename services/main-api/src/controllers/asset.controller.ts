@@ -560,6 +560,20 @@ export async function submitForReview(req: Request, res: Response) {
         return;
     }
 
+    if (asset.listingType === "BLOCKCHAIN") {
+        if (asset.priceSol === null) {
+            res.status(400).json({ error: "Blockchain listings must set a SOL price before submission" });
+            return;
+        }
+    } else {
+        if (asset.pricePersonal === null && asset.priceCommercial === null) {
+            res.status(400).json({
+                error: "At least one license tier (Personal or Commercial) must have a price before submission",
+            });
+            return;
+        }
+    }
+
     const updated = await prisma.asset.update({
         where: { id: assetId },
         data: { status: "PENDING_REVIEW" },
