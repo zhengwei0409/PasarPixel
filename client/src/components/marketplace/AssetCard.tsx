@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { BrowseAssetItem } from "@/types/asset";
+import { formatPrice, formatSol } from "@/lib/price";
 
 const CATEGORY_LABELS: Record<BrowseAssetItem["category"], string> = {
     THREE_D_MODEL: "3D Model",
@@ -11,9 +12,16 @@ const CATEGORY_LABELS: Record<BrowseAssetItem["category"], string> = {
     ANIMATION: "Animation",
 };
 
-function formatPrice(price: string | null): string {
-    if (price === null) return "Free";
-    return `$${Number(price).toFixed(2)}`;
+function startingPriceLabel(asset: BrowseAssetItem): string {
+    if (asset.listingType === "BLOCKCHAIN") {
+        return formatSol(asset.priceSol);
+    }
+    const prices = [asset.pricePersonal, asset.priceCommercial]
+        .map((p) => (p === null ? null : parseFloat(p)))
+        .filter((n): n is number => n !== null && !isNaN(n));
+    if (prices.length === 0) return "—";
+    const min = Math.min(...prices);
+    return `from ${formatPrice(min, asset.currency)}`;
 }
 
 export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
@@ -55,7 +63,7 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
                     </Avatar>
                     <span className="truncate">by {asset.seller.name}</span>
                 </div>
-                <p className="text-sm font-semibold">{formatPrice(asset.pricePersonal)}</p>
+                <p className="text-sm font-semibold">{startingPriceLabel(asset)}</p>
             </div>
         </Link>
     );
