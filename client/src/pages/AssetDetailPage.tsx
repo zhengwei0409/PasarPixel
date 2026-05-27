@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { usePublicAsset } from "@/hooks/useAsset";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { AssetCategory } from "@/types/asset";
+import type { AssetCategory, Currency } from "@/types/asset";
+import { formatPrice, formatSol } from "@/lib/price";
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
     THREE_D_MODEL: "3D Model",
@@ -13,10 +15,7 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
     ANIMATION: "Animation",
 };
 
-function formatPrice(price: string | null): string {
-    if (price === null) return "Free";
-    return `$${Number(price).toFixed(2)}`;
-}
+type LicenseTier = "PERSONAL" | "COMMERCIAL";
 
 function formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -74,7 +73,23 @@ export default function AssetDetailPage() {
         );
     }
 
+    return <AssetDetailContent asset={asset} />;
+}
+
+type AssetData = NonNullable<ReturnType<typeof usePublicAsset>["data"]>;
+
+function AssetDetailContent({ asset }: { asset: AssetData }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
+    const isBlockchain = asset.listingType === "BLOCKCHAIN";
+    const hasPersonal = asset.pricePersonal !== null;
+    const hasCommercial = asset.priceCommercial !== null;
+
+    const [tier, setTier] = useState<LicenseTier>(hasPersonal ? "PERSONAL" : "COMMERCIAL");
+    const [displayCurrency, setDisplayCurrency] = useState<Currency>(asset.currency);
+
+    const fiatPrice = tier === "PERSONAL" ? asset.pricePersonal : asset.priceCommercial;
+    const fiatLabel = formatPrice(fiatPrice, asset.currency, displayCurrency);
+    const solLabel = formatSol(asset.priceSol);
 
     return (
         <div className="mx-auto max-w-6xl px-6 py-8">
@@ -119,20 +134,102 @@ export default function AssetDetailPage() {
                         </div>
                     </div>
 
-                    <div className="rounded-lg border p-4">
-                        <p className="mb-1 text-xs text-muted-foreground">Price</p>
-                        <p className="mb-3 text-2xl font-semibold">
-                            {formatPrice(asset.pricePersonal)}
-                        </p>
-                        <Button
-                            className="w-full"
-                            size="lg"
-                            disabled
-                            title="Purchase flow coming soon"
-                        >
-                            Buy for {formatPrice(asset.pricePersonal)}
-                        </Button>
-                        <p className="mt-2 text-center text-xs text-muted-foreground">
+                    <div className="rounded-lg border p-4 space-y-3">
+                        {isBlockchain ? (
+                            <>
+                                <p className="text-xs text-muted-foreground">Price</p>
+                                <p className="text-2xl font-semibold">{solLabel}</p>
+                                <Button
+                                    className="w-full"
+                                    size="lg"
+                                    disabled={asset.priceSol === null}
+                                    title="Purchase flow coming soon"
+                                >
+                                    {asset.priceSol === null
+                                        ? "Not for sale"
+                                        : `Buy for ${solLabel}`}
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                <div>
+                                    <p className="mb-2 text-xs text-muted-foreground">License</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTier("PERSONAL")}
+                                            disabled={!hasPersonal}
+                                            className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+                                                tier === "PERSONAL"
+                                                    ? "border-primary bg-primary/5"
+                                                    : "border-border hover:border-foreground/30"
+                                            } ${!hasPersonal ? "opacity-40 cursor-not-allowed" : ""}`}
+                                        >
+                                            <div className="font-medium">Personal</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {formatPrice(
+                                                    asset.pricePersonal,
+                                                    asset.currency,
+                                                    displayCurrency,
+                                                )}
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTier("COMMERCIAL")}
+                                            disabled={!hasCommercial}
+                                            className={`rounded-md border px-3 py-2 text-left text-sm transition ${
+                                                tier === "COMMERCIAL"
+                                                    ? "border-primary bg-primary/5"
+                                                    : "border-border hover:border-foreground/30"
+                                            } ${!hasCommercial ? "opacity-40 cursor-not-allowed" : ""}`}
+                                        >
+                                            <div className="font-medium">Commercial</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {formatPrice(
+                                                    asset.priceCommercial,
+                                                    asset.currency,
+                                                    displayCurrency,
+                                                )}
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-muted-foreground">Show in</p>
+                                    <div className="flex gap-1 text-xs">
+                                        {(["USD", "MYR"] as Currency[]).map((c) => (
+                                            <button
+                                                key={c}
+                                                type="button"
+                                                onClick={() => setDisplayCurrency(c)}
+                                                className={`rounded px-2 py-1 ${
+                                                    displayCurrency === c
+                                                        ? "bg-foreground text-background"
+                                                        : "bg-muted text-muted-foreground"
+                                                }`}
+                                            >
+                                                {c}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <p className="text-2xl font-semibold">{fiatLabel}</p>
+                                <Button
+                                    className="w-full"
+                                    size="lg"
+                                    disabled={fiatPrice === null}
+                                    title="Purchase flow coming soon"
+                                >
+                                    {fiatPrice === null
+                                        ? "Tier not available"
+                                        : `Buy for ${fiatLabel}`}
+                                </Button>
+                            </>
+                        )}
+                        <p className="text-center text-xs text-muted-foreground">
                             Purchase flow coming soon
                         </p>
                     </div>
