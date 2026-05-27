@@ -36,6 +36,7 @@ export default function MarketplacePage() {
     const [keyword, setKeyword] = useState("");
     const [category, setCategory] = useState<AssetCategory | typeof ALL>(ALL);
     const [listingType, setListingType] = useState<ListingType | typeof ALL>(ALL);
+    const [aiFilter, setAiFilter] = useState<"ALL" | "AI" | "HUMAN">(ALL);
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
     const [sort, setSort] = useState<BrowseSort>("newest");
@@ -49,6 +50,7 @@ export default function MarketplacePage() {
         debouncedKeyword,
         category,
         listingType,
+        aiFilter,
         debouncedMin,
         debouncedMax,
         sort,
@@ -64,12 +66,14 @@ export default function MarketplacePage() {
         if (debouncedKeyword.trim()) p.keyword = debouncedKeyword.trim();
         if (category !== ALL) p.category = category;
         if (listingType !== ALL) p.listingType = listingType;
+        if (aiFilter === "AI") p.isAiGenerated = true;
+        else if (aiFilter === "HUMAN") p.isAiGenerated = false;
         const min = parseFloat(debouncedMin);
         const max = parseFloat(debouncedMax);
         if (!isNaN(min) && min >= 0) p.minPrice = min;
         if (!isNaN(max) && max >= 0) p.maxPrice = max;
         return p;
-    }, [debouncedKeyword, category, listingType, debouncedMin, debouncedMax, sort, page]);
+    }, [debouncedKeyword, category, listingType, aiFilter, debouncedMin, debouncedMax, sort, page]);
 
     const { data, isLoading, error } = useBrowseAssets(params);
 
@@ -79,7 +83,7 @@ export default function MarketplacePage() {
         <div className="mx-auto max-w-6xl px-6 py-8">
             <h1 className="mb-6 text-2xl font-semibold">Marketplace</h1>
 
-            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_auto_auto_auto]">
+            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_auto_auto_auto_auto]">
                 <Input
                     placeholder="Search by keyword..."
                     value={keyword}
@@ -108,6 +112,17 @@ export default function MarketplacePage() {
                         <SelectItem value={ALL}>All Types</SelectItem>
                         <SelectItem value="TRADITIONAL">Traditional</SelectItem>
                         <SelectItem value="BLOCKCHAIN">Blockchain</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Select value={aiFilter} onValueChange={(v) => setAiFilter(v as "ALL" | "AI" | "HUMAN")}>
+                    <SelectTrigger className="md:w-44">
+                        <SelectValue placeholder="AI / Human" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value={ALL}>All Sources</SelectItem>
+                        <SelectItem value="AI">AI-generated</SelectItem>
+                        <SelectItem value="HUMAN">Human-made</SelectItem>
                     </SelectContent>
                 </Select>
 

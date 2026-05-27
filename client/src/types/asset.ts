@@ -111,6 +111,7 @@ export interface BrowseAssetsParams {
     sort?: BrowseSort;
     category?: AssetCategory;
     listingType?: ListingType;
+    isAiGenerated?: boolean;
     minPrice?: number;
     maxPrice?: number;
     keyword?: string;
