@@ -289,6 +289,13 @@ export async function browseAssets(req: Request, res: Response) {
         where.listingType = listingType as ListingType;
     }
 
+    const isAiGenerated = req.query.isAiGenerated as string | undefined;
+    if (isAiGenerated === "true") {
+        where.isAiGenerated = true;
+    } else if (isAiGenerated === "false") {
+        where.isAiGenerated = false;
+    }
+
     const priceFilter: Prisma.DecimalFilter = {};
     const minPrice = parseFloat(String(req.query.minPrice ?? ""));
     const maxPrice = parseFloat(String(req.query.maxPrice ?? ""));
