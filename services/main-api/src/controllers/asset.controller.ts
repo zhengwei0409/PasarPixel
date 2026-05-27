@@ -2,7 +2,14 @@ import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { AssetCategory, ListingType, Currency } from "@prisma/client";
-import { getPresignedUploadUrl, deleteObject, extractKeyFromUrl } from "../lib/s3";
+import {
+    getPresignedUploadUrl,
+    deleteObject,
+    extractKeyFromUrl,
+    getObjectBuffer,
+    putObjectBuffer,
+} from "../lib/s3";
+import { watermarkImage } from "../lib/watermark";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -238,12 +245,31 @@ export async function registerFile(req: Request, res: Response) {
         return;
     }
 
+    const fileUrl = buildPublicFileUrl(key);
+    let previewUrl: string | null = null;
+
+    if (fileType.startsWith("image/")) {
+        try {
+            const original = await getObjectBuffer(key);
+            const watermarked = await watermarkImage(original);
+            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.jpg";
+            previewUrl = await putObjectBuffer({
+                key: previewKey,
+                body: watermarked,
+                contentType: "image/jpeg",
+            });
+        } catch (err) {
+            console.error("Watermark generation failed", { key, err });
+        }
+    }
+
     const file = await prisma.assetFile.create({
         data: {
             assetId,
             fileType,
             fileSize,
-            fileUrl: buildPublicFileUrl(key),
+            fileUrl,
+            previewUrl,
         },
     });
 
