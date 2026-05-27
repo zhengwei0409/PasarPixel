@@ -11,6 +11,7 @@ import {
 } from "../lib/s3";
 import { watermarkImage } from "../lib/watermark";
 import { generateVideoPreview } from "../lib/videoPreview";
+import { generateAudioPreview } from "../lib/audioPreview";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -274,6 +275,19 @@ export async function registerFile(req: Request, res: Response) {
             });
         } catch (err) {
             console.error("Video preview generation failed", { key, err });
+        }
+    } else if (fileType.startsWith("audio/")) {
+        try {
+            const original = await getObjectBuffer(key);
+            const preview = await generateAudioPreview(original);
+            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.m4a";
+            previewUrl = await putObjectBuffer({
+                key: previewKey,
+                body: preview,
+                contentType: "audio/mp4",
+            });
+        } catch (err) {
+            console.error("Audio preview generation failed", { key, err });
         }
     }
 
