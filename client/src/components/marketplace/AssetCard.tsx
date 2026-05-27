@@ -37,7 +37,7 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
             <div className="relative aspect-square w-full bg-muted">
                 {thumbnail ? (
                     <img
-                        src={thumbnail.fileUrl}
+                        src={thumbnail.previewUrl ?? thumbnail.fileUrl}
                         alt={asset.title}
                         className="h-full w-full object-cover transition group-hover:scale-105"
                     />

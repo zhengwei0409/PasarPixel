@@ -98,7 +98,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                 <div className="aspect-square w-full overflow-hidden rounded-lg border bg-muted">
                     {thumbnail ? (
                         <img
-                            src={thumbnail.fileUrl}
+                            src={thumbnail.previewUrl ?? thumbnail.fileUrl}
                             alt={asset.title}
                             className="h-full w-full object-cover"
                         />
