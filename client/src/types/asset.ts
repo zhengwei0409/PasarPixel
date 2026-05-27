@@ -8,6 +8,8 @@ export type AssetCategory =
 
 export type ListingType = "TRADITIONAL" | "BLOCKCHAIN";
 
+export type Currency = "USD" | "MYR";
+
 export type AssetStatus =
     | "DRAFT"
     | "PENDING_REVIEW"
@@ -25,6 +27,8 @@ export interface Asset {
     status: AssetStatus;
     pricePersonal: string | null;
     priceCommercial: string | null;
+    currency: Currency;
+    priceSol: string | null;
     isAiGenerated: boolean;
     isDeleted: boolean;
     rejectionReason: string | null;
@@ -59,6 +63,10 @@ export interface CreateAssetPayload {
     category: AssetCategory;
     listingType: ListingType;
     isAiGenerated?: boolean;
+    pricePersonal?: number | null;
+    priceCommercial?: number | null;
+    priceSol?: number | null;
+    currency?: Currency;
 }
 
 export interface UpdateAssetPayload {
@@ -67,6 +75,10 @@ export interface UpdateAssetPayload {
     category?: AssetCategory;
     listingType?: ListingType;
     isAiGenerated?: boolean;
+    pricePersonal?: number | null;
+    priceCommercial?: number | null;
+    priceSol?: number | null;
+    currency?: Currency;
 }
 
 export interface GetUploadUrlPayload {

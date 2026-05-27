@@ -24,7 +24,7 @@ import {
 } from "../hooks/useAsset";
 import AssetUploader from "../components/marketplace/AssetUploader";
 import { getErrorMessage } from "../lib/errors";
-import type { AssetCategory, ListingType } from "../types/asset";
+import type { AssetCategory, Currency, ListingType } from "../types/asset";
 
 const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
     { value: "THREE_D_MODEL", label: "3D Model" },
@@ -40,30 +40,72 @@ const LISTING_TYPE_OPTIONS: { value: ListingType; label: string }[] = [
     { value: "BLOCKCHAIN", label: "Blockchain (NFT)" },
 ];
 
-const schema = z.object({
-    title: z.string().min(1, "Title is required").max(120, "Title too long"),
-    description: z.string().max(2000).optional(),
-    category: z.enum([
-        "THREE_D_MODEL",
-        "IMAGE",
-        "VIDEO",
-        "SOUND_EFFECT",
-        "FONT",
-        "ANIMATION",
-    ]),
-    listingType: z.enum(["TRADITIONAL", "BLOCKCHAIN"]),
-    isAiGenerated: z.boolean().optional(),
-});
+const priceString = z
+    .string()
+    .optional()
+    .refine(
+        (v) => {
+            if (v === undefined || v === "") return true;
+            const n = parseFloat(v);
+            return !isNaN(n) && n >= 0;
+        },
+        { message: "Price must be a non-negative number" },
+    );
 
-type FormData = z.infer<typeof schema>;
+const schema = z
+    .object({
+        title: z.string().min(1, "Title is required").max(120, "Title too long"),
+        description: z.string().max(2000).optional(),
+        category: z.enum([
+            "THREE_D_MODEL",
+            "IMAGE",
+            "VIDEO",
+            "SOUND_EFFECT",
+            "FONT",
+            "ANIMATION",
+        ]),
+        listingType: z.enum(["TRADITIONAL", "BLOCKCHAIN"]),
+        isAiGenerated: z.boolean().optional(),
+        pricePersonal: priceString,
+        priceCommercial: priceString,
+        priceSol: priceString,
+        currency: z.enum(["USD", "MYR"]),
+    })
+    .superRefine((data, ctx) => {
+        if (data.listingType === "BLOCKCHAIN") {
+            if (data.pricePersonal || data.priceCommercial) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Blockchain listings cannot set fiat prices",
+                    path: ["pricePersonal"],
+                });
+            }
+        } else {
+            if (data.priceSol) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "Traditional listings cannot set SOL price",
+                    path: ["priceSol"],
+                });
+            }
+        }
+    });
+
+function parsePriceOrNull(v: string | undefined): number | null {
+    if (!v) return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+}
+
+type WizardForm = z.infer<typeof schema>;
 type TabValue = "details" | "files" | "submit";
 
 interface DetailsFormProps {
-    initialValues?: Partial<FormData>;
+    initialValues?: Partial<WizardForm>;
     isEdit: boolean;
     isSaving: boolean;
     saveError: unknown;
-    onSave: (data: FormData) => void;
+    onSave: (data: WizardForm) => void;
 }
 
 function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: DetailsFormProps) {
@@ -73,7 +115,7 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
         setValue,
         watch,
         formState: { errors },
-    } = useForm<FormData>({
+    } = useForm<WizardForm>({
         resolver: zodResolver(schema),
         defaultValues: {
             title: initialValues?.title ?? "",
@@ -81,11 +123,16 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
             category: initialValues?.category,
             listingType: initialValues?.listingType,
             isAiGenerated: initialValues?.isAiGenerated ?? false,
+            pricePersonal: initialValues?.pricePersonal ?? "",
+            priceCommercial: initialValues?.priceCommercial ?? "",
+            priceSol: initialValues?.priceSol ?? "",
+            currency: initialValues?.currency ?? "USD",
         },
     });
 
     const category = watch("category");
     const listingType = watch("listingType");
+    const currency = watch("currency");
 
     return (
         <form onSubmit={handleSubmit(onSave)} className="space-y-4">
@@ -166,6 +213,82 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                 This asset is AI-generated
             </label>
 
+            <div className="space-y-3 rounded-md border p-4">
+                <h3 className="font-medium">Pricing & Licenses</h3>
+
+                {listingType === "BLOCKCHAIN" ? (
+                    <div className="space-y-1">
+                        <Label>Price (SOL)</Label>
+                        <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            {...register("priceSol")}
+                        />
+                        {errors.priceSol && (
+                            <p className="text-sm text-red-500">{errors.priceSol.message}</p>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label>Personal License Price</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0.00"
+                                    {...register("pricePersonal")}
+                                />
+                                {errors.pricePersonal && (
+                                    <p className="text-sm text-red-500">
+                                        {errors.pricePersonal.message}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="space-y-1">
+                                <Label>Commercial License Price</Label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="0.00"
+                                    {...register("priceCommercial")}
+                                />
+                                {errors.priceCommercial && (
+                                    <p className="text-sm text-red-500">
+                                        {errors.priceCommercial.message}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <Label>Currency</Label>
+                            <Select
+                                value={currency}
+                                onValueChange={(v) =>
+                                    setValue("currency", v as Currency, { shouldValidate: true })
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select currency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="USD">USD</SelectItem>
+                                    <SelectItem value="MYR">MYR</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                            Leave a tier blank to disable it. At least one tier must have a
+                            price before submission.
+                        </p>
+                    </>
+                )}
+            </div>
+
             {saveError != null && (
                 <p className="text-sm text-red-500">{getErrorMessage(saveError)}</p>
             )}
@@ -224,7 +347,15 @@ export default function SellerUploadPage() {
         );
     }
 
-    const onSaveDetails = (data: FormData) => {
+    const onSaveDetails = (data: WizardForm) => {
+        const isBlockchain = data.listingType === "BLOCKCHAIN";
+        const pricingPayload = {
+            pricePersonal: isBlockchain ? null : parsePriceOrNull(data.pricePersonal),
+            priceCommercial: isBlockchain ? null : parsePriceOrNull(data.priceCommercial),
+            priceSol: isBlockchain ? parsePriceOrNull(data.priceSol) : null,
+            currency: data.currency,
+        };
+
         if (urlAssetId) {
             update(
                 {
@@ -235,6 +366,7 @@ export default function SellerUploadPage() {
                         category: data.category,
                         listingType: data.listingType,
                         isAiGenerated: data.isAiGenerated,
+                        ...pricingPayload,
                     },
                 },
                 { onSuccess: () => setTab("files") },
@@ -247,6 +379,7 @@ export default function SellerUploadPage() {
                     category: data.category,
                     listingType: data.listingType,
                     isAiGenerated: data.isAiGenerated,
+                    ...pricingPayload,
                 },
                 {
                     onSuccess: (newAsset) => {
@@ -263,13 +396,17 @@ export default function SellerUploadPage() {
     const detailsError = createError || updateError;
     const isSavingDetails = isCreating || isUpdating;
 
-    const initialValues: Partial<FormData> | undefined = asset
+    const initialValues: Partial<WizardForm> | undefined = asset
         ? {
               title: asset.title,
               description: asset.description ?? "",
               category: asset.category,
               listingType: asset.listingType,
               isAiGenerated: asset.isAiGenerated,
+              pricePersonal: asset.pricePersonal ?? "",
+              priceCommercial: asset.priceCommercial ?? "",
+              priceSol: asset.priceSol ?? "",
+              currency: asset.currency ?? "USD",
           }
         : undefined;
 
