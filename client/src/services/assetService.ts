@@ -6,6 +6,7 @@ import type {
     AssetWithFileCount,
     AssetWithFiles,
     AssetWithSeller,
+    BrowseAssetItem,
     BrowseAssetsParams,
     BrowseAssetsResponse,
     CreateAssetPayload,
@@ -105,5 +106,10 @@ export async function cancelSubmission(assetId: number): Promise<Asset> {
 
 export async function browseAssets(params: BrowseAssetsParams = {}): Promise<BrowseAssetsResponse> {
     const res = await apiClient.get<BrowseAssetsResponse>("/assets/browse", { params });
+    return res.data;
+}
+
+export async function getPublicAsset(assetId: number): Promise<BrowseAssetItem> {
+    const res = await apiClient.get<BrowseAssetItem>(`/assets/browse/${assetId}`);
     return res.data;
 }

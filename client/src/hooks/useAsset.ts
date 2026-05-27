@@ -4,6 +4,7 @@ import {
     browseAssets,
     createAsset,
     getAsset,
+    getPublicAsset,
     getMyAssets,
     getPendingReviewAssets,
     getUploadUrl,
@@ -36,6 +37,14 @@ export function useBrowseAssets(params: BrowseAssetsParams) {
     return useQuery({
         queryKey: ["assets", "browse", params],
         queryFn: () => browseAssets(params),
+    });
+}
+
+export function usePublicAsset(assetId: number | null) {
+    return useQuery({
+        queryKey: ["assets", "public", assetId],
+        queryFn: () => getPublicAsset(assetId as number),
+        enabled: assetId != null,
     });
 }
 
