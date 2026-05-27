@@ -66,6 +66,8 @@ model Asset {
   status         AssetStatus @default(DRAFT)
   pricePersonal  Decimal?
   priceCommercial Decimal?
+  currency       Currency    @default(USD)
+  priceSol       Decimal?
   isAiGenerated  Boolean     @default(false)
   isDeleted      Boolean     @default(false)
   rejectionReason String?
@@ -95,6 +97,11 @@ enum AssetCategory {
 enum ListingType {
   TRADITIONAL
   BLOCKCHAIN
+}
+
+enum Currency {
+  USD
+  MYR
 }
 
 enum AssetStatus {
