@@ -667,6 +667,16 @@ export async function submitForReview(req: Request, res: Response) {
         }
     }
 
+    if (asset.category === "THREE_D_MODEL") {
+        const hasGlb = asset.files.some((f) => /\.glb$/i.test(f.fileUrl));
+        if (!hasGlb) {
+            res.status(400).json({
+                error: "3D Model assets must include a .glb file for the interactive 3D preview",
+            });
+            return;
+        }
+    }
+
     if (asset.listingType === "BLOCKCHAIN") {
         if (asset.priceSol === null) {
             res.status(400).json({ error: "Blockchain listings must set a SOL price before submission" });

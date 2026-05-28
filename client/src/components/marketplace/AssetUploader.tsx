@@ -130,6 +130,12 @@ export default function AssetUploader({ assetId, category }: Props) {
                 </div>
             )}
 
+            {category === "THREE_D_MODEL" && (
+                <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                    <strong>3D Model asset:</strong> A <strong>.glb file</strong> is required for the interactive 3D preview. You may also include other formats (.fbx, .blend, .obj, textures, etc.) as bundled downloads.
+                </div>
+            )}
+
             <div className="text-sm text-gray-600">
                 Total: <span className="font-medium">{formatSize(projectedTotal)}</span> /{" "}
                 {formatSize(MAX_TOTAL_SIZE)}
