@@ -83,6 +83,12 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
     const videoFile = asset.files.find((f) => f.fileType.startsWith("video/"));
     const audioFile = asset.files.find((f) => f.fileType.startsWith("audio/"));
+    const fontFile = asset.files.find(
+        (f) =>
+            f.fileType.startsWith("font/") ||
+            f.fileType.includes("font") ||
+            /\.(ttf|otf|woff2?|eot)$/i.test(f.fileUrl),
+    );
     const isBlockchain = asset.listingType === "BLOCKCHAIN";
     const hasPersonal = asset.pricePersonal !== null;
     const hasCommercial = asset.priceCommercial !== null;
@@ -104,6 +110,12 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                             controls
                             controlsList="nodownload"
                             className="h-full w-full object-cover"
+                        />
+                    ) : fontFile && fontFile.previewUrl ? (
+                        <img
+                            src={fontFile.previewUrl}
+                            alt={asset.title}
+                            className="h-full w-full object-contain bg-white"
                         />
                     ) : audioFile && audioFile.previewUrl ? (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6">
