@@ -4,6 +4,7 @@ import { usePublicAsset } from "@/hooks/useAsset";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
+import ModelViewer from "@/components/marketplace/ModelViewer";
 import type { AssetCategory, Currency } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
 
@@ -83,6 +84,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
     const videoFile = asset.files.find((f) => f.fileType.startsWith("video/"));
     const audioFile = asset.files.find((f) => f.fileType.startsWith("audio/"));
+    const glbFile = asset.files.find((f) => /\.glb$/i.test(f.fileUrl));
     const fontFile = asset.files.find(
         (f) =>
             f.fileType.startsWith("font/") ||
@@ -104,7 +106,13 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
         <div className="mx-auto max-w-6xl px-6 py-8">
             <div className="grid gap-8 md:grid-cols-2">
                 <div className="aspect-square w-full overflow-hidden rounded-lg border bg-muted">
-                    {videoFile && videoFile.previewUrl ? (
+                    {asset.category === "THREE_D_MODEL" && glbFile ? (
+                        <ModelViewer
+                            src={glbFile.fileUrl}
+                            alt={asset.title}
+                            poster={thumbnail?.previewUrl ?? thumbnail?.fileUrl}
+                        />
+                    ) : videoFile && videoFile.previewUrl ? (
                         <video
                             src={videoFile.previewUrl}
                             controls
