@@ -112,6 +112,18 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                             alt={asset.title}
                             poster={thumbnail?.previewUrl ?? thumbnail?.fileUrl}
                         />
+                    ) : asset.category === "THREE_D_MODEL" && !glbFile ? (
+                        thumbnail ? (
+                            <img
+                                src={thumbnail.previewUrl ?? thumbnail.fileUrl}
+                                alt={asset.title}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                                Interactive 3D preview unavailable for this listing.
+                            </div>
+                        )
                     ) : videoFile && videoFile.previewUrl ? (
                         <video
                             src={videoFile.previewUrl}
