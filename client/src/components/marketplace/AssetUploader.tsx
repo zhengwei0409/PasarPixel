@@ -9,6 +9,7 @@ const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
 
 interface Props {
     assetId: number;
+    category?: string;
 }
 
 interface InFlightUpload {
@@ -24,7 +25,7 @@ function formatSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function AssetUploader({ assetId }: Props) {
+export default function AssetUploader({ assetId, category }: Props) {
     const { data: asset, isLoading } = useAsset(assetId);
     const upload = useUploadAssetFile();
     const del = useDeleteAssetFile();
@@ -122,6 +123,12 @@ export default function AssetUploader({ assetId }: Props) {
                     onChange={onFilePick}
                 />
             </div>
+
+            {category === "ANIMATION" && (
+                <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                    <strong>Animation asset:</strong> Please upload both your <strong>3D file (.glb, .fbx, or .blend)</strong> and an <strong>MP4 preview video</strong>. Both are required before submission.
+                </div>
+            )}
 
             <div className="text-sm text-gray-600">
                 Total: <span className="font-medium">{formatSize(projectedTotal)}</span> /{" "}

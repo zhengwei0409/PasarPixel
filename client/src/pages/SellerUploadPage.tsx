@@ -467,7 +467,7 @@ export default function SellerUploadPage() {
                                 <CardTitle>Upload Files</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {hasAsset && <AssetUploader assetId={urlAssetId!} />}
+                                {hasAsset && <AssetUploader assetId={urlAssetId!} category={asset?.category} />}
                             </CardContent>
                         </Card>
                     </TabsContent>

@@ -68,34 +68,40 @@ function runFfmpeg(
   inputPath: string,
   watermarkPath: string,
   outputPath: string,
-  durationSec: number,
+  durationSec: number | null,
   size: { w: number; h: number },
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    const outputOptions = [
+      "-map [outv]",
+      "-map 0:a?",
+      "-c:v libx264",
+      "-preset fast",
+      "-crf 28",
+      "-c:a aac",
+      "-b:a 96k",
+      "-movflags +faststart",
+    ];
+    if (durationSec !== null) {
+      outputOptions.unshift(`-t ${durationSec}`);
+    }
     ffmpeg(inputPath)
       .input(watermarkPath)
       .complexFilter([
         `[0:v]scale=${size.w}:${size.h}[scaled]`,
         `[scaled][1:v]overlay=0:0[outv]`,
       ])
-      .outputOptions([
-        `-t ${durationSec}`,
-        "-map [outv]",
-        "-map 0:a?",
-        "-c:v libx264",
-        "-preset fast",
-        "-crf 28",
-        "-c:a aac",
-        "-b:a 96k",
-        "-movflags +faststart",
-      ])
+      .outputOptions(outputOptions)
       .on("end", () => resolve())
       .on("error", (err) => reject(err))
       .save(outputPath);
   });
 }
 
-export async function generateVideoPreview(input: Buffer): Promise<Buffer> {
+export async function generateVideoPreview(
+  input: Buffer,
+  options: { fullLength?: boolean } = {},
+): Promise<Buffer> {
   const id = randomUUID();
   const inputPath = join(tmpdir(), `${id}-in.mp4`);
   const watermarkPath = join(tmpdir(), `${id}-wm.png`);
@@ -105,7 +111,9 @@ export async function generateVideoPreview(input: Buffer): Promise<Buffer> {
   try {
     const { duration, width, height } = await probeVideo(inputPath);
     const size = scaledSize(width, height);
-    const previewSec = Math.max(1, Math.min(duration * PREVIEW_RATIO, MAX_PREVIEW_SECONDS));
+    const previewSec = options.fullLength
+      ? null
+      : Math.max(1, Math.min(duration * PREVIEW_RATIO, MAX_PREVIEW_SECONDS));
     const watermark = await buildWatermarkPng(size.w, size.h);
     await fs.writeFile(watermarkPath, watermark);
     await runFfmpeg(inputPath, watermarkPath, outputPath, previewSec, size);

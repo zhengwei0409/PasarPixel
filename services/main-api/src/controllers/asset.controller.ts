@@ -264,6 +264,19 @@ export async function registerFile(req: Request, res: Response) {
         } catch (err) {
             console.error("Watermark generation failed", { key, err });
         }
+    } else if (asset.category === "ANIMATION" && fileType.startsWith("video/")) {
+        try {
+            const original = await getObjectBuffer(key);
+            const preview = await generateVideoPreview(original, { fullLength: true });
+            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.mp4";
+            previewUrl = await putObjectBuffer({
+                key: previewKey,
+                body: preview,
+                contentType: "video/mp4",
+            });
+        } catch (err) {
+            console.error("Animation video preview generation failed", { key, err });
+        }
     } else if (fileType.startsWith("video/")) {
         try {
             const original = await getObjectBuffer(key);
@@ -637,6 +650,21 @@ export async function submitForReview(req: Request, res: Response) {
     if (asset.files.length === 0) {
         res.status(400).json({ error: "Asset must have at least one file before submission" });
         return;
+    }
+
+    if (asset.category === "ANIMATION") {
+        const has3d = asset.files.some(
+            (f) => f.fileType.startsWith("model/") || /\.(glb|fbx|blend)$/i.test(f.fileUrl),
+        );
+        const hasVideo = asset.files.some((f) => f.fileType.startsWith("video/"));
+        if (!has3d) {
+            res.status(400).json({ error: "Animation assets must include a 3D file (.glb, .fbx, or .blend)" });
+            return;
+        }
+        if (!hasVideo) {
+            res.status(400).json({ error: "Animation assets must include an MP4 preview video" });
+            return;
+        }
     }
 
     if (asset.listingType === "BLOCKCHAIN") {
