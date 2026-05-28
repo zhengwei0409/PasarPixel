@@ -82,6 +82,7 @@ type AssetData = NonNullable<ReturnType<typeof usePublicAsset>["data"]>;
 function AssetDetailContent({ asset }: { asset: AssetData }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
     const videoFile = asset.files.find((f) => f.fileType.startsWith("video/"));
+    const audioFile = asset.files.find((f) => f.fileType.startsWith("audio/"));
     const isBlockchain = asset.listingType === "BLOCKCHAIN";
     const hasPersonal = asset.pricePersonal !== null;
     const hasCommercial = asset.priceCommercial !== null;
@@ -104,6 +105,16 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                             controlsList="nodownload"
                             className="h-full w-full object-cover"
                         />
+                    ) : audioFile && audioFile.previewUrl ? (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6">
+                            <div className="text-sm text-muted-foreground">Audio preview</div>
+                            <audio
+                                src={audioFile.previewUrl}
+                                controls
+                                controlsList="nodownload"
+                                className="w-full"
+                            />
+                        </div>
                     ) : thumbnail ? (
                         <img
                             src={thumbnail.previewUrl ?? thumbnail.fileUrl}
