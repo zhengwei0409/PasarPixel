@@ -297,7 +297,7 @@ export async function registerFile(req: Request, res: Response) {
     ) {
         try {
             const original = await getObjectBuffer(key);
-            const preview = await generateFontPreview(original, fileType);
+            const preview = await generateFontPreview(original);
             const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.png";
             previewUrl = await putObjectBuffer({
                 key: previewKey,
