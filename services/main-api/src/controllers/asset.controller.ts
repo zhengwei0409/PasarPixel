@@ -12,6 +12,7 @@ import {
 import { watermarkImage } from "../lib/watermark";
 import { generateVideoPreview } from "../lib/videoPreview";
 import { generateAudioPreview } from "../lib/audioPreview";
+import { generateFontPreview } from "../lib/fontPreview";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -288,6 +289,23 @@ export async function registerFile(req: Request, res: Response) {
             });
         } catch (err) {
             console.error("Audio preview generation failed", { key, err });
+        }
+    } else if (
+        fileType.startsWith("font/") ||
+        fileType.includes("font") ||
+        /\.(ttf|otf|woff2?|eot)$/i.test(key)
+    ) {
+        try {
+            const original = await getObjectBuffer(key);
+            const preview = await generateFontPreview(original, fileType);
+            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.png";
+            previewUrl = await putObjectBuffer({
+                key: previewKey,
+                body: preview,
+                contentType: "image/png",
+            });
+        } catch (err) {
+            console.error("Font preview generation failed", { key, err });
         }
     }
 
