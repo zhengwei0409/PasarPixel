@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import MarketplacePage from './pages/MarketplacePage';
 import AssetDetailPage from './pages/AssetDetailPage';
+import CartPage from './pages/CartPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
@@ -41,6 +42,7 @@ function App() {
 
       <Route element={<ProtectedRoute allowedRoles={["BUYER"]} />}>
         <Route path="/seller-application" element={<SellerApplicationPage />} />
+        <Route path="/cart" element={<CartPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["SELLER"]} />}>

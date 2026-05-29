@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { usePublicAsset, useRelatedAssets } from "@/hooks/useAsset";
+import { useAddToCart } from "@/hooks/useCart";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
@@ -101,6 +103,27 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
 
     const { data: related } = useRelatedAssets(asset.id);
     const relatedItems = related?.items ?? [];
+
+    const { user } = useAuth();
+    const isBuyer = user?.roles.includes("BUYER") ?? false;
+    const addToCart = useAddToCart();
+    const [cartMessage, setCartMessage] = useState<string | null>(null);
+
+    const handleAddToCart = () => {
+        setCartMessage(null);
+        addToCart.mutate(
+            { assetId: asset.id, licenseType: tier },
+            {
+                onSuccess: () => setCartMessage("Added to cart"),
+                onError: (err) => {
+                    const status = (err as { response?: { status?: number } }).response?.status;
+                    setCartMessage(
+                        status === 409 ? "Already in your cart" : "Could not add to cart",
+                    );
+                },
+            },
+        );
+    };
 
     const fiatPrice = tier === "PERSONAL" ? asset.pricePersonal : asset.priceCommercial;
     const fiatLabel = formatPrice(fiatPrice, asset.currency, displayCurrency);
@@ -286,6 +309,22 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                                         ? "Tier not available"
                                         : `Buy for ${fiatLabel}`}
                                 </Button>
+                                {isBuyer && (
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        size="lg"
+                                        disabled={fiatPrice === null || addToCart.isPending}
+                                        onClick={handleAddToCart}
+                                    >
+                                        {addToCart.isPending ? "Adding…" : "Add to cart"}
+                                    </Button>
+                                )}
+                                {cartMessage && (
+                                    <p className="text-center text-xs text-muted-foreground">
+                                        {cartMessage}
+                                    </p>
+                                )}
                             </>
                         )}
                         <p className="text-center text-xs text-muted-foreground">

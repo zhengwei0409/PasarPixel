@@ -26,6 +26,14 @@ export default function Navbar() {
             <div className="flex items-center gap-2">
                 {user ? (
                     <>
+                        {user.roles.includes("BUYER") && (
+                            <Link
+                                to="/cart"
+                                className="text-sm text-muted-foreground hover:text-foreground"
+                            >
+                                Cart
+                            </Link>
+                        )}
                         <NotificationBell />
                         <Link
                             to="/profile"
