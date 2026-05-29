@@ -437,6 +437,42 @@ export async function getPublicAssetById(req: Request, res: Response) {
     res.json(asset);
 }
 
+const RELATED_LIMIT = 4;
+
+export async function getRelatedAssets(req: Request, res: Response) {
+    const assetId = parseInt(req.params.id as string);
+    if (isNaN(assetId)) {
+        res.status(400).json({ error: "Invalid asset id" });
+        return;
+    }
+
+    const asset = await prisma.asset.findFirst({
+        where: { id: assetId, status: "PUBLISHED", isDeleted: false },
+        select: { category: true },
+    });
+    if (!asset) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+
+    const items = await prisma.asset.findMany({
+        where: {
+            status: "PUBLISHED",
+            isDeleted: false,
+            category: asset.category,
+            id: { not: assetId },
+        },
+        include: {
+            files: true,
+            seller: { select: { userId: true, name: true, avatarUrl: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: RELATED_LIMIT,
+    });
+
+    res.json({ items });
+}
+
 export async function getMyAssets(req: Request, res: Response) {
     const userId = req.user!.userId;
 
