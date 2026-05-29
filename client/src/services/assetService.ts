@@ -113,3 +113,8 @@ export async function getPublicAsset(assetId: number): Promise<BrowseAssetItem> 
     const res = await apiClient.get<BrowseAssetItem>(`/assets/browse/${assetId}`);
     return res.data;
 }
+
+export async function getRelatedAssets(assetId: number): Promise<BrowseAssetsResponse> {
+    const res = await apiClient.get<BrowseAssetsResponse>(`/assets/browse/${assetId}/related`);
+    return res.data;
+}

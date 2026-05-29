@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { usePublicAsset } from "@/hooks/useAsset";
+import { usePublicAsset, useRelatedAssets } from "@/hooks/useAsset";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
+import AssetCard from "@/components/marketplace/AssetCard";
 import ModelViewer from "@/components/marketplace/ModelViewer";
 import type { AssetCategory, Currency } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
@@ -97,6 +98,9 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
 
     const [tier, setTier] = useState<LicenseTier>(hasPersonal ? "PERSONAL" : "COMMERCIAL");
     const [displayCurrency, setDisplayCurrency] = useState<Currency>(asset.currency);
+
+    const { data: related } = useRelatedAssets(asset.id);
+    const relatedItems = related?.items ?? [];
 
     const fiatPrice = tier === "PERSONAL" ? asset.pricePersonal : asset.priceCommercial;
     const fiatLabel = formatPrice(fiatPrice, asset.currency, displayCurrency);
@@ -332,6 +336,17 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                     Files are available for download after purchase.
                 </p>
             </div>
+
+            {relatedItems.length > 0 && (
+                <div className="mt-10">
+                    <h2 className="mb-3 text-sm font-medium">Related assets</h2>
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                        {relatedItems.map((item) => (
+                            <AssetCard key={item.id} asset={item} />
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

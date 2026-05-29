@@ -5,6 +5,7 @@ import {
     createAsset,
     getAsset,
     getPublicAsset,
+    getRelatedAssets,
     getMyAssets,
     getPendingReviewAssets,
     getUploadUrl,
@@ -44,6 +45,14 @@ export function usePublicAsset(assetId: number | null) {
     return useQuery({
         queryKey: ["assets", "public", assetId],
         queryFn: () => getPublicAsset(assetId as number),
+        enabled: assetId != null,
+    });
+}
+
+export function useRelatedAssets(assetId: number | null) {
+    return useQuery({
+        queryKey: ["assets", "related", assetId],
+        queryFn: () => getRelatedAssets(assetId as number),
         enabled: assetId != null,
     });
 }
