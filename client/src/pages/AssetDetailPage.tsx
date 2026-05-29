@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { usePublicAsset, useRelatedAssets } from "@/hooks/useAsset";
 import { useAddToCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
+import { savePendingCartItem } from "@/lib/cartIntent";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
@@ -105,11 +106,22 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     const relatedItems = related?.items ?? [];
 
     const { user } = useAuth();
-    const isBuyer = user?.roles.includes("BUYER") ?? false;
+    const navigate = useNavigate();
+    const isAdmin = user?.roles.includes("ADMIN") ?? false;
+    const isGuest = !user;
+    const canAddToCart = !isAdmin; // guests and buyers can; admins cannot
     const addToCart = useAddToCart();
     const [cartMessage, setCartMessage] = useState<string | null>(null);
 
     const handleAddToCart = () => {
+        // Guest: save the intent and send them to log in. After login the app
+        // auto-adds it and lands them on /cart (see useCartIntent).
+        if (isGuest) {
+            savePendingCartItem({ assetId: asset.id, licenseType: tier });
+            navigate("/login");
+            return;
+        }
+
         setCartMessage(null);
         addToCart.mutate(
             { assetId: asset.id, licenseType: tier },
@@ -309,7 +321,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                                         ? "Tier not available"
                                         : `Buy for ${fiatLabel}`}
                                 </Button>
-                                {isBuyer && (
+                                {canAddToCart && (
                                     <Button
                                         variant="outline"
                                         className="w-full"
