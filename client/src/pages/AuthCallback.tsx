@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { getPendingCartItem } from "../lib/cartIntent";
 
 export default function AuthCallback() {
     useEffect(() => {
@@ -9,7 +10,8 @@ export default function AuthCallback() {
         if (accessToken && refreshToken) {
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('refreshToken', refreshToken);
-            window.location.href = '/dashboard';
+            // Land on the cart if the user was mid "Add to cart" (see useCartIntent).
+            window.location.href = getPendingCartItem() ? '/cart' : '/dashboard';
         } else {
             window.location.href = '/login';
         }
