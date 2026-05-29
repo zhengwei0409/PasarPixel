@@ -18,9 +18,12 @@ import AdminApplicationsPage from './pages/AdminApplicationsPage';
 import AdminAssetReviewPage from './pages/AdminAssetReviewPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import Navbar from './components/layout/Navbar';
+import { useCartIntent } from './hooks/useCartIntent';
 
 
 function App() {
+  useCartIntent();
+
   return (
     <>
     <Navbar />
