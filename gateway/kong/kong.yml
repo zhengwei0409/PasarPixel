@@ -25,6 +25,10 @@ services:
         paths:
           - /assets
         strip_path: false
+      - name: cart-route
+        paths:
+          - /cart
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003
