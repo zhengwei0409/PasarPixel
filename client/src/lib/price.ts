@@ -1,6 +1,26 @@
 import type { Currency } from "../types/asset";
+import apiClient from "./apiClient";
 
-export const USD_TO_MYR = 4.7;
+// Fallback rate used before the real rate loads, or if the API is unreachable.
+const FALLBACK_USD_TO_MYR = 4.7;
+
+// Mutable live rate. convertFiat/formatPrice stay synchronous (they render in
+// JSX), so they read this value rather than awaiting an API call. refreshExchangeRate()
+// updates it once at app startup from the backend's real exchange-rate endpoint.
+let usdToMyr = FALLBACK_USD_TO_MYR;
+
+export async function refreshExchangeRate(): Promise<void> {
+    try {
+        const res = await apiClient.get<{ rate: number }>("/exchange-rate", {
+            params: { from: "USD", to: "MYR" },
+        });
+        if (typeof res.data.rate === "number" && res.data.rate > 0) {
+            usdToMyr = res.data.rate;
+        }
+    } catch {
+        // Keep the fallback rate — price display is best-effort, not billing.
+    }
+}
 
 const CURRENCY_SYMBOL: Record<Currency, string> = {
     USD: "$",
@@ -9,8 +29,8 @@ const CURRENCY_SYMBOL: Record<Currency, string> = {
 
 export function convertFiat(amount: number, from: Currency, to: Currency): number {
     if (from === to) return amount;
-    if (from === "USD" && to === "MYR") return amount * USD_TO_MYR;
-    return amount / USD_TO_MYR;
+    if (from === "USD" && to === "MYR") return amount * usdToMyr;
+    return amount / usdToMyr;
 }
 
 export function formatPrice(

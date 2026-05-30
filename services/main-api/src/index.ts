@@ -8,6 +8,7 @@ import profileRoutes from './routes/profile.routes';
 import sellerApplicationRoutes from './routes/sellerApplication.routes';
 import assetRoutes from './routes/asset.routes';
 import cartRoutes from './routes/cart.routes';
+import exchangeRateRoutes from './routes/exchangeRate.routes';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -22,6 +23,7 @@ app.use("/profile", profileRoutes);
 app.use("/seller-applications", sellerApplicationRoutes);
 app.use("/assets", assetRoutes);
 app.use("/cart", cartRoutes);
+app.use("/exchange-rate", exchangeRateRoutes);
 
 app.get("/test/buyer", authenticate, requireRole("BUYER"), (req, res) => {
     res.json({ message: "Hello, Buyer!", user: req.user });
