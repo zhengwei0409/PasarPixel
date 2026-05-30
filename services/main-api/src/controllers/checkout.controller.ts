@@ -132,3 +132,56 @@ export async function createCheckoutSession(req: Request, res: Response) {
 
     res.json({ url: session.url });
 }
+
+// Stripe calls this when payment events happen. It must receive the RAW request
+// body (see index.ts) so the signature check works.
+export async function handleWebhook(req: Request, res: Response) {
+    const signature = req.headers["stripe-signature"];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+        console.error("STRIPE_WEBHOOK_SECRET is not set");
+        res.status(500).send("Webhook not configured");
+        return;
+    }
+
+    let event;
+    try {
+        // Verifies the request really came from Stripe (and wasn't tampered with).
+        event = stripe.webhooks.constructEvent(
+            req.body, // raw Buffer
+            signature as string,
+            webhookSecret,
+        );
+    } catch (err) {
+        console.error("Webhook signature verification failed:", (err as Error).message);
+        res.status(400).send("Invalid signature");
+        return;
+    }
+
+    if (event.type === "checkout.session.completed") {
+        const session = event.data.object as { metadata?: { orderId?: string } };
+        const orderId = Number(session.metadata?.orderId);
+
+        if (!Number.isInteger(orderId)) {
+            console.error("Webhook missing valid orderId in metadata");
+            res.status(400).send("Missing orderId");
+            return;
+        }
+
+        const order = await prisma.order.findUnique({ where: { id: orderId } });
+
+        // Idempotent: Stripe may resend the same event. Skip if already handled.
+        if (order && order.paymentStatus === "PENDING") {
+            await prisma.order.update({
+                where: { id: orderId },
+                data: { paymentStatus: "COMPLETED" },
+            });
+            // Payment succeeded — empty the buyer's cart.
+            await prisma.cartItem.deleteMany({ where: { userId: order.buyerId } });
+        }
+    }
+
+    // Always 200 so Stripe stops retrying.
+    res.json({ received: true });
+}
