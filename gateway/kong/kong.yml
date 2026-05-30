@@ -33,6 +33,10 @@ services:
         paths:
           - /exchange-rate
         strip_path: false
+      - name: checkout-route
+        paths:
+          - /checkout
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003
