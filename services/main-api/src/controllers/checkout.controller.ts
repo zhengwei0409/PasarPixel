@@ -51,6 +51,14 @@ export async function createCheckoutSession(req: Request, res: Response) {
         };
     }[] = [];
 
+    // Snapshot of each priced item, used to create OrderItems with prices locked
+    // in at checkout time (so later cart/rate changes don't affect this order).
+    const orderItemsData: {
+        assetId: number;
+        licenseType: LicenseType;
+        price: number;
+    }[] = [];
+
     let total = 0;
 
     for (const item of cartItems) {
@@ -74,6 +82,12 @@ export async function createCheckoutSession(req: Request, res: Response) {
         const price = await convert(priceInAssetCurrency, asset.currency, currency);
         total += price;
 
+        orderItemsData.push({
+            assetId: asset.id,
+            licenseType: item.licenseType,
+            price,
+        });
+
         lineItems.push({
             quantity: 1,
             price_data: {
@@ -86,13 +100,14 @@ export async function createCheckoutSession(req: Request, res: Response) {
         });
     }
 
-    // Create the PENDING order first so the webhook can find it by session id.
-    // OrderItems + cart clearing happen in the webhook once payment succeeds.
+    // Create the PENDING order with its items in one transaction. Prices are
+    // locked in now; the webhook only flips PENDING -> COMPLETED and clears the cart.
     const order = await prisma.order.create({
         data: {
             buyerId: userId,
             totalAmount: total,
             paymentStatus: "PENDING",
+            orderItems: { create: orderItemsData },
         },
     });
 
