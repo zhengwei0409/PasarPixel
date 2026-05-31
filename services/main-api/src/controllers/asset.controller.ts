@@ -398,7 +398,7 @@ export async function browseAssets(req: Request, res: Response) {
         ];
     }
 
-    const [items, total] = await Promise.all([
+    const [assets, total] = await Promise.all([
         prisma.asset.findMany({
             where,
             include: {
@@ -411,6 +411,23 @@ export async function browseAssets(req: Request, res: Response) {
         }),
         prisma.asset.count({ where }),
     ]);
+
+    // Batch the rating summary for every asset on this page in a single query,
+    // then merge it back in — avoids one aggregate per asset (N+1).
+    const ratings = await prisma.review.groupBy({
+        by: ["assetId"],
+        where: { assetId: { in: assets.map((a) => a.id) } },
+        _avg: { rating: true },
+        _count: true,
+    });
+    const ratingByAssetId = new Map(
+        ratings.map((r) => [r.assetId, { averageRating: r._avg.rating ?? 0, reviewCount: r._count }]),
+    );
+    const items = assets.map((a) => ({
+        ...a,
+        averageRating: ratingByAssetId.get(a.id)?.averageRating ?? 0,
+        reviewCount: ratingByAssetId.get(a.id)?.reviewCount ?? 0,
+    }));
 
     res.json({ items, total, page, pageSize });
 }
@@ -434,7 +451,17 @@ export async function getPublicAssetById(req: Request, res: Response) {
         return;
     }
 
-    res.json(asset);
+    const summary = await prisma.review.aggregate({
+        where: { assetId },
+        _avg: { rating: true },
+        _count: true,
+    });
+
+    res.json({
+        ...asset,
+        averageRating: summary._avg.rating ?? 0,
+        reviewCount: summary._count,
+    });
 }
 
 const RELATED_LIMIT = 4;
