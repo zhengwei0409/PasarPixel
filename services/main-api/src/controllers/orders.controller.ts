@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Prisma, PaymentStatus } from "@prisma/client";
-import archiver from "archiver";
+import archiver = require("archiver");
 import { prisma } from "../lib/prisma";
 import { getObjectStream, extractKeyFromUrl } from "../lib/s3";
 import {

@@ -15,7 +15,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1053.0",
     "@prisma/client": "^6.16.2",
     "amqplib": "^2.0.1",
-    "archiver": "^8.0.0",
+    "archiver": "^7.0.1",
     "axios": "^1.16.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
