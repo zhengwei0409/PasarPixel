@@ -15,6 +15,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1053.0",
     "@prisma/client": "^6.16.2",
     "amqplib": "^2.0.1",
+    "archiver": "^8.0.0",
     "axios": "^1.16.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
+    "@types/archiver": "^7.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/fluent-ffmpeg": "^2.1.27",

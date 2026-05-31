@@ -5,6 +5,7 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Readable } from 'stream';
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION!,
@@ -39,6 +40,12 @@ export async function getObjectBuffer(key: string): Promise<Buffer> {
   const response = await s3.send(command);
   const byteArray = await response.Body!.transformToByteArray();
   return Buffer.from(byteArray);
+}
+
+export async function getObjectStream(key: string): Promise<Readable> {
+  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+  const response = await s3.send(command);
+  return response.Body as Readable;
 }
 
 export async function putObjectBuffer(params: {
