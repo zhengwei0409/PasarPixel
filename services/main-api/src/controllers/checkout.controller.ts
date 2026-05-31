@@ -105,7 +105,8 @@ export async function createCheckoutSession(req: Request, res: Response) {
     const order = await prisma.order.create({
         data: {
             buyerId: userId,
-            totalAmount: total,
+            // Round to 2dp: summing floats (e.g. 60 + 39.65) can leave a 0.0000001 tail.
+            totalAmount: Math.round(total * 100) / 100,
             paymentStatus: "PENDING",
             orderItems: { create: orderItemsData },
         },
