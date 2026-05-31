@@ -21,6 +21,27 @@ A web-based marketplace for buying and selling digital assets — supporting bot
 
 ---
 
+## Local Development
+
+```bash
+# Start everything (Kong on :8000, client on :5173)
+cd infra/docker && docker compose up -d --build
+```
+
+### Testing Stripe payments locally
+
+Stripe can't reach `localhost`, so the [Stripe CLI](https://stripe.com/docs/stripe-cli) tunnels webhook events to the backend:
+
+```bash
+stripe listen --forward-to http://localhost:8000/checkout/webhook
+```
+
+- On start it prints a `whsec_...` signing secret — put it in `services/main-api/.env` as `STRIPE_WEBHOOK_SECRET`, then rebuild main-api.
+- Pay with test card `4242 4242 4242 4242`, any future expiry, any CVC.
+- A successful payment flips the order to `COMPLETED` and clears the cart via the webhook.
+
+---
+
 ## Project Structure
 
 ```
