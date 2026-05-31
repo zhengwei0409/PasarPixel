@@ -114,6 +114,46 @@ export async function getMyOrderById(req: Request, res: Response) {
     res.json(order);
 }
 
+// GET /orders/verify/:licenseKey — public licence verification (FR-3.5).
+// No JWT: anyone (e.g. a buyer's client checking the licence is legitimate) can
+// look up a licence key. Returns only non-sensitive fields — never price, email,
+// buyer/seller IDs, or payment details — to avoid leaking order data publicly.
+export async function verifyLicense(req: Request, res: Response) {
+    const licenseKey = (req.params.licenseKey as string)?.trim();
+    if (!licenseKey) {
+        res.status(400).json({ error: "Missing licence key" });
+        return;
+    }
+
+    const item = await prisma.orderItem.findUnique({
+        where: { licenseKey },
+        include: {
+            asset: {
+                include: {
+                    seller: { select: { name: true } },
+                },
+            },
+            order: { select: { paymentStatus: true, createdAt: true } },
+        },
+    });
+
+    // Only a key from a paid order counts as a valid licence. Unknown keys and
+    // keys on unpaid/refunded orders both return "invalid" without distinction.
+    if (!item || item.order.paymentStatus !== "COMPLETED") {
+        res.status(404).json({ valid: false });
+        return;
+    }
+
+    res.json({
+        valid: true,
+        licenseKey: item.licenseKey,
+        licenseType: item.licenseType,
+        assetTitle: item.asset.title,
+        sellerName: item.asset.seller.name,
+        purchasedAt: item.order.createdAt,
+    });
+}
+
 // GET /orders/:id/download-url — issue a short-lived signed download link (FR-3.4).
 // Requires JWT (authenticate). Returns a URL whose token carries {orderId, userId, exp};
 // the browser then hits /orders/:id/download?token=... without an auth header.
