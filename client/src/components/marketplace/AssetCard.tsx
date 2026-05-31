@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
+import StarRating from "@/components/marketplace/StarRating";
 import type { BrowseAssetItem, Currency } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
 import { useCurrencyStore } from "@/stores/currencyStore";
@@ -69,6 +70,18 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
                     <span className="truncate">by {asset.seller.name}</span>
                 </div>
                 <p className="text-sm font-semibold">{startingPriceLabel(asset, displayCurrency)}</p>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {asset.reviewCount > 0 ? (
+                        <>
+                            <StarRating value={asset.averageRating} size={12} />
+                            <span>
+                                {asset.averageRating.toFixed(1)} ({asset.reviewCount})
+                            </span>
+                        </>
+                    ) : (
+                        <span className="text-muted-foreground/60">No reviews</span>
+                    )}
+                </div>
             </div>
         </Link>
     );
