@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCart, useUpdateCartItemLicense, useRemoveFromCart } from "@/hooks/useCart";
 import { useCheckout } from "@/hooks/useCheckout";
 import { formatPrice, convertFiat } from "@/lib/price";
+import { useCurrencyStore } from "@/stores/currencyStore";
 import type { Currency } from "@/types/asset";
 import type { CartItemWithAsset, LicenseType } from "@/types/cart";
 
@@ -13,12 +13,14 @@ function itemPrice(item: CartItemWithAsset): string | null {
     return raw;
 }
 
-function itemPriceUsd(item: CartItemWithAsset): number {
+// Each item's price converted into the buyer's chosen display currency, so the
+// subtotal can be summed in one consistent currency.
+function itemPriceIn(item: CartItemWithAsset, currency: Currency): number {
     const raw = itemPrice(item);
     if (raw === null) return 0;
     const n = parseFloat(raw);
     if (isNaN(n)) return 0;
-    return convertFiat(n, item.asset.currency, "USD");
+    return convertFiat(n, item.asset.currency, currency);
 }
 
 export default function CartPage() {
@@ -26,7 +28,8 @@ export default function CartPage() {
     const updateLicense = useUpdateCartItemLicense();
     const removeItem = useRemoveFromCart();
     const checkout = useCheckout();
-    const [currency, setCurrency] = useState<Currency>("USD");
+    // What the buyer sees is what they pay — drive both off the global currency.
+    const currency = useCurrencyStore((s) => s.displayCurrency);
 
     function handleCheckout() {
         checkout.mutate(currency, {
@@ -74,7 +77,7 @@ export default function CartPage() {
         );
     }
 
-    const subtotalUsd = items.reduce((sum, item) => sum + itemPriceUsd(item), 0);
+    const subtotal = items.reduce((sum, item) => sum + itemPriceIn(item, currency), 0);
 
     return (
         <div className="mx-auto max-w-4xl px-6 py-8">
@@ -157,7 +160,7 @@ export default function CartPage() {
                                 </div>
 
                                 <p className="text-sm font-semibold">
-                                    {formatPrice(itemPrice(item), asset.currency)}
+                                    {formatPrice(itemPrice(item), asset.currency, currency)}
                                 </p>
                             </div>
                         </li>
@@ -169,22 +172,12 @@ export default function CartPage() {
                 <div>
                     <p className="text-xs text-muted-foreground">Subtotal</p>
                     <p className="text-xl font-semibold">
-                        {formatPrice(subtotalUsd, "USD", currency)}
+                        {formatPrice(subtotal, currency)}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value as Currency)}
-                        disabled={checkout.isPending}
-                        className="rounded-md border px-2 py-2 text-sm"
-                        aria-label="Payment currency"
-                    >
-                        <option value="USD">USD</option>
-                        <option value="MYR">MYR</option>
-                    </select>
                     <Button size="lg" onClick={handleCheckout} disabled={checkout.isPending}>
-                        {checkout.isPending ? "Redirecting…" : "Checkout"}
+                        {checkout.isPending ? "Redirecting…" : `Checkout (${currency})`}
                     </Button>
                 </div>
             </div>

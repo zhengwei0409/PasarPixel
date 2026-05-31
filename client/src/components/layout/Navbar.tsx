@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import NotificationBell from './NotificationBell';
+import CurrencySwitcher from './CurrencySwitcher';
 
 export default function Navbar() {
     const { user, logout } = useAuth();
@@ -24,6 +25,7 @@ export default function Navbar() {
             </div>
 
             <div className="flex items-center gap-2">
+                <CurrencySwitcher />
                 {user ? (
                     <>
                         {user.roles.includes("BUYER") && (

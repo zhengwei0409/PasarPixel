@@ -9,8 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
 import AssetCard from "@/components/marketplace/AssetCard";
 import ModelViewer from "@/components/marketplace/ModelViewer";
-import type { AssetCategory, Currency } from "@/types/asset";
+import type { AssetCategory } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
+import { useCurrencyStore } from "@/stores/currencyStore";
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
     THREE_D_MODEL: "3D Model",
@@ -100,7 +101,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     const hasCommercial = asset.priceCommercial !== null;
 
     const [tier, setTier] = useState<LicenseTier>(hasPersonal ? "PERSONAL" : "COMMERCIAL");
-    const [displayCurrency, setDisplayCurrency] = useState<Currency>(asset.currency);
+    const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
 
     const { data: related } = useRelatedAssets(asset.id);
     const relatedItems = related?.items ?? [];
@@ -287,26 +288,6 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                                                 )}
                                             </div>
                                         </button>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <p className="text-xs text-muted-foreground">Show in</p>
-                                    <div className="flex gap-1 text-xs">
-                                        {(["USD", "MYR"] as Currency[]).map((c) => (
-                                            <button
-                                                key={c}
-                                                type="button"
-                                                onClick={() => setDisplayCurrency(c)}
-                                                className={`rounded px-2 py-1 ${
-                                                    displayCurrency === c
-                                                        ? "bg-foreground text-background"
-                                                        : "bg-muted text-muted-foreground"
-                                                }`}
-                                            >
-                                                {c}
-                                            </button>
-                                        ))}
                                     </div>
                                 </div>
 

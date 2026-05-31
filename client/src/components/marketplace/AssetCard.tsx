@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
-import type { BrowseAssetItem } from "@/types/asset";
+import type { BrowseAssetItem, Currency } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
+import { useCurrencyStore } from "@/stores/currencyStore";
 
 const CATEGORY_LABELS: Record<BrowseAssetItem["category"], string> = {
     THREE_D_MODEL: "3D Model",
@@ -13,7 +14,7 @@ const CATEGORY_LABELS: Record<BrowseAssetItem["category"], string> = {
     ANIMATION: "Animation",
 };
 
-function startingPriceLabel(asset: BrowseAssetItem): string {
+function startingPriceLabel(asset: BrowseAssetItem, displayCurrency: Currency): string {
     if (asset.listingType === "BLOCKCHAIN") {
         return formatSol(asset.priceSol);
     }
@@ -23,11 +24,12 @@ function startingPriceLabel(asset: BrowseAssetItem): string {
     if (prices.length === 0) return "—";
     const min = Math.min(...prices);
     if (min === 0) return "Free";
-    return `from ${formatPrice(min, asset.currency)}`;
+    return `from ${formatPrice(min, asset.currency, displayCurrency)}`;
 }
 
 export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
+    const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
 
     return (
         <Link
@@ -66,7 +68,7 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
                     </Avatar>
                     <span className="truncate">by {asset.seller.name}</span>
                 </div>
-                <p className="text-sm font-semibold">{startingPriceLabel(asset)}</p>
+                <p className="text-sm font-semibold">{startingPriceLabel(asset, displayCurrency)}</p>
             </div>
         </Link>
     );
