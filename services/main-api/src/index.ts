@@ -10,6 +10,7 @@ import assetRoutes from './routes/asset.routes';
 import cartRoutes from './routes/cart.routes';
 import exchangeRateRoutes from './routes/exchangeRate.routes';
 import checkoutRoutes from './routes/checkout.routes';
+import ordersRoutes from './routes/orders.routes';
 import { handleWebhook } from './controllers/checkout.controller';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use("/assets", assetRoutes);
 app.use("/cart", cartRoutes);
 app.use("/exchange-rate", exchangeRateRoutes);
 app.use("/checkout", checkoutRoutes);
+app.use("/orders", ordersRoutes);
 
 app.get("/test/buyer", authenticate, requireRole("BUYER"), (req, res) => {
     res.json({ message: "Hello, Buyer!", user: req.user });

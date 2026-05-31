@@ -37,6 +37,10 @@ services:
         paths:
           - /checkout
         strip_path: false
+      - name: orders-route
+        paths:
+          - /orders
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003
