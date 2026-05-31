@@ -25,7 +25,9 @@ export default function CheckoutSuccessPage() {
                 </p>
                 <div className="flex gap-2 justify-center pt-2">
                     <Button asChild>
-                        <Link to="/dashboard">Go to Dashboard</Link>
+                        <Link to={orderId ? `/orders/${orderId}` : "/orders"}>
+                            View order
+                        </Link>
                     </Button>
                     <Button variant="outline" asChild>
                         <Link to="/marketplace">Keep browsing</Link>
