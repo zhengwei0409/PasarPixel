@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
     "/auth/reset-password",
     "/auth/refresh",
     "/auth/logout",
+    "/orders/verify", // FR-3.5: public licence verification, no token needed
 ];
 
 const apiClient = axios.create({

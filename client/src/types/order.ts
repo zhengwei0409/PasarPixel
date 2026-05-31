@@ -39,3 +39,14 @@ export interface OrdersResponse {
     page: number;
     pageSize: number;
 }
+
+// FR-3.5: public licence verification result. Only non-sensitive fields — the
+// backend never returns price, buyer identity, or payment details here.
+export interface LicenseVerification {
+    valid: boolean;
+    licenseKey: string;
+    licenseType: LicenseType;
+    assetTitle: string;
+    sellerName: string;
+    purchasedAt: string;
+}

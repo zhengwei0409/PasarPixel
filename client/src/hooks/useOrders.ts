@@ -3,6 +3,7 @@ import {
     getOrders,
     getOrderById,
     downloadOrder,
+    verifyLicense,
 } from "../services/orderService";
 import type { OrdersParams } from "../types/order";
 
@@ -24,5 +25,13 @@ export function useOrder(id: number) {
 export function useDownloadOrder() {
     return useMutation({
         mutationFn: (id: number) => downloadOrder(id),
+    });
+}
+
+// FR-3.5: triggered when the visitor submits a key on the public /verify page,
+// so a mutation fits better than a query that runs on mount.
+export function useVerifyLicense() {
+    return useMutation({
+        mutationFn: (licenseKey: string) => verifyLicense(licenseKey),
     });
 }

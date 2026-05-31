@@ -24,6 +24,7 @@ import Navbar from './components/layout/Navbar';
 import { useCartIntent } from './hooks/useCartIntent';
 import { useCurrencySync } from './hooks/useCurrencySync';
 import SettingsPage from './pages/SettingsPage';
+import VerifyPage from './pages/VerifyPage';
 
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
+      <Route path="/verify" element={<VerifyPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
