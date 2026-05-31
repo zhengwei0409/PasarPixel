@@ -1,8 +1,11 @@
 import { Request, Response } from "express";
+import { Currency } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getPresignedUploadUrl, deleteObject, extractKeyFromUrl } from "../lib/s3";
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+
+const VALID_CURRENCIES: Currency[] = ["USD", "MYR"];
 
 function sanitizeFileName(name: string): string {
     return name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -126,7 +129,15 @@ export async function deleteAvatar(req: Request, res: Response) {
 
 export async function updateMyProfile(req: Request, res: Response) {
     const userId = req.user!.userId;
-    const { name, bio, phone, socialLinks } = req.body;
+    const { name, bio, phone, socialLinks, preferredCurrency } = req.body;
+
+    if (
+        preferredCurrency !== undefined &&
+        !VALID_CURRENCIES.includes(preferredCurrency as Currency)
+    ) {
+        res.status(400).json({ error: "preferredCurrency must be USD or MYR" });
+        return;
+    }
 
     const updated = await prisma.userProfile.update({
         where: { userId },
@@ -135,6 +146,7 @@ export async function updateMyProfile(req: Request, res: Response) {
             ...(bio !== undefined && { bio }),
             ...(phone !== undefined && { phone }),
             ...(socialLinks !== undefined && { socialLinks }),
+            ...(preferredCurrency !== undefined && { preferredCurrency }),
         },
     });
 

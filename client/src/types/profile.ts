@@ -4,12 +4,15 @@ export interface SocialLinks {
     linkedin?: string;
 }
 
+import type { Currency } from "./asset";
+
 export interface UserProfile {
     name: string;
     bio: string | null;
     phone: string | null;
     avatarUrl: string | null;
     socialLinks: SocialLinks | null;
+    preferredCurrency: Currency;
 }
 
 export interface AvatarUploadUrlPayload {
@@ -25,8 +28,9 @@ export interface AvatarUploadUrlResponse {
 }
 
 export interface UpdateProfilePayload {
-    name: string;
-    bio: string;
-    phone: string;
-    socialLinks: SocialLinks;
+    name?: string;
+    bio?: string;
+    phone?: string;
+    socialLinks?: SocialLinks;
+    preferredCurrency?: Currency;
 }

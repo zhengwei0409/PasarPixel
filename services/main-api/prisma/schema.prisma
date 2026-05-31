@@ -17,6 +17,7 @@ model UserProfile {
   phone          String?
   socialLinks    Json?
   walletAddress  String?
+  preferredCurrency Currency @default(MYR)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

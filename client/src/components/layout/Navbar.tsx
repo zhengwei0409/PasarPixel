@@ -46,6 +46,12 @@ export default function Navbar() {
                         )}
                         <NotificationBell />
                         <Link
+                            to="/settings"
+                            className="text-sm text-muted-foreground hover:text-foreground"
+                        >
+                            Settings
+                        </Link>
+                        <Link
                             to="/profile"
                             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
                         >

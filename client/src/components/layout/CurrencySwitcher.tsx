@@ -1,14 +1,15 @@
 import { useCurrencyStore } from "@/stores/currencyStore";
+import { useSetCurrency } from "@/hooks/useSetCurrency";
 import type { Currency } from "@/types/asset";
 
 const CURRENCIES: Currency[] = ["MYR", "USD"];
 
 // A small USD/MYR toggle bound to the global currency store. Used in the navbar
 // (and reusable in the settings page) so the buyer's display currency is the
-// same everywhere.
+// same everywhere. Persists to the profile for logged-in users.
 export default function CurrencySwitcher() {
     const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
-    const setDisplayCurrency = useCurrencyStore((s) => s.setDisplayCurrency);
+    const setDisplayCurrency = useSetCurrency();
 
     return (
         <div className="flex gap-1 rounded-md border p-0.5 text-xs" role="group" aria-label="Display currency">

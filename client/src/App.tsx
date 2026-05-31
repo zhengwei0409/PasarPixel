@@ -22,10 +22,13 @@ import PurchaseHistoryPage from './pages/PurchaseHistoryPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import Navbar from './components/layout/Navbar';
 import { useCartIntent } from './hooks/useCartIntent';
+import { useCurrencySync } from './hooks/useCurrencySync';
+import SettingsPage from './pages/SettingsPage';
 
 
 function App() {
   useCartIntent();
+  useCurrencySync();
 
   return (
     <>
@@ -44,6 +47,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["BUYER"]} />}>
