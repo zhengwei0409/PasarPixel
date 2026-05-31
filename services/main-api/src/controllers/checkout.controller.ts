@@ -11,6 +11,20 @@ function toStripeAmount(amount: number): number {
     return Math.round(amount * 100);
 }
 
+// Marks a paid order COMPLETED and clears the buyer's cart. Idempotent: only
+// acts on a PENDING order, so it's safe to call from both the webhook and the
+// success-page verify endpoint (whichever arrives first wins; the other no-ops).
+async function fulfilOrder(orderId: number): Promise<void> {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order || order.paymentStatus !== "PENDING") return;
+
+    await prisma.order.update({
+        where: { id: orderId },
+        data: { paymentStatus: "COMPLETED" },
+    });
+    await prisma.cartItem.deleteMany({ where: { userId: order.buyerId } });
+}
+
 function priceForLicense(
     asset: { pricePersonal: unknown; priceCommercial: unknown },
     licenseType: LicenseType,
@@ -100,6 +114,15 @@ export async function createCheckoutSession(req: Request, res: Response) {
         });
     }
 
+    // Abandon any earlier PENDING orders for this buyer before creating a new
+    // one. Otherwise a buyer who re-clicks Checkout (e.g. because the webhook was
+    // slow) accumulates duplicate PENDING orders that never resolve. The new
+    // order below reflects the current cart; older pending attempts are stale.
+    await prisma.order.updateMany({
+        where: { buyerId: userId, paymentStatus: "PENDING" },
+        data: { paymentStatus: "FAILED" },
+    });
+
     // Create the PENDING order with its items in one transaction. Prices are
     // locked in now; the webhook only flips PENDING -> COMPLETED and clears the cart.
     const order = await prisma.order.create({
@@ -171,19 +194,48 @@ export async function handleWebhook(req: Request, res: Response) {
             return;
         }
 
-        const order = await prisma.order.findUnique({ where: { id: orderId } });
-
-        // Idempotent: Stripe may resend the same event. Skip if already handled.
-        if (order && order.paymentStatus === "PENDING") {
-            await prisma.order.update({
-                where: { id: orderId },
-                data: { paymentStatus: "COMPLETED" },
-            });
-            // Payment succeeded — empty the buyer's cart.
-            await prisma.cartItem.deleteMany({ where: { userId: order.buyerId } });
-        }
+        // Idempotent: Stripe may resend the same event, or the verify endpoint
+        // may have already handled it. fulfilOrder no-ops if not PENDING.
+        await fulfilOrder(orderId);
     }
 
     // Always 200 so Stripe stops retrying.
     res.json({ received: true });
+}
+
+// GET /checkout/verify/:orderId — called by the success page so the buyer
+// doesn't have to wait for the (async, possibly slow) webhook. Confirms with
+// Stripe that the session was actually paid before fulfilling. Returns the
+// current payment status either way.
+export async function verifyCheckout(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const orderId = parseInt(req.params.orderId as string);
+    if (isNaN(orderId)) {
+        res.status(400).json({ error: "Invalid order id" });
+        return;
+    }
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order || order.buyerId !== userId) {
+        res.status(404).json({ error: "Order not found" });
+        return;
+    }
+
+    // Already settled (e.g. webhook beat us here) — just report it.
+    if (order.paymentStatus !== "PENDING") {
+        res.json({ paymentStatus: order.paymentStatus });
+        return;
+    }
+
+    // Ask Stripe directly whether this session was paid. Never trust the client.
+    if (order.stripePaymentId) {
+        const session = await stripe.checkout.sessions.retrieve(order.stripePaymentId);
+        if (session.payment_status === "paid") {
+            await fulfilOrder(orderId);
+            res.json({ paymentStatus: "COMPLETED" });
+            return;
+        }
+    }
+
+    res.json({ paymentStatus: order.paymentStatus });
 }
