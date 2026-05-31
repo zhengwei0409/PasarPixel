@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { useOrder } from "@/hooks/useOrders";
+import { useOrder, useDownloadOrder } from "@/hooks/useOrders";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/price";
 import type { OrderItem } from "@/types/order";
@@ -23,6 +23,7 @@ export default function OrderDetailPage() {
     const { id } = useParams<{ id: string }>();
     const orderId = parseInt(id ?? "", 10);
     const { data: order, isLoading, error } = useOrder(orderId);
+    const download = useDownloadOrder();
 
     if (isLoading) {
         return (
@@ -66,9 +67,25 @@ export default function OrderDetailPage() {
                         {formatDateTime(order.createdAt)}
                     </p>
                 </div>
-                <span className="rounded-md border px-2.5 py-1 text-xs">
-                    {order.paymentStatus}
-                </span>
+                <div className="flex flex-col items-end gap-2">
+                    <span className="rounded-md border px-2.5 py-1 text-xs">
+                        {order.paymentStatus}
+                    </span>
+                    {order.paymentStatus === "COMPLETED" && (
+                        <Button
+                            size="sm"
+                            onClick={() => download.mutate(orderId)}
+                            disabled={download.isPending}
+                        >
+                            {download.isPending ? "Preparing…" : "Download (.zip)"}
+                        </Button>
+                    )}
+                    {download.isError && (
+                        <p className="text-xs text-destructive">
+                            Download failed. Please try again.
+                        </p>
+                    )}
+                </div>
             </div>
 
             <ul className="space-y-3">

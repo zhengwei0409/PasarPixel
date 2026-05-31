@@ -1,5 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { getOrders, getOrderById } from "../services/orderService";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+    getOrders,
+    getOrderById,
+    downloadOrder,
+} from "../services/orderService";
 import type { OrdersParams } from "../types/order";
 
 export function useOrders(params: OrdersParams = {}) {
@@ -14,5 +18,11 @@ export function useOrder(id: number) {
         queryKey: ["orders", id],
         queryFn: () => getOrderById(id),
         enabled: Number.isInteger(id) && id > 0,
+    });
+}
+
+export function useDownloadOrder() {
+    return useMutation({
+        mutationFn: (id: number) => downloadOrder(id),
     });
 }
