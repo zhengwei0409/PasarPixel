@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { usePublicAsset, useRelatedAssets } from "@/hooks/useAsset";
+import {
+    usePublicAsset,
+    useRelatedAssets,
+    useAssetReviews,
+    useSubmitReview,
+    useDeleteReview,
+} from "@/hooks/useAsset";
 import { useAddToCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { savePendingCartItem } from "@/lib/cartIntent";
@@ -9,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
 import AssetCard from "@/components/marketplace/AssetCard";
 import ModelViewer from "@/components/marketplace/ModelViewer";
+import StarRating from "@/components/marketplace/StarRating";
 import type { AssetCategory } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
 import { useCurrencyStore } from "@/stores/currencyStore";
@@ -84,6 +91,7 @@ export default function AssetDetailPage() {
 }
 
 type AssetData = NonNullable<ReturnType<typeof usePublicAsset>["data"]>;
+type ReviewData = NonNullable<ReturnType<typeof useAssetReviews>["data"]>["items"][number];
 
 function AssetDetailContent({ asset }: { asset: AssetData }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
@@ -204,6 +212,20 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-2">
                             <h1 className="text-2xl font-semibold">{asset.title}</h1>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                {asset.reviewCount > 0 ? (
+                                    <>
+                                        <StarRating value={asset.averageRating} />
+                                        <span>
+                                            {asset.averageRating.toFixed(1)} ·{" "}
+                                            {asset.reviewCount}{" "}
+                                            {asset.reviewCount === 1 ? "review" : "reviews"}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span>No reviews yet</span>
+                                )}
+                            </div>
                             {asset.isAiGenerated && <AiBadge />}
                         </div>
                         <span className="shrink-0 rounded bg-muted px-2 py-1 text-xs uppercase text-muted-foreground">
@@ -369,6 +391,8 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                 </p>
             </div>
 
+            <ReviewsSection asset={asset} />
+
             {relatedItems.length > 0 && (
                 <div className="mt-10">
                     <h2 className="mb-3 text-sm font-medium">Related assets</h2>
@@ -380,5 +404,169 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                 </div>
             )}
         </div>
+    );
+}
+
+function formatReviewDate(iso: string): string {
+    return new Date(iso).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+}
+
+function ReviewsSection({ asset }: { asset: AssetData }) {
+    const { user } = useAuth();
+    const { data, isLoading } = useAssetReviews(asset.id);
+    const reviews = data?.items ?? [];
+
+    // The JWT carries the user id as `sub` (a string); review.userId/sellerId are numbers.
+    const userId = user ? Number(user.sub) : null;
+    const isAdmin = user?.roles.includes("ADMIN") ?? false;
+    const isSeller = userId === asset.sellerId;
+    // Form shows for any logged-in non-admin who isn't the seller. Whether they
+    // actually bought it is enforced by the API (403 surfaced on submit).
+    const canShowForm = !!user && !isAdmin && !isSeller;
+    const myReview = userId !== null ? reviews.find((r) => r.userId === userId) ?? null : null;
+
+    return (
+        <div className="mt-10">
+            <h2 className="mb-3 text-sm font-medium">
+                Ratings &amp; reviews ({asset.reviewCount})
+            </h2>
+
+            {canShowForm && (
+                <ReviewForm assetId={asset.id} existingReview={myReview} />
+            )}
+
+            {isLoading ? (
+                <p className="text-sm text-muted-foreground">Loading reviews…</p>
+            ) : reviews.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                    No reviews yet. Be the first to review this asset.
+                </p>
+            ) : (
+                <ul className="divide-y rounded-lg border">
+                    {reviews.map((review) => (
+                        <li key={review.id} className="flex gap-3 px-4 py-3">
+                            <Avatar size="sm">
+                                {review.user.avatarUrl && (
+                                    <AvatarImage
+                                        src={review.user.avatarUrl}
+                                        alt={review.user.name}
+                                    />
+                                )}
+                                <AvatarFallback>
+                                    {review.user.name.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-medium">
+                                        {review.user.name}
+                                    </span>
+                                    <StarRating value={review.rating} size={14} />
+                                    <span className="text-xs text-muted-foreground">
+                                        {formatReviewDate(review.createdAt)}
+                                    </span>
+                                </div>
+                                {review.comment && (
+                                    <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                                        {review.comment}
+                                    </p>
+                                )}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+function ReviewForm({
+    assetId,
+    existingReview,
+}: {
+    assetId: number;
+    existingReview: ReviewData | null;
+}) {
+    const [rating, setRating] = useState<number>(existingReview?.rating ?? 0);
+    const [comment, setComment] = useState<string>(existingReview?.comment ?? "");
+    const [message, setMessage] = useState<string | null>(null);
+
+    const submit = useSubmitReview();
+    const remove = useDeleteReview();
+    const isEditing = existingReview !== null;
+
+    const handleSubmit = (e: { preventDefault: () => void }) => {
+        e.preventDefault();
+        if (rating < 1) {
+            setMessage("Please select a rating.");
+            return;
+        }
+        setMessage(null);
+        submit.mutate(
+            { assetId, payload: { rating, comment: comment.trim() || undefined } },
+            {
+                onSuccess: () => setMessage(isEditing ? "Review updated" : "Review submitted"),
+                onError: (err) => {
+                    const status = (err as { response?: { status?: number } }).response?.status;
+                    setMessage(
+                        status === 403
+                            ? "Only buyers who purchased this asset can leave a review."
+                            : "Could not submit review.",
+                    );
+                },
+            },
+        );
+    };
+
+    const handleDelete = () => {
+        setMessage(null);
+        remove.mutate(assetId, {
+            onSuccess: () => {
+                setRating(0);
+                setComment("");
+                setMessage("Review removed");
+            },
+            onError: () => setMessage("Could not remove review."),
+        });
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="mb-6 space-y-3 rounded-lg border p-4">
+            <p className="text-sm font-medium">
+                {isEditing ? "Edit your review" : "Write a review"}
+            </p>
+            <StarRating value={rating} size={24} onChange={setRating} />
+            <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Share what you think about this asset (optional)"
+                rows={3}
+                className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm"
+            />
+            <div className="flex items-center gap-2">
+                <Button type="submit" disabled={submit.isPending}>
+                    {submit.isPending
+                        ? "Saving…"
+                        : isEditing
+                          ? "Update review"
+                          : "Submit review"}
+                </Button>
+                {isEditing && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={remove.isPending}
+                        onClick={handleDelete}
+                    >
+                        {remove.isPending ? "Removing…" : "Delete"}
+                    </Button>
+                )}
+            </div>
+            {message && <p className="text-xs text-muted-foreground">{message}</p>}
+        </form>
     );
 }
