@@ -11,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { formatPrice } from "@/lib/price";
 import type { Order, PaymentStatus } from "@/types/order";
 
 const STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
@@ -35,14 +36,6 @@ function formatDate(iso: string): string {
 function orderItemCount(order: Order): string {
     const n = order.orderItems.length;
     return `${n} ${n === 1 ? "item" : "items"}`;
-}
-
-// The order's currency isn't persisted on the row, so show the stored numeric
-// amount with 2dp and no assumed symbol (it's whatever was paid at checkout).
-function formatAmount(value: string): string {
-    const n = parseFloat(value);
-    if (isNaN(n)) return "—";
-    return n.toFixed(2);
 }
 
 export default function PurchaseHistoryPage() {
@@ -136,7 +129,7 @@ export default function PurchaseHistoryPage() {
                                     </div>
                                     <div className="text-right">
                                         <p className="text-sm font-semibold">
-                                            {formatAmount(order.totalAmount)}
+                                            {formatPrice(order.totalAmount, order.currency)}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                             {order.paymentStatus}

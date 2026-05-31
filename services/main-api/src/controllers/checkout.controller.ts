@@ -107,6 +107,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
             buyerId: userId,
             // Round to 2dp: summing floats (e.g. 60 + 39.65) can leave a 0.0000001 tail.
             totalAmount: Math.round(total * 100) / 100,
+            currency, // lock in the currency the buyer paid in
             paymentStatus: "PENDING",
             orderItems: { create: orderItemsData },
         },

@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useOrder } from "@/hooks/useOrders";
 import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/lib/price";
 import type { OrderItem } from "@/types/order";
 
 function formatDateTime(iso: string): string {
@@ -11,14 +12,6 @@ function formatDateTime(iso: string): string {
         hour: "2-digit",
         minute: "2-digit",
     });
-}
-
-// The order's currency isn't persisted on the row, so show the stored numeric
-// amount with 2dp and no assumed symbol (it's whatever was paid at checkout).
-function formatAmount(value: string): string {
-    const n = parseFloat(value);
-    if (isNaN(n)) return "—";
-    return n.toFixed(2);
 }
 
 function thumbnailOf(item: OrderItem): string | null {
@@ -120,7 +113,7 @@ export default function OrderDetailPage() {
                             </div>
 
                             <div className="shrink-0 text-right text-sm font-semibold">
-                                {formatAmount(item.price)}
+                                {formatPrice(item.price, order.currency)}
                             </div>
                         </li>
                     );
@@ -129,7 +122,9 @@ export default function OrderDetailPage() {
 
             <div className="mt-6 flex items-center justify-between rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-xl font-semibold">{formatAmount(order.totalAmount)}</p>
+                <p className="text-xl font-semibold">
+                    {formatPrice(order.totalAmount, order.currency)}
+                </p>
             </div>
         </div>
     );

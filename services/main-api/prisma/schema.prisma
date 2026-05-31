@@ -169,6 +169,7 @@ model Order {
   id             Int         @id @default(autoincrement())
   buyerId        Int
   totalAmount    Decimal
+  currency       Currency    @default(USD)
   paymentStatus  PaymentStatus @default(PENDING)
   stripePaymentId String?
   createdAt      DateTime    @default(now())

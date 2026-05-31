@@ -1,4 +1,4 @@
-import type { BrowseAssetItem } from "./asset";
+import type { BrowseAssetItem, Currency } from "./asset";
 import type { LicenseType } from "./cart";
 
 export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
@@ -18,6 +18,7 @@ export interface Order {
     id: number;
     buyerId: number;
     totalAmount: string; // Prisma Decimal serialised as string
+    currency: Currency; // the currency the buyer paid in
     paymentStatus: PaymentStatus;
     stripePaymentId: string | null;
     createdAt: string;
