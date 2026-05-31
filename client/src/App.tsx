@@ -17,6 +17,7 @@ import MySellerListingsPage from './pages/MySellerListingsPage';
 import AdminApplicationsPage from './pages/AdminApplicationsPage';
 import AdminAssetReviewPage from './pages/AdminAssetReviewPage';
 import ForbiddenPage from './pages/ForbiddenPage';
+import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
 import Navbar from './components/layout/Navbar';
 import { useCartIntent } from './hooks/useCartIntent';
 
@@ -46,6 +47,7 @@ function App() {
       <Route element={<ProtectedRoute allowedRoles={["BUYER"]} />}>
         <Route path="/seller-application" element={<SellerApplicationPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout/success" element={<CheckoutSuccessPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["SELLER"]} />}>

@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCart, useUpdateCartItemLicense, useRemoveFromCart } from "@/hooks/useCart";
+import { useCheckout } from "@/hooks/useCheckout";
 import { formatPrice, convertFiat } from "@/lib/price";
+import type { Currency } from "@/types/asset";
 import type { CartItemWithAsset, LicenseType } from "@/types/cart";
 
 function itemPrice(item: CartItemWithAsset): string | null {
@@ -22,6 +25,17 @@ export default function CartPage() {
     const { data, isLoading, error } = useCart();
     const updateLicense = useUpdateCartItemLicense();
     const removeItem = useRemoveFromCart();
+    const checkout = useCheckout();
+    const [currency, setCurrency] = useState<Currency>("USD");
+
+    function handleCheckout() {
+        checkout.mutate(currency, {
+            // Redirect to the Stripe-hosted payment page.
+            onSuccess: (url) => {
+                window.location.href = url;
+            },
+        });
+    }
 
     if (isLoading) {
         return (
@@ -154,15 +168,31 @@ export default function CartPage() {
             <div className="mt-6 flex items-center justify-between rounded-lg border p-4">
                 <div>
                     <p className="text-xs text-muted-foreground">Subtotal</p>
-                    <p className="text-xl font-semibold">{formatPrice(subtotalUsd, "USD")}</p>
+                    <p className="text-xl font-semibold">
+                        {formatPrice(subtotalUsd, "USD", currency)}
+                    </p>
                 </div>
-                <Button size="lg" disabled title="Checkout coming soon">
-                    Checkout
-                </Button>
+                <div className="flex items-center gap-3">
+                    <select
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value as Currency)}
+                        disabled={checkout.isPending}
+                        className="rounded-md border px-2 py-2 text-sm"
+                        aria-label="Payment currency"
+                    >
+                        <option value="USD">USD</option>
+                        <option value="MYR">MYR</option>
+                    </select>
+                    <Button size="lg" onClick={handleCheckout} disabled={checkout.isPending}>
+                        {checkout.isPending ? "Redirecting…" : "Checkout"}
+                    </Button>
+                </div>
             </div>
-            <p className="mt-2 text-right text-xs text-muted-foreground">
-                Checkout coming soon
-            </p>
+            {checkout.isError && (
+                <p className="mt-2 text-right text-xs text-destructive">
+                    Could not start checkout. Please try again.
+                </p>
+            )}
         </div>
     );
 }
