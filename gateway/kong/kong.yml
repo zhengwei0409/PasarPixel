@@ -41,6 +41,10 @@ services:
         paths:
           - /orders
         strip_path: false
+      - name: seller-route
+        paths:
+          - /seller
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003
