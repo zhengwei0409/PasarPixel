@@ -17,6 +17,9 @@ import {
     cancelSubmission,
     submitForReview,
     updateAsset,
+    getAssetReviews,
+    submitReview,
+    deleteReview,
 } from "../services/assetService";
 import type {
     Asset,
@@ -24,6 +27,8 @@ import type {
     BrowseAssetsParams,
     CreateAssetPayload,
     UpdateAssetPayload,
+    Review,
+    SubmitReviewPayload,
 } from "../types/asset";
 
 export function useAsset(assetId: number | null) {
@@ -198,6 +203,42 @@ export function useSubmitForReview() {
         onSuccess: (_data, assetId) => {
             queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
+    });
+}
+
+export function useAssetReviews(assetId: number | null) {
+    return useQuery({
+        queryKey: ["assets", "reviews", assetId],
+        queryFn: () => getAssetReviews(assetId as number),
+        enabled: assetId != null,
+    });
+}
+
+export interface SubmitReviewVars {
+    assetId: number;
+    payload: SubmitReviewPayload;
+}
+
+export function useSubmitReview() {
+    const queryClient = useQueryClient();
+    return useMutation<Review, Error, SubmitReviewVars>({
+        mutationFn: ({ assetId, payload }) => submitReview(assetId, payload),
+        onSuccess: (_data, vars) => {
+            queryClient.invalidateQueries({ queryKey: ["assets", "reviews", vars.assetId] });
+            // The asset's averageRating/reviewCount changed too.
+            queryClient.invalidateQueries({ queryKey: ["assets", "public", vars.assetId] });
+        },
+    });
+}
+
+export function useDeleteReview() {
+    const queryClient = useQueryClient();
+    return useMutation<void, Error, number>({
+        mutationFn: (assetId: number) => deleteReview(assetId),
+        onSuccess: (_data, assetId) => {
+            queryClient.invalidateQueries({ queryKey: ["assets", "reviews", assetId] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "public", assetId] });
         },
     });
 }

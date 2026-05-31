@@ -14,6 +14,9 @@ import type {
     GetUploadUrlResponse,
     RegisterFilePayload,
     UpdateAssetPayload,
+    AssetReviewsResponse,
+    Review,
+    SubmitReviewPayload,
 } from "../types/asset";
 
 export async function createAsset(payload: CreateAssetPayload): Promise<Asset> {
@@ -117,4 +120,21 @@ export async function getPublicAsset(assetId: number): Promise<BrowseAssetItem> 
 export async function getRelatedAssets(assetId: number): Promise<BrowseAssetsResponse> {
     const res = await apiClient.get<BrowseAssetsResponse>(`/assets/browse/${assetId}/related`);
     return res.data;
+}
+
+export async function getAssetReviews(assetId: number): Promise<AssetReviewsResponse> {
+    const res = await apiClient.get<AssetReviewsResponse>(`/assets/${assetId}/reviews`);
+    return res.data;
+}
+
+export async function submitReview(
+    assetId: number,
+    payload: SubmitReviewPayload,
+): Promise<Review> {
+    const res = await apiClient.post<Review>(`/assets/${assetId}/reviews`, payload);
+    return res.data;
+}
+
+export async function deleteReview(assetId: number): Promise<void> {
+    await apiClient.delete(`/assets/${assetId}/reviews`);
 }

@@ -102,6 +102,29 @@ export interface RegisterFilePayload {
 
 export interface BrowseAssetItem extends AssetWithFiles {
     seller: { userId: number; name: string; avatarUrl: string | null };
+    averageRating: number;
+    reviewCount: number;
+}
+
+export interface Review {
+    id: number;
+    userId: number;
+    assetId: number;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+    user: { userId: number; name: string; avatarUrl: string | null };
+}
+
+export interface AssetReviewsResponse {
+    items: Review[];
+    averageRating: number;
+    count: number;
+}
+
+export interface SubmitReviewPayload {
+    rating: number;
+    comment?: string;
 }
 
 export type BrowseSort = "newest" | "price_asc" | "price_desc";
