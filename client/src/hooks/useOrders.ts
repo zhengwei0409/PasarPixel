@@ -3,6 +3,7 @@ import {
     getOrders,
     getOrderById,
     downloadOrder,
+    downloadCertificate,
     verifyLicense,
 } from "../services/orderService";
 import type { OrdersParams } from "../types/order";
@@ -25,6 +26,17 @@ export function useOrder(id: number) {
 export function useDownloadOrder() {
     return useMutation({
         mutationFn: (id: number) => downloadOrder(id),
+    });
+}
+
+// FR-3.5: download the PDF certificate for a single purchased item.
+export function useDownloadCertificate() {
+    return useMutation({
+        mutationFn: (vars: {
+            orderId: number;
+            itemId: number;
+            licenseKey: string;
+        }) => downloadCertificate(vars.orderId, vars.itemId, vars.licenseKey),
     });
 }
 

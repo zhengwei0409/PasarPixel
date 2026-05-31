@@ -36,6 +36,31 @@ export async function verifyLicense(
     }
 }
 
+// FR-3.5: download the PDF licence certificate for one purchased item. Auth'd
+// request (token attached by the interceptor), fetched as a blob then saved.
+export async function downloadCertificate(
+    orderId: number,
+    itemId: number,
+    licenseKey: string
+): Promise<void> {
+    const res = await apiClient.get<Blob>(
+        `/orders/${orderId}/items/${itemId}/certificate`,
+        { responseType: "blob" }
+    );
+
+    const objectUrl = URL.createObjectURL(res.data);
+    try {
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = `certificate-${licenseKey}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
 // FR-3.4: fetch a short-lived signed link, download the ZIP as a blob, then
 // trigger a browser save. Keeping the token out of the address bar.
 export async function downloadOrder(id: number): Promise<void> {

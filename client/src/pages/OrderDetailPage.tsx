@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { useOrder, useDownloadOrder } from "@/hooks/useOrders";
+import { useOrder, useDownloadOrder, useDownloadCertificate } from "@/hooks/useOrders";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/price";
 import type { OrderItem } from "@/types/order";
@@ -24,6 +24,7 @@ export default function OrderDetailPage() {
     const orderId = parseInt(id ?? "", 10);
     const { data: order, isLoading, error } = useOrder(orderId);
     const download = useDownloadOrder();
+    const certificate = useDownloadCertificate();
 
     if (isLoading) {
         return (
@@ -127,6 +128,29 @@ export default function OrderDetailPage() {
                                     License key:{" "}
                                     <span className="font-mono">{item.licenseKey}</span>
                                 </p>
+                                {order.paymentStatus === "COMPLETED" && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-1 self-start"
+                                        onClick={() =>
+                                            certificate.mutate({
+                                                orderId,
+                                                itemId: item.id,
+                                                licenseKey: item.licenseKey,
+                                            })
+                                        }
+                                        disabled={
+                                            certificate.isPending &&
+                                            certificate.variables?.itemId === item.id
+                                        }
+                                    >
+                                        {certificate.isPending &&
+                                        certificate.variables?.itemId === item.id
+                                            ? "Preparing…"
+                                            : "Certificate (PDF)"}
+                                    </Button>
+                                )}
                             </div>
 
                             <div className="shrink-0 text-right text-sm font-semibold">

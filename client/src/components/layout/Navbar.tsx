@@ -22,6 +22,12 @@ export default function Navbar() {
                 >
                     Marketplace
                 </Link>
+                <Link
+                    to="/verify"
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                    Verify
+                </Link>
             </div>
 
             <div className="flex items-center gap-2">
