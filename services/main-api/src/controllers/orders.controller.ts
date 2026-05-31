@@ -7,6 +7,7 @@ import {
     signDownloadToken,
     verifyDownloadToken,
 } from "../lib/downloadToken";
+import { buildCertificate } from "../lib/certificate";
 
 const VALID_PAYMENT_STATUSES: PaymentStatus[] = [
     "PENDING",
@@ -152,6 +153,58 @@ export async function verifyLicense(req: Request, res: Response) {
         sellerName: item.asset.seller.name,
         purchasedAt: item.order.createdAt,
     });
+}
+
+// GET /orders/:id/items/:itemId/certificate — downloadable PDF certificate for
+// one purchased item (FR-3.5). Requires JWT; only the buyer who owns the order,
+// and only once the order is paid, can fetch it. Generated on demand, not stored.
+export async function getCertificate(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const orderId = parseInt(req.params.id as string);
+    const itemId = parseInt(req.params.itemId as string);
+    if (isNaN(orderId) || isNaN(itemId)) {
+        res.status(400).json({ error: "Invalid order or item id" });
+        return;
+    }
+
+    const item = await prisma.orderItem.findUnique({
+        where: { id: itemId },
+        include: {
+            asset: { include: { seller: { select: { name: true } } } },
+            order: {
+                include: { buyer: { select: { name: true } } },
+            },
+        },
+    });
+
+    // The item must exist, belong to the named order, be owned by this buyer, and
+    // the order must be paid. Any mismatch is a 404 so we don't reveal other
+    // buyers' orders.
+    if (
+        !item ||
+        item.orderId !== orderId ||
+        item.order.buyerId !== userId ||
+        item.order.paymentStatus !== "COMPLETED"
+    ) {
+        res.status(404).json({ error: "Certificate not found" });
+        return;
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="certificate-${item.licenseKey}.pdf"`
+    );
+
+    const doc = buildCertificate({
+        licenseKey: item.licenseKey,
+        licenseType: item.licenseType,
+        assetTitle: item.asset.title,
+        sellerName: item.asset.seller.name,
+        buyerName: item.order.buyer.name,
+        purchasedAt: item.order.createdAt,
+    });
+    doc.pipe(res);
 }
 
 // GET /orders/:id/download-url — issue a short-lived signed download link (FR-3.4).

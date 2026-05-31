@@ -6,6 +6,7 @@ import {
     getDownloadUrl,
     downloadOrderZip,
     verifyLicense,
+    getCertificate,
 } from "../controllers/orders.controller";
 
 const router = Router();
@@ -24,5 +25,6 @@ router.use(authenticate, requireRole("BUYER"));
 router.get("/", getMyOrders);
 router.get("/:id", getMyOrderById);
 router.get("/:id/download-url", getDownloadUrl);
+router.get("/:id/items/:itemId/certificate", getCertificate);
 
 export default router;
