@@ -28,8 +28,21 @@ function startingPriceLabel(asset: BrowseAssetItem, displayCurrency: Currency): 
     return `from ${formatPrice(min, asset.currency, displayCurrency)}`;
 }
 
+// The marketplace card only shows a STATIC image. Image files use their own
+// preview/original; fonts have a rendered .png preview. Video/audio previews
+// are clips, not images, so we skip them and fall back to "No preview".
+function cardThumbnailUrl(asset: BrowseAssetItem): string | null {
+    const image = asset.files.find((f) => f.fileType.startsWith("image/"));
+    if (image) return image.previewUrl ?? image.fileUrl;
+
+    const font = asset.files.find((f) => f.fileType.startsWith("font/") && f.previewUrl);
+    if (font) return font.previewUrl;
+
+    return null;
+}
+
 export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
-    const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
+    const thumbnailUrl = cardThumbnailUrl(asset);
     const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
 
     return (
@@ -38,11 +51,11 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
             className="group block overflow-hidden rounded-lg border bg-card transition hover:shadow-md"
         >
             <div className="relative aspect-square w-full bg-muted">
-                {thumbnail ? (
+                {thumbnailUrl ? (
                     <img
-                        src={thumbnail.previewUrl ?? thumbnail.fileUrl}
+                        src={thumbnailUrl}
                         alt={asset.title}
-                        className="h-full w-full object-cover transition group-hover:scale-105"
+                        className="h-full w-full object-contain transition group-hover:scale-105"
                     />
                 ) : (
                     <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
