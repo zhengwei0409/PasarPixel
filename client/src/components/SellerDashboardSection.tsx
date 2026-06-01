@@ -8,7 +8,8 @@ import {
     type ChartConfig,
 } from "./ui/chart";
 import { useSellerDashboard } from "../hooks/useSellerDashboard";
-import { formatPrice } from "../lib/price";
+import { formatPrice, convertFiat } from "../lib/price";
+import { useCurrencyStore } from "../stores/currencyStore";
 import WithdrawalSection from "./WithdrawalSection";
 
 const chartConfig = {
@@ -49,6 +50,7 @@ function StatCard({
 
 export default function SellerDashboardSection() {
     const { data, isLoading, isError } = useSellerDashboard();
+    const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
 
     if (isLoading) {
         return <p className="text-sm text-gray-500">Loading dashboard…</p>;
@@ -57,10 +59,11 @@ export default function SellerDashboardSection() {
         return <p className="text-sm text-red-600">Failed to load seller dashboard.</p>;
     }
 
-    // Revenue is summed across orders; display in USD (sellers' default currency).
+    // Revenue is summed across orders in USD; convert each bar to the currency the
+    // user has toggled so the chart and the Revenue card always agree.
     const chartData = data.revenueSeries.map((p) => ({
         month: formatMonth(p.month),
-        revenue: p.revenue,
+        revenue: convertFiat(p.revenue, "USD", displayCurrency),
     }));
 
     return (
@@ -70,7 +73,7 @@ export default function SellerDashboardSection() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     title="Revenue"
-                    value={formatPrice(data.revenue, "USD")}
+                    value={formatPrice(data.revenue, "USD", displayCurrency)}
                     icon={<DollarSign className="h-4 w-4" />}
                 />
                 <StatCard
@@ -107,7 +110,15 @@ export default function SellerDashboardSection() {
                                     axisLine={false}
                                     tickMargin={8}
                                 />
-                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <ChartTooltip
+                                    content={
+                                        <ChartTooltipContent
+                                            formatter={(value) =>
+                                                formatPrice(Number(value), displayCurrency, displayCurrency)
+                                            }
+                                        />
+                                    }
+                                />
                                 <Bar dataKey="revenue" fill="var(--color-revenue)" radius={4} />
                             </BarChart>
                         </ChartContainer>

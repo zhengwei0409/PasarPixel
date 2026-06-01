@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useWithdrawals, useRequestWithdrawal } from "../hooks/useSellerDashboard";
-import { formatPrice } from "../lib/price";
+import { formatPrice, convertFiat } from "../lib/price";
+import { useCurrencyStore } from "../stores/currencyStore";
 import type { WithdrawalStatus } from "../types/seller";
 
 const STATUS_STYLES: Record<WithdrawalStatus, string> = {
@@ -16,6 +17,7 @@ const STATUS_STYLES: Record<WithdrawalStatus, string> = {
 export default function WithdrawalSection() {
     const { data, isLoading, isError } = useWithdrawals();
     const requestWithdrawal = useRequestWithdrawal();
+    const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
     const [amount, setAmount] = useState("");
 
     if (isLoading) {
@@ -25,15 +27,19 @@ export default function WithdrawalSection() {
         return <p className="text-sm text-red-600">Failed to load withdrawals.</p>;
     }
 
-    const balance = data.availableBalance;
+    // Balances live in USD on the backend; show and accept input in the toggled
+    // currency. The typed amount is converted back to USD before sending so the
+    // backend keeps validating and storing against the same USD revenue base.
+    const balanceInDisplay = convertFiat(data.availableBalance, "USD", displayCurrency);
     const numericAmount = parseFloat(amount);
     const isValid =
-        !isNaN(numericAmount) && numericAmount > 0 && numericAmount <= balance;
+        !isNaN(numericAmount) && numericAmount > 0 && numericAmount <= balanceInDisplay;
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!isValid) return;
-        requestWithdrawal.mutate(numericAmount, {
+        const amountUsd = convertFiat(numericAmount, displayCurrency, "USD");
+        requestWithdrawal.mutate(amountUsd, {
             onSuccess: () => setAmount(""),
         });
     }
@@ -46,7 +52,7 @@ export default function WithdrawalSection() {
             <CardContent className="space-y-6">
                 <div>
                     <p className="text-sm text-gray-600">Available balance</p>
-                    <p className="text-2xl font-bold">{formatPrice(balance, "USD")}</p>
+                    <p className="text-2xl font-bold">{formatPrice(data.availableBalance, "USD", displayCurrency)}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-2">
@@ -65,8 +71,8 @@ export default function WithdrawalSection() {
                     </div>
                     {amount !== "" && !isValid && (
                         <p className="text-xs text-red-600">
-                            Enter an amount between {formatPrice(0, "USD")} and{" "}
-                            {formatPrice(balance, "USD")}.
+                            Enter an amount between {formatPrice(0, displayCurrency)} and{" "}
+                            {formatPrice(balanceInDisplay, displayCurrency)}.
                         </p>
                     )}
                     {requestWithdrawal.isError && (
@@ -88,7 +94,7 @@ export default function WithdrawalSection() {
                                     className="flex items-center justify-between py-2"
                                 >
                                     <div>
-                                        <p className="font-medium">{formatPrice(w.amount, "USD")}</p>
+                                        <p className="font-medium">{formatPrice(w.amount, "USD", displayCurrency)}</p>
                                         <p className="text-xs text-gray-500">
                                             {new Date(w.createdAt).toLocaleDateString()}
                                         </p>
