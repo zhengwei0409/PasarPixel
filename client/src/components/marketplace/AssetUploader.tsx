@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { useAsset, useDeleteAssetFile, useUploadAssetFile } from "../../hooks/useAsset";
 import { getErrorMessage } from "../../lib/errors";
+import type { AssetCategory, AssetFile } from "../../types/asset";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -19,17 +20,276 @@ interface InFlightUpload {
     error?: string;
 }
 
+// A "slot" is one upload box with a specific role.
+interface SlotDef {
+    key: string;
+    title: string;
+    required: boolean;
+    single: boolean; // single = preview-style slot: only one file, new replaces old
+    // Returns true if a given file/filename belongs in this slot.
+    match: (name: string, type: string) => boolean;
+    accept: string; // value for <input accept="...">
+    hint: string;
+}
+
+const matchExt = (name: string, exts: string[]) =>
+    exts.some((e) => name.toLowerCase().endsWith(e));
+
+// Per-category slot layout. Categories not listed fall back to a single box.
+const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
+    THREE_D_MODEL: [
+        {
+            key: "glb",
+            title: "Preview File (.glb) — required",
+            required: true,
+            single: true,
+            match: (name) => matchExt(name, [".glb"]),
+            accept: ".glb",
+            hint: "Used for the interactive 3D preview. Exactly one .glb file.",
+        },
+        {
+            key: "extra",
+            title: "Additional Files (optional)",
+            required: false,
+            single: false,
+            match: () => true,
+            accept: "",
+            hint: "Other formats bundled in the download (.fbx, .blend, .obj, textures, etc.)",
+        },
+    ],
+    ANIMATION: [
+        {
+            key: "model",
+            title: "3D File (.glb / .fbx / .blend) — required",
+            required: true,
+            single: true,
+            match: (name) => matchExt(name, [".glb", ".fbx", ".blend"]),
+            accept: ".glb,.fbx,.blend",
+            hint: "The animated 3D model. One file.",
+        },
+        {
+            key: "video",
+            title: "MP4 Preview — required",
+            required: true,
+            single: true,
+            match: (_name, type) => type.startsWith("video/"),
+            accept: "video/mp4",
+            hint: "A video preview buyers watch before purchase. One MP4.",
+        },
+        {
+            key: "extra",
+            title: "Additional Files (optional)",
+            required: false,
+            single: false,
+            match: () => true,
+            accept: "",
+            hint: "Any other files to bundle in the download.",
+        },
+    ],
+};
+
 function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function AssetUploader({ assetId, category }: Props) {
-    const { data: asset, isLoading } = useAsset(assetId);
+function fileNameOf(f: AssetFile): string {
+    return f.fileUrl.split("/").pop() ?? "file";
+}
+
+// Decide which slot each already-uploaded file belongs to.
+//
+// The backend doesn't store which box a file was uploaded from, so we infer
+// it from the file's type. Required slots are single-file, so each one claims
+// only the FIRST file that matches it; any further matching files (e.g. a
+// second .blend uploaded into the optional box) fall through to the optional
+// catch-all instead of being pulled back into the required slot.
+function bucketFiles(files: AssetFile[], slots: SlotDef[]): Record<string, AssetFile[]> {
+    const buckets: Record<string, AssetFile[]> = {};
+    for (const s of slots) buckets[s.key] = [];
+    const claimed = new Set<string>(); // keys of required slots already filled
+
+    for (const f of files) {
+        const name = fileNameOf(f);
+        const slot =
+            slots.find(
+                (s) => s.required && !claimed.has(s.key) && s.match(name, f.fileType),
+            ) ?? slots.find((s) => !s.required);
+        if (slot) {
+            buckets[slot.key].push(f);
+            if (slot.required) claimed.add(slot.key);
+        }
+    }
+    return buckets;
+}
+
+interface SlotProps {
+    assetId: number;
+    slot: SlotDef;
+    files: AssetFile[];
+}
+
+function UploadSlot({ assetId, slot, files }: SlotProps) {
     const upload = useUploadAssetFile();
     const del = useDeleteAssetFile();
+    const [isDragging, setIsDragging] = useState(false);
+    const [inFlight, setInFlight] = useState<InFlightUpload[]>([]);
+    const inputRef = useRef<HTMLInputElement>(null);
 
+    const doUpload = (file: File) => {
+        const id = `${Date.now()}-${file.name}-${Math.random()}`;
+        setInFlight((prev) => [...prev, { id, file, progress: 0 }]);
+        upload.mutate(
+            {
+                assetId,
+                file,
+                onProgress: (p) =>
+                    setInFlight((prev) =>
+                        prev.map((u) => (u.id === id ? { ...u, progress: p } : u)),
+                    ),
+            },
+            {
+                onSuccess: () => setInFlight((prev) => prev.filter((u) => u.id !== id)),
+                onError: (err) =>
+                    setInFlight((prev) =>
+                        prev.map((u) =>
+                            u.id === id ? { ...u, error: getErrorMessage(err) } : u,
+                        ),
+                    ),
+            },
+        );
+    };
+
+    const startUpload = (picked: FileList | File[]) => {
+        const list = Array.from(picked);
+
+        for (const file of list) {
+            if (file.size > MAX_FILE_SIZE) {
+                alert(`"${file.name}" exceeds 100 MB limit`);
+                continue;
+            }
+            // Type guard: reject files that don't belong in this slot.
+            if (slot.required && !slot.match(file.name, file.type)) {
+                alert(`"${file.name}" is not the right type for "${slot.title}"`);
+                continue;
+            }
+
+            doUpload(file);
+            if (slot.single) break; // single slot only ever takes one file
+
+        }
+    };
+
+    const onDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files.length > 0) startUpload(e.dataTransfer.files);
+    };
+
+    const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) startUpload(e.target.files);
+        e.target.value = "";
+    };
+
+    const missing = slot.required && files.length === 0 && inFlight.length === 0;
+
+    // A single slot only holds one file, so once something is uploaded (or
+    // uploading) there's nothing more to add — hide the box until it's deleted.
+    const hideBox = slot.single && (files.length > 0 || inFlight.length > 0);
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">{slot.title}</p>
+                {missing && <span className="text-xs text-red-500">Missing</span>}
+            </div>
+
+            {!hideBox && (
+            <div
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={onDrop}
+                onClick={() => inputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                    isDragging
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 hover:border-gray-400"
+                }`}
+            >
+                <p className="text-sm text-gray-600">
+                    Drag &amp; drop, or{" "}
+                    <span className="text-blue-600 underline">click to browse</span>
+                </p>
+                <p className="text-xs text-gray-400 mt-1">{slot.hint}</p>
+                <input
+                    ref={inputRef}
+                    type="file"
+                    multiple={!slot.single}
+                    accept={slot.accept || undefined}
+                    className="hidden"
+                    onChange={onFilePick}
+                />
+            </div>
+            )}
+
+            {(files.length > 0 || inFlight.length > 0) && (
+                <ul className="space-y-2">
+                    {files.map((f) => (
+                        <li
+                            key={f.id}
+                            className="flex items-center justify-between border rounded p-3"
+                        >
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">
+                                    {fileNameOf(f)}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {formatSize(f.fileSize)} · {f.fileType}
+                                </p>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => del.mutate({ assetId, fileId: f.id })}
+                                disabled={del.isPending}
+                            >
+                                Delete
+                            </Button>
+                        </li>
+                    ))}
+
+                    {inFlight.map((u) => (
+                        <li key={u.id} className="border rounded p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="truncate text-sm font-medium">
+                                    {u.file.name}
+                                </p>
+                                <span className="text-xs text-gray-500">
+                                    {u.error ? "Failed" : `${u.progress}%`}
+                                </span>
+                            </div>
+                            {u.error ? (
+                                <p className="text-xs text-red-500">{u.error}</p>
+                            ) : (
+                                <Progress value={u.progress} />
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+// Fallback single-box uploader for categories without a slot layout.
+function SingleBoxUploader({ assetId }: { assetId: number }) {
+    const { data: asset } = useAsset(assetId);
+    const upload = useUploadAssetFile();
+    const del = useDeleteAssetFile();
     const [isDragging, setIsDragging] = useState(false);
     const [inFlight, setInFlight] = useState<InFlightUpload[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -66,16 +326,14 @@ export default function AssetUploader({ assetId, category }: Props) {
                         ),
                 },
                 {
-                    onSuccess: () => {
-                        setInFlight((prev) => prev.filter((u) => u.id !== id));
-                    },
-                    onError: (err) => {
+                    onSuccess: () =>
+                        setInFlight((prev) => prev.filter((u) => u.id !== id)),
+                    onError: (err) =>
                         setInFlight((prev) =>
                             prev.map((u) =>
                                 u.id === id ? { ...u, error: getErrorMessage(err) } : u,
                             ),
-                        );
-                    },
+                        ),
                 },
             );
         }
@@ -91,9 +349,6 @@ export default function AssetUploader({ assetId, category }: Props) {
         if (e.target.files && e.target.files.length > 0) startUpload(e.target.files);
         e.target.value = "";
     };
-
-    if (isLoading) return <p className="text-sm text-gray-500">Loading files...</p>;
-    if (!asset) return <p className="text-sm text-red-500">Asset not found</p>;
 
     return (
         <div className="space-y-4">
@@ -112,7 +367,8 @@ export default function AssetUploader({ assetId, category }: Props) {
                 }`}
             >
                 <p className="text-gray-600">
-                    Drag &amp; drop files here, or <span className="text-blue-600 underline">click to browse</span>
+                    Drag &amp; drop files here, or{" "}
+                    <span className="text-blue-600 underline">click to browse</span>
                 </p>
                 <p className="text-xs text-gray-400 mt-1">Max 100 MB per file, 500 MB total</p>
                 <input
@@ -124,54 +380,43 @@ export default function AssetUploader({ assetId, category }: Props) {
                 />
             </div>
 
-            {category === "ANIMATION" && (
-                <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-                    <strong>Animation asset:</strong> Please upload both your <strong>3D file (.glb, .fbx, or .blend)</strong> and an <strong>MP4 preview video</strong>. Both are required before submission.
-                </div>
-            )}
-
-            {category === "THREE_D_MODEL" && (
-                <div className="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-                    <strong>3D Model asset:</strong> A <strong>.glb file</strong> is required for the interactive 3D preview. You may also include other formats (.fbx, .blend, .obj, textures, etc.) as bundled downloads.
-                </div>
-            )}
-
             <div className="text-sm text-gray-600">
                 Total: <span className="font-medium">{formatSize(projectedTotal)}</span> /{" "}
                 {formatSize(MAX_TOTAL_SIZE)}
             </div>
 
-            {(asset.files.length > 0 || inFlight.length > 0) && (
+            {((asset?.files.length ?? 0) > 0 || inFlight.length > 0) && (
                 <ul className="space-y-2">
-                    {asset.files.map((f) => {
-                        const name = f.fileUrl.split("/").pop() ?? "file";
-                        return (
-                            <li
-                                key={f.id}
-                                className="flex items-center justify-between border rounded p-3"
+                    {(asset?.files ?? []).map((f) => (
+                        <li
+                            key={f.id}
+                            className="flex items-center justify-between border rounded p-3"
+                        >
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">
+                                    {fileNameOf(f)}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {formatSize(f.fileSize)} · {f.fileType}
+                                </p>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => del.mutate({ assetId, fileId: f.id })}
+                                disabled={del.isPending}
                             >
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-medium">{name}</p>
-                                    <p className="text-xs text-gray-500">
-                                        {formatSize(f.fileSize)} · {f.fileType}
-                                    </p>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => del.mutate({ assetId, fileId: f.id })}
-                                    disabled={del.isPending}
-                                >
-                                    Delete
-                                </Button>
-                            </li>
-                        );
-                    })}
+                                Delete
+                            </Button>
+                        </li>
+                    ))}
 
                     {inFlight.map((u) => (
                         <li key={u.id} className="border rounded p-3 space-y-2">
                             <div className="flex items-center justify-between">
-                                <p className="truncate text-sm font-medium">{u.file.name}</p>
+                                <p className="truncate text-sm font-medium">
+                                    {u.file.name}
+                                </p>
                                 <span className="text-xs text-gray-500">
                                     {u.error ? "Failed" : `${u.progress}%`}
                                 </span>
@@ -185,6 +430,39 @@ export default function AssetUploader({ assetId, category }: Props) {
                     ))}
                 </ul>
             )}
+        </div>
+    );
+}
+
+export default function AssetUploader({ assetId, category }: Props) {
+    const { data: asset, isLoading } = useAsset(assetId);
+
+    if (isLoading) return <p className="text-sm text-gray-500">Loading files...</p>;
+    if (!asset) return <p className="text-sm text-red-500">Asset not found</p>;
+
+    const slots = category ? CATEGORY_SLOTS[category as AssetCategory] : undefined;
+
+    // Categories without a slot layout keep the original single-box behaviour.
+    if (!slots) return <SingleBoxUploader assetId={assetId} />;
+
+    const buckets = bucketFiles(asset.files, slots);
+    const total = asset.files.reduce((sum, f) => sum + f.fileSize, 0);
+
+    return (
+        <div className="space-y-6">
+            {slots.map((slot) => (
+                <UploadSlot
+                    key={slot.key}
+                    assetId={assetId}
+                    slot={slot}
+                    files={buckets[slot.key]}
+                />
+            ))}
+
+            <div className="text-sm text-gray-600">
+                Total: <span className="font-medium">{formatSize(total)}</span> /{" "}
+                {formatSize(MAX_TOTAL_SIZE)}
+            </div>
         </div>
     );
 }
