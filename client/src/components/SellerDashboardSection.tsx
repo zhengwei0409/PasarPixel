@@ -9,6 +9,7 @@ import {
 } from "./ui/chart";
 import { useSellerDashboard } from "../hooks/useSellerDashboard";
 import { formatPrice } from "../lib/price";
+import WithdrawalSection from "./WithdrawalSection";
 
 const chartConfig = {
     revenue: {
@@ -113,6 +114,8 @@ export default function SellerDashboardSection() {
                     )}
                 </CardContent>
             </Card>
+
+            <WithdrawalSection />
         </div>
     );
 }
