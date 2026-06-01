@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useAuth } from "../hooks/useAuth";
+import SellerDashboardSection from "../components/SellerDashboardSection";
 
 // TODO: This is a prototype UI for testing purposes only. Replace with proper dashboard design in future.
 export default function DashboardPage() {
@@ -100,6 +101,8 @@ export default function DashboardPage() {
                         </Card>
                     )}
                 </div>
+
+                {isSeller && <SellerDashboardSection />}
             </div>
         </div>
     );
