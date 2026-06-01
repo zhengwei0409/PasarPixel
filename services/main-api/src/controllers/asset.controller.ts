@@ -740,6 +740,24 @@ export async function submitForReview(req: Request, res: Response) {
         }
     }
 
+    // Categories with no static image of their own need a seller-uploaded
+    // cover image so the marketplace card has a thumbnail.
+    const COVER_REQUIRED: AssetCategory[] = [
+        "THREE_D_MODEL",
+        "SOUND_EFFECT",
+        "VIDEO",
+        "ANIMATION",
+    ];
+    if (COVER_REQUIRED.includes(asset.category)) {
+        const hasImage = asset.files.some((f) => f.fileType.startsWith("image/"));
+        if (!hasImage) {
+            res.status(400).json({
+                error: "This asset must include a cover image (shown as the marketplace thumbnail)",
+            });
+            return;
+        }
+    }
+
     if (asset.listingType === "BLOCKCHAIN") {
         if (asset.priceSol === null) {
             res.status(400).json({ error: "Blockchain listings must set a SOL price before submission" });

@@ -35,9 +35,34 @@ interface SlotDef {
 const matchExt = (name: string, exts: string[]) =>
     exts.some((e) => name.toLowerCase().endsWith(e));
 
+// Optional cover image, shown first. Categories that have no static image of
+// their own (3D, sound, video, animation) use this so the marketplace card has
+// a thumbnail instead of "No preview".
+const coverSlot: SlotDef = {
+    key: "cover",
+    title: "Cover Image — required",
+    required: true,
+    single: true,
+    match: (_name, type) => type.startsWith("image/"),
+    accept: "image/*",
+    hint: "Shown as the thumbnail in the marketplace. One image.",
+};
+
+// A catch-all optional slot for any remaining files (the download bundle).
+const extraSlot = (hint: string): SlotDef => ({
+    key: "extra",
+    title: "Additional Files (optional)",
+    required: false,
+    single: false,
+    match: () => true,
+    accept: "",
+    hint,
+});
+
 // Per-category slot layout. Categories not listed fall back to a single box.
 const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
     THREE_D_MODEL: [
+        coverSlot,
         {
             key: "glb",
             title: "Preview File (.glb) — required",
@@ -47,17 +72,12 @@ const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
             accept: ".glb",
             hint: "Used for the interactive 3D preview. Exactly one .glb file.",
         },
-        {
-            key: "extra",
-            title: "Additional Files (optional)",
-            required: false,
-            single: false,
-            match: () => true,
-            accept: "",
-            hint: "Other formats bundled in the download (.fbx, .blend, .obj, textures, etc.)",
-        },
+        extraSlot(
+            "Other formats bundled in the download (.fbx, .blend, .obj, textures, etc.)",
+        ),
     ],
     ANIMATION: [
+        coverSlot,
         {
             key: "model",
             title: "3D File (.glb / .fbx / .blend) — required",
@@ -76,16 +96,10 @@ const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
             accept: "video/mp4",
             hint: "A video preview buyers watch before purchase. One MP4.",
         },
-        {
-            key: "extra",
-            title: "Additional Files (optional)",
-            required: false,
-            single: false,
-            match: () => true,
-            accept: "",
-            hint: "Any other files to bundle in the download.",
-        },
+        extraSlot("Any other files to bundle in the download."),
     ],
+    VIDEO: [coverSlot, extraSlot("Your video file, plus anything else to bundle.")],
+    SOUND_EFFECT: [coverSlot, extraSlot("Your audio file, plus anything else to bundle.")],
 };
 
 function formatSize(bytes: number): string {
@@ -100,25 +114,26 @@ function fileNameOf(f: AssetFile): string {
 
 // Decide which slot each already-uploaded file belongs to.
 //
-// The backend doesn't store which box a file was uploaded from, so we infer
-// it from the file's type. Required slots are single-file, so each one claims
-// only the FIRST file that matches it; any further matching files (e.g. a
-// second .blend uploaded into the optional box) fall through to the optional
-// catch-all instead of being pulled back into the required slot.
+// The backend doesn't store which box a file was uploaded from, so we infer it
+// from the file's type. Single-file slots (cover image, required preview, etc.)
+// each claim only the FIRST file that matches them; the catch-all "extra" slot
+// (optional + multi-file) collects everything left over. So a second matching
+// file — e.g. a second image, or a second .blend dropped into "Additional
+// Files" — lands in extras instead of being pulled into the single slot.
 function bucketFiles(files: AssetFile[], slots: SlotDef[]): Record<string, AssetFile[]> {
     const buckets: Record<string, AssetFile[]> = {};
     for (const s of slots) buckets[s.key] = [];
-    const claimed = new Set<string>(); // keys of required slots already filled
+    const claimed = new Set<string>(); // keys of single slots already filled
 
     for (const f of files) {
         const name = fileNameOf(f);
         const slot =
             slots.find(
-                (s) => s.required && !claimed.has(s.key) && s.match(name, f.fileType),
-            ) ?? slots.find((s) => !s.required);
+                (s) => s.single && !claimed.has(s.key) && s.match(name, f.fileType),
+            ) ?? slots.find((s) => !s.single); // catch-all: the multi-file extras slot
         if (slot) {
             buckets[slot.key].push(f);
-            if (slot.required) claimed.add(slot.key);
+            if (slot.single) claimed.add(slot.key);
         }
     }
     return buckets;
@@ -128,9 +143,10 @@ interface SlotProps {
     assetId: number;
     slot: SlotDef;
     files: AssetFile[];
+    uploadedTotal: number; // bytes already uploaded across the whole asset
 }
 
-function UploadSlot({ assetId, slot, files }: SlotProps) {
+function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
     const upload = useUploadAssetFile();
     const del = useDeleteAssetFile();
     const [isDragging, setIsDragging] = useState(false);
@@ -163,12 +179,19 @@ function UploadSlot({ assetId, slot, files }: SlotProps) {
 
     const startUpload = (picked: FileList | File[]) => {
         const list = Array.from(picked);
+        const inFlightTotal = inFlight.reduce((sum, u) => sum + u.file.size, 0);
+        let runningTotal = uploadedTotal + inFlightTotal;
 
         for (const file of list) {
             if (file.size > MAX_FILE_SIZE) {
                 alert(`"${file.name}" exceeds 100 MB limit`);
                 continue;
             }
+            if (runningTotal + file.size > MAX_TOTAL_SIZE) {
+                alert(`Adding "${file.name}" would exceed 500 MB total`);
+                continue;
+            }
+            runningTotal += file.size;
             // Type guard: reject files that don't belong in this slot.
             if (slot.required && !slot.match(file.name, file.type)) {
                 alert(`"${file.name}" is not the right type for "${slot.title}"`);
@@ -456,6 +479,7 @@ export default function AssetUploader({ assetId, category }: Props) {
                     assetId={assetId}
                     slot={slot}
                     files={buckets[slot.key]}
+                    uploadedTotal={total}
                 />
             ))}
 
