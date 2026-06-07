@@ -17,7 +17,7 @@ import {
 } from "@/hooks/useTwoFactor";
 
 // Local flow stages for turning 2FA on.
-type Stage = "idle" | "scanning" | "recovery";
+type Stage = "idle" | "scanning";
 
 export default function TwoFactorSection() {
     const { data: status, isLoading } = useTwoFactorStatus();
@@ -50,10 +50,27 @@ export default function TwoFactorSection() {
     function handleVerify() {
         enable.mutate(code, {
             onSuccess: (data) => {
+                // Clear the scanning UI; the recovery codes drive their own dialog.
+                setStage("idle");
+                setQrCode(null);
+                setCode("");
                 setRecoveryCodes(data.recoveryCodes);
-                setStage("recovery");
             },
         });
+    }
+
+    function handleCopyCodes() {
+        navigator.clipboard.writeText(recoveryCodes.join("\n"));
+    }
+
+    function handleDownloadCodes() {
+        const blob = new Blob([recoveryCodes.join("\n")], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "pasarpixel-recovery-codes.txt";
+        link.click();
+        URL.revokeObjectURL(url);
     }
 
     return (
@@ -123,29 +140,37 @@ export default function TwoFactorSection() {
                 </div>
             )}
 
-            {/* RECOVERY: show one-time codes */}
-            {stage === "recovery" && (
-                <div className="space-y-3">
-                    <p className="text-sm font-medium text-green-600">
-                        2FA is now enabled.
-                    </p>
-                    <p className="text-sm">
-                        Save these recovery codes somewhere safe. Each one can be used
-                        once to log in if you lose your device.{" "}
-                        <span className="font-medium">
-                            They will not be shown again.
-                        </span>
-                    </p>
+            {/* RECOVERY CODES: shown once, in a dialog driven by the codes array */}
+            <Dialog
+                open={recoveryCodes.length > 0}
+                onOpenChange={(open) => {
+                    if (!open) setRecoveryCodes([]);
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Save your recovery codes</DialogTitle>
+                        <DialogDescription>
+                            Each code can be used once to log in if you lose your
+                            device. They will not be shown again.
+                        </DialogDescription>
+                    </DialogHeader>
                     <ul className="grid grid-cols-2 gap-2 rounded-md border bg-muted/40 p-3 font-mono text-sm">
                         {recoveryCodes.map((rc) => (
                             <li key={rc}>{rc}</li>
                         ))}
                     </ul>
-                    <Button size="sm" onClick={resetFlow}>
-                        I've saved my codes
-                    </Button>
-                </div>
-            )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={handleCopyCodes}>
+                            Copy
+                        </Button>
+                        <Button variant="outline" onClick={handleDownloadCodes}>
+                            Download
+                        </Button>
+                        <Button onClick={() => setRecoveryCodes([])}>OK</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={confirmDisable} onOpenChange={setConfirmDisable}>
                 <DialogContent>
