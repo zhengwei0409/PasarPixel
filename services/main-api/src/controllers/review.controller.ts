@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { publishReviewReceived } from "../lib/publisher";
 
 // GET /assets/:id/reviews — public list of an asset's reviews plus its rating
 // summary (FR-2.8). No JWT: anyone browsing the detail page can read reviews.
@@ -69,7 +70,7 @@ export async function upsertReview(req: Request, res: Response) {
 
     const asset = await prisma.asset.findFirst({
         where: { id: assetId, status: "PUBLISHED", isDeleted: false },
-        select: { sellerId: true },
+        select: { sellerId: true, title: true },
     });
     if (!asset) {
         res.status(404).json({ error: "Asset not found" });
@@ -88,6 +89,13 @@ export async function upsertReview(req: Request, res: Response) {
     const trimmedComment =
         typeof comment === "string" && comment.trim().length > 0 ? comment.trim() : null;
 
+    // Tell new reviews apart from edits: only a brand-new review should notify
+    // the seller, so re-rating later doesn't spam them.
+    const existingReview = await prisma.review.findUnique({
+        where: { userId_assetId: { userId, assetId } },
+        select: { id: true },
+    });
+
     const review = await prisma.review.upsert({
         where: { userId_assetId: { userId, assetId } },
         create: { userId, assetId, rating, comment: trimmedComment },
@@ -96,6 +104,15 @@ export async function upsertReview(req: Request, res: Response) {
             user: { select: { userId: true, name: true, avatarUrl: true } },
         },
     });
+
+    if (!existingReview) {
+        await publishReviewReceived({
+            sellerId: asset.sellerId,
+            assetId,
+            assetTitle: asset.title,
+            rating,
+        });
+    }
 
     res.status(201).json(review);
 }

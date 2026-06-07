@@ -17,6 +17,7 @@ enum NotificationType {
   ASSET_REMOVED
   ORDER_PAID
   ASSET_SOLD
+  REVIEW_RECEIVED
 }
 
 model Notification {

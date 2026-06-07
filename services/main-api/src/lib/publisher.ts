@@ -7,6 +7,7 @@ import {
     AssetRemovedEvent,
     OrderPaidEvent,
     AssetSoldEvent,
+    ReviewReceivedEvent,
 } from '../../../../shared/types/events';
 import {
     EXCHANGE_SELLER_APPROVED,
@@ -16,6 +17,7 @@ import {
     EXCHANGE_ASSET_REMOVED,
     EXCHANGE_ORDER_PAID,
     EXCHANGE_ASSET_SOLD,
+    EXCHANGE_REVIEW_RECEIVED,
 } from '../../../../shared/utils/messaging';
 
 export async function publishSellerApproved(event: SellerApprovedEvent): Promise<void> {
@@ -58,4 +60,10 @@ export async function publishAssetSold(event: AssetSoldEvent): Promise<void> {
     const channel = await getRabbitChannel();
     await channel.assertExchange(EXCHANGE_ASSET_SOLD, 'fanout', { durable: true });
     channel.publish(EXCHANGE_ASSET_SOLD, '', Buffer.from(JSON.stringify(event)));
+}
+
+export async function publishReviewReceived(event: ReviewReceivedEvent): Promise<void> {
+    const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_REVIEW_RECEIVED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_REVIEW_RECEIVED, '', Buffer.from(JSON.stringify(event)));
 }
