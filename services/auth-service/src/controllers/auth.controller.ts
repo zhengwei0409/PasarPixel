@@ -161,8 +161,13 @@ export async function verifyLogin(req: Request, res: Response) {
     }
 
     // Accept either the authenticator's 6-digit code or a one-time recovery code.
-    const totp = await verifyTotp({ token: code, secret: twoFactor.secret, epochTolerance: 30 });
-    let accepted = totp.valid;
+    // otplib throws on anything that isn't 6 digits, so only call it for that shape;
+    // everything else falls through to the recovery-code check below.
+    let accepted = false;
+    if (/^\d{6}$/.test(code)) {
+        const totp = await verifyTotp({ token: code, secret: twoFactor.secret, epochTolerance: 30 });
+        accepted = totp.valid;
+    }
 
     if (!accepted) {
         // Recovery codes are stored hashed, so we can't look them up directly —

@@ -66,8 +66,9 @@ export async function enableTwoFactor(req: AuthedRequest, res: Response) {
     const userId = req.userId!;
     const { code } = req.body;
 
-    if (!code) {
-        res.status(400).json({ error: "Verification code is required" });
+    // otplib throws on non-6-digit input, so reject the wrong shape up front.
+    if (!code || !/^\d{6}$/.test(code)) {
+        res.status(400).json({ error: "Enter the 6-digit code from your app" });
         return;
     }
 
