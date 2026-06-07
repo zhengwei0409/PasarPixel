@@ -160,8 +160,31 @@ export async function verifyLogin(req: Request, res: Response) {
         return;
     }
 
-    const result = await verifyTotp({ token: code, secret: twoFactor.secret, epochTolerance: 30 });
-    if (!result.valid) {
+    // Accept either the authenticator's 6-digit code or a one-time recovery code.
+    const totp = await verifyTotp({ token: code, secret: twoFactor.secret, epochTolerance: 30 });
+    let accepted = totp.valid;
+
+    if (!accepted) {
+        // Recovery codes are stored hashed, so we can't look them up directly —
+        // compare against each unused code for this account.
+        const unusedCodes = await prisma.recoveryCode.findMany({
+            where: { twoFactorAuthId: twoFactor.id, isUsed: false },
+        });
+
+        for (const rc of unusedCodes) {
+            if (await bcrypt.compare(code, rc.code)) {
+                // Burn the code so it can't be reused.
+                await prisma.recoveryCode.update({
+                    where: { id: rc.id },
+                    data: { isUsed: true },
+                });
+                accepted = true;
+                break;
+            }
+        }
+    }
+
+    if (!accepted) {
         res.status(401).json({ error: "Invalid verification code" });
         return;
     }

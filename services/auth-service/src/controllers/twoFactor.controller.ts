@@ -1,11 +1,21 @@
 import { Response } from "express";
 import { generateSecret, generateURI, verify } from "otplib";
 import QRCode from "qrcode";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
 import { AuthedRequest } from "../middleware/requireAuth";
 
 // Shown inside the authenticator app next to the 6-digit code, e.g. "PasarPixel (alice@x.com)".
 const APP_NAME = "PasarPixel";
+
+const RECOVERY_CODE_COUNT = 10;
+
+// One readable one-time code, e.g. "a3f9-2k8d-91xz".
+function generateRecoveryCode(): string {
+    const raw = crypto.randomBytes(6).toString("hex"); // 12 hex chars
+    return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
+}
 
 // Step 1 of enabling 2FA: generate a fresh secret, store it (not yet enabled),
 // and return a QR code the user scans with their authenticator app.
@@ -71,12 +81,23 @@ export async function enableTwoFactor(req: AuthedRequest, res: Response) {
         return;
     }
 
-    await prisma.twoFactorAuth.update({
-        where: { userId },
-        data: { isEnabled: true },
-    });
+    // Generate the recovery codes. The plaintext is returned to the user ONCE
+    // here; only bcrypt hashes are stored, so the server can never reveal them
+    // again (same reasoning as user passwords).
+    const plainCodes = Array.from({ length: RECOVERY_CODE_COUNT }, generateRecoveryCode);
+    const hashedCodes = await Promise.all(plainCodes.map((c) => bcrypt.hash(c, 10)));
 
-    res.json({ message: "2FA enabled successfully" });
+    await prisma.$transaction([
+        prisma.twoFactorAuth.update({
+            where: { userId },
+            data: { isEnabled: true },
+        }),
+        prisma.recoveryCode.createMany({
+            data: hashedCodes.map((code) => ({ twoFactorAuthId: record.id, code })),
+        }),
+    ]);
+
+    res.json({ message: "2FA enabled successfully", recoveryCodes: plainCodes });
 }
 
 // Turn 2FA off for the current user.
