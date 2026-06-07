@@ -1,6 +1,6 @@
 import { Router } from "express";
 import passport from "../config/passport";
-import { register, login, refreshToken, logout, googleCallback, forgotPassword, resetPassword, me } from "../controllers/auth.controller";
+import { register, login, verifyLogin, refreshToken, logout, googleCallback, forgotPassword, resetPassword, me } from "../controllers/auth.controller";
 import { setupTwoFactor, enableTwoFactor, disableTwoFactor } from "../controllers/twoFactor.controller";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -9,6 +9,7 @@ const router = Router();
 
 router.post("/register", register);
 router.post("/login", login);
+router.post("/2fa/verify-login", verifyLogin);
 router.post("/refresh", refreshToken);
 router.post("/logout", logout);
 router.post("/forgot-password", forgotPassword);
