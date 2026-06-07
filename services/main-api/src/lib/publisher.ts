@@ -3,6 +3,7 @@ import {
     SellerApprovedEvent,
     SellerRejectedEvent,
     SellerRevokedEvent,
+    SellerReinstatedEvent,
     AssetApprovedEvent,
     AssetRejectedEvent,
     AssetRemovedEvent,
@@ -14,6 +15,7 @@ import {
     EXCHANGE_SELLER_APPROVED,
     EXCHANGE_SELLER_REJECTED,
     EXCHANGE_SELLER_REVOKED,
+    EXCHANGE_SELLER_REINSTATED,
     EXCHANGE_ASSET_APPROVED,
     EXCHANGE_ASSET_REJECTED,
     EXCHANGE_ASSET_REMOVED,
@@ -38,6 +40,12 @@ export async function publishSellerRevoked(event: SellerRevokedEvent): Promise<v
     const channel = await getRabbitChannel();
     await channel.assertExchange(EXCHANGE_SELLER_REVOKED, 'fanout', { durable: true });
     channel.publish(EXCHANGE_SELLER_REVOKED, '', Buffer.from(JSON.stringify(event)));
+}
+
+export async function publishSellerReinstated(event: SellerReinstatedEvent): Promise<void> {
+    const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_SELLER_REINSTATED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_SELLER_REINSTATED, '', Buffer.from(JSON.stringify(event)));
 }
 
 export async function publishAssetApproved(event: AssetApprovedEvent): Promise<void> {

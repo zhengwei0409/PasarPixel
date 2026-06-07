@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { publishSellerApproved, publishSellerRejected, publishSellerRevoked } from "../lib/publisher";
+import { publishSellerApproved, publishSellerRejected, publishSellerRevoked, publishSellerReinstated } from "../lib/publisher";
 
 export async function submitApplication(req: Request, res: Response) {
     const userId = req.user!.userId;
@@ -176,4 +176,38 @@ export async function revokeSeller(req: Request, res: Response) {
     await publishSellerRevoked({ userId });
 
     res.json({ message: "Seller role revoked and listings hidden" });
+}
+
+export async function reinstateSeller(req: Request, res: Response) {
+    const userId = parseInt(req.params.userId as string);
+
+    if (Number.isNaN(userId)) {
+        res.status(400).json({ error: "Invalid userId" });
+        return;
+    }
+
+    const application = await prisma.sellerApplication.findFirst({
+        where: { userId, status: "REVOKED" },
+    });
+    if (!application) {
+        res.status(404).json({ error: "User is not a revoked seller" });
+        return;
+    }
+
+    // Re-publish exactly the listings that this revoke hid, then clear the tag.
+    await prisma.asset.updateMany({
+        where: { sellerId: userId, hiddenByRevoke: true },
+        data: { status: "PUBLISHED", hiddenByRevoke: false },
+    });
+
+    // Restore the application to APPROVED.
+    await prisma.sellerApplication.update({
+        where: { id: application.id },
+        data: { status: "APPROVED", adminNote: null },
+    });
+
+    // Tell auth-service to grant the SELLER role back.
+    await publishSellerReinstated({ userId });
+
+    res.json({ message: "Seller reinstated and listings restored" });
 }
