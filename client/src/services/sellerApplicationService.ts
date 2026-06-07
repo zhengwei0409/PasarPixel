@@ -29,3 +29,7 @@ export async function rejectApplication(id: number, adminNote: string): Promise<
 export async function revokeSeller(userId: number): Promise<void> {
     await apiClient.post(`/seller-applications/sellers/${userId}/revoke`);
 }
+
+export async function reinstateSeller(userId: number): Promise<void> {
+    await apiClient.post(`/seller-applications/sellers/${userId}/reinstate`);
+}

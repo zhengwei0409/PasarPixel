@@ -1,4 +1,4 @@
-export type SellerApplicationStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type SellerApplicationStatus = "PENDING" | "APPROVED" | "REJECTED" | "REVOKED";
 
 export interface SellerApplication {
     id: number;

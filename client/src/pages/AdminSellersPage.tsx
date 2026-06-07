@@ -1,31 +1,35 @@
 import { useState } from "react";
 import { Button } from "../components/ui/button";
-import { useListApplications, useRevokeSeller } from "../hooks/useSellerApplication";
+import { useListApplications, useRevokeSeller, useReinstateSeller } from "../hooks/useSellerApplication";
 import type { SellerApplicationWithUser } from "../types/sellerApplication";
 
 export default function AdminSellersPage() {
-    const [confirmingId, setConfirmingId] = useState<number | null>(null);
+    const [confirmingRevokeId, setConfirmingRevokeId] = useState<number | null>(null);
 
-    const { data: sellers, isLoading } = useListApplications("APPROVED");
+    const { data: active, isLoading: loadingActive } = useListApplications("APPROVED");
+    const { data: revoked, isLoading: loadingRevoked } = useListApplications("REVOKED");
     const { mutate: revoke, isPending: isRevoking } = useRevokeSeller();
+    const { mutate: reinstate, isPending: isReinstating } = useReinstateSeller();
 
     const handleRevoke = (userId: number) => {
         revoke(userId);
-        setConfirmingId(null);
+        setConfirmingRevokeId(null);
     };
 
-    if (isLoading) return <p className="p-8">Loading...</p>;
+    if (loadingActive || loadingRevoked) return <p className="p-8">Loading...</p>;
 
     return (
-        <div className="max-w-4xl mx-auto p-8 space-y-6">
+        <div className="max-w-4xl mx-auto p-8 space-y-10">
             <h1 className="text-2xl font-bold">Manage Sellers</h1>
 
-            {sellers?.length === 0 && (
-                <p className="text-gray-500">No active sellers.</p>
-            )}
+            <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Active Sellers</h2>
 
-            <div className="space-y-4">
-                {sellers?.map((seller: SellerApplicationWithUser) => (
+                {active?.length === 0 && (
+                    <p className="text-gray-500">No active sellers.</p>
+                )}
+
+                {active?.map((seller: SellerApplicationWithUser) => (
                     <div key={seller.id} className="border rounded-lg p-6 space-y-3">
                         <div className="flex items-start justify-between">
                             <div>
@@ -37,7 +41,7 @@ export default function AdminSellersPage() {
                             </p>
                         </div>
 
-                        {confirmingId === seller.userId ? (
+                        {confirmingRevokeId === seller.userId ? (
                             <div className="space-y-2 pt-2">
                                 <p className="text-sm text-red-600">
                                     Revoke seller role? Their published listings will be hidden from the marketplace.
@@ -54,7 +58,7 @@ export default function AdminSellersPage() {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setConfirmingId(null)}
+                                        onClick={() => setConfirmingRevokeId(null)}
                                     >
                                         Cancel
                                     </Button>
@@ -65,7 +69,7 @@ export default function AdminSellersPage() {
                                 <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => setConfirmingId(seller.userId)}
+                                    onClick={() => setConfirmingRevokeId(seller.userId)}
                                 >
                                     Revoke Seller
                                 </Button>
@@ -73,7 +77,37 @@ export default function AdminSellersPage() {
                         )}
                     </div>
                 ))}
-            </div>
+            </section>
+
+            <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Revoked Sellers</h2>
+
+                {revoked?.length === 0 && (
+                    <p className="text-gray-500">No revoked sellers.</p>
+                )}
+
+                {revoked?.map((seller: SellerApplicationWithUser) => (
+                    <div key={seller.id} className="border rounded-lg p-6 space-y-3">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="font-semibold">{seller.storeName}</p>
+                                <p className="text-sm text-gray-500">{seller.user.name}</p>
+                            </div>
+                            <p className="text-sm text-gray-400">Revoked</p>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                            <Button
+                                size="sm"
+                                onClick={() => reinstate(seller.userId)}
+                                disabled={isReinstating}
+                            >
+                                Reinstate Seller
+                            </Button>
+                        </div>
+                    </div>
+                ))}
+            </section>
         </div>
     );
 }

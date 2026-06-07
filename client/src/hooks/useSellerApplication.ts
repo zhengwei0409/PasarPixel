@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMyApplication, submitApplication, listApplications, approveApplication, rejectApplication, revokeSeller } from "../services/sellerApplicationService";
+import { getMyApplication, submitApplication, listApplications, approveApplication, rejectApplication, revokeSeller, reinstateSeller } from "../services/sellerApplicationService";
 import type { SubmitApplicationPayload } from "../types/sellerApplication";
 
 export function useMyApplication() {
@@ -51,6 +51,16 @@ export function useRevokeSeller() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (userId: number) => revokeSeller(userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["sellerApplications"] });
+        },
+    });
+}
+
+export function useReinstateSeller() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (userId: number) => reinstateSeller(userId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["sellerApplications"] });
         },
