@@ -2,6 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     useTwoFactorStatus,
     useSetupTwoFactor,
     useEnableTwoFactor,
@@ -21,6 +29,7 @@ export default function TwoFactorSection() {
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [code, setCode] = useState("");
     const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+    const [confirmDisable, setConfirmDisable] = useState(false);
 
     function resetFlow() {
         setStage("idle");
@@ -66,10 +75,9 @@ export default function TwoFactorSection() {
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => disable.mutate()}
-                        disabled={disable.isPending}
+                        onClick={() => setConfirmDisable(true)}
                     >
-                        {disable.isPending ? "Disabling…" : "Disable 2FA"}
+                        Disable 2FA
                     </Button>
                 </div>
             )}
@@ -138,6 +146,39 @@ export default function TwoFactorSection() {
                     </Button>
                 </div>
             )}
+
+            <Dialog open={confirmDisable} onOpenChange={setConfirmDisable}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Disable two-factor authentication?</DialogTitle>
+                        <DialogDescription>
+                            Your authenticator setup and recovery codes will be erased.
+                            You'll need to set up 2FA again from scratch to turn it
+                            back on.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="ghost"
+                            onClick={() => setConfirmDisable(false)}
+                            disabled={disable.isPending}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() =>
+                                disable.mutate(undefined, {
+                                    onSuccess: () => setConfirmDisable(false),
+                                })
+                            }
+                            disabled={disable.isPending}
+                        >
+                            {disable.isPending ? "Disabling…" : "Disable 2FA"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </section>
     );
 }
