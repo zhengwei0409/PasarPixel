@@ -172,8 +172,18 @@ export async function revokeSeller(req: Request, res: Response) {
         data: { status: "REVOKED", adminNote: "Seller role revoked by admin" },
     });
 
-    // Tell auth-service to drop the SELLER role.
-    await publishSellerRevoked({ userId });
+    const userProfile = await prisma.userProfile.findUnique({ where: { userId } });
+    if (!userProfile?.email) {
+        res.status(500).json({ error: "User email not found; cannot notify seller" });
+        return;
+    }
+
+    // Tell auth-service to drop the SELLER role and notify the seller.
+    await publishSellerRevoked({
+        userId,
+        email: userProfile.email,
+        storeName: application.storeName,
+    });
 
     res.json({ message: "Seller role revoked and listings hidden" });
 }
@@ -206,8 +216,18 @@ export async function reinstateSeller(req: Request, res: Response) {
         data: { status: "APPROVED", adminNote: null },
     });
 
-    // Tell auth-service to grant the SELLER role back.
-    await publishSellerReinstated({ userId });
+    const userProfile = await prisma.userProfile.findUnique({ where: { userId } });
+    if (!userProfile?.email) {
+        res.status(500).json({ error: "User email not found; cannot notify seller" });
+        return;
+    }
+
+    // Tell auth-service to grant the SELLER role back and notify the seller.
+    await publishSellerReinstated({
+        userId,
+        email: userProfile.email,
+        storeName: application.storeName,
+    });
 
     res.json({ message: "Seller reinstated and listings restored" });
 }
