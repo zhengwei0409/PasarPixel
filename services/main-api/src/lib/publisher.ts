@@ -2,6 +2,7 @@ import { getRabbitChannel } from './rabbitmq';
 import {
     SellerApprovedEvent,
     SellerRejectedEvent,
+    SellerRevokedEvent,
     AssetApprovedEvent,
     AssetRejectedEvent,
     AssetRemovedEvent,
@@ -12,6 +13,7 @@ import {
 import {
     EXCHANGE_SELLER_APPROVED,
     EXCHANGE_SELLER_REJECTED,
+    EXCHANGE_SELLER_REVOKED,
     EXCHANGE_ASSET_APPROVED,
     EXCHANGE_ASSET_REJECTED,
     EXCHANGE_ASSET_REMOVED,
@@ -30,6 +32,12 @@ export async function publishSellerRejected(event: SellerRejectedEvent): Promise
     const channel = await getRabbitChannel();
     await channel.assertExchange(EXCHANGE_SELLER_REJECTED, 'fanout', { durable: true });
     channel.publish(EXCHANGE_SELLER_REJECTED, '', Buffer.from(JSON.stringify(event)));
+}
+
+export async function publishSellerRevoked(event: SellerRevokedEvent): Promise<void> {
+    const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_SELLER_REVOKED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_SELLER_REVOKED, '', Buffer.from(JSON.stringify(event)));
 }
 
 export async function publishAssetApproved(event: AssetApprovedEvent): Promise<void> {

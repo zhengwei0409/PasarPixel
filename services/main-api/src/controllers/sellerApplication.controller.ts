@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { publishSellerApproved, publishSellerRejected } from "../lib/publisher";
+import { publishSellerApproved, publishSellerRejected, publishSellerRevoked } from "../lib/publisher";
 
 export async function submitApplication(req: Request, res: Response) {
     const userId = req.user!.userId;
@@ -140,4 +140,38 @@ export async function rejectApplication(req: Request, res: Response) {
     });
 
     res.json({ message: "Application rejected" });
+}
+
+export async function revokeSeller(req: Request, res: Response) {
+    const userId = parseInt(req.params.userId as string);
+
+    if (Number.isNaN(userId)) {
+        res.status(400).json({ error: "Invalid userId" });
+        return;
+    }
+
+    const application = await prisma.sellerApplication.findFirst({
+        where: { userId, status: "APPROVED" },
+    });
+    if (!application) {
+        res.status(404).json({ error: "User is not an approved seller" });
+        return;
+    }
+
+    // Hide this seller's live listings from the marketplace.
+    await prisma.asset.updateMany({
+        where: { sellerId: userId, status: "PUBLISHED" },
+        data: { status: "TAKEN_DOWN" },
+    });
+
+    // Mark the application so the user can re-apply later.
+    await prisma.sellerApplication.update({
+        where: { id: application.id },
+        data: { status: "REJECTED", adminNote: "Seller role revoked by admin" },
+    });
+
+    // Tell auth-service to drop the SELLER role.
+    await publishSellerRevoked({ userId });
+
+    res.json({ message: "Seller role revoked and listings hidden" });
 }
