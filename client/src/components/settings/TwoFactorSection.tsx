@@ -85,17 +85,23 @@ export default function TwoFactorSection() {
 
             {/* ENABLED: offer to disable */}
             {!isLoading && status?.enabled && stage === "idle" && (
-                <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-600">
-                        2FA is enabled
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setConfirmDisable(true)}
-                    >
-                        Disable 2FA
-                    </Button>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-green-600">
+                            2FA is enabled
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setConfirmDisable(true)}
+                        >
+                            Disable 2FA
+                        </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Got a new phone? Disable 2FA and enable it again to scan a
+                        fresh QR code on your new device.
+                    </p>
                 </div>
             )}
 
