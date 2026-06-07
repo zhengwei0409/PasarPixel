@@ -22,6 +22,14 @@ export default function Navbar() {
                 >
                     Marketplace
                 </Link>
+                {user && (
+                    <Link
+                        to="/dashboard"
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                    >
+                        Dashboard
+                    </Link>
+                )}
                 <Link
                     to="/verify"
                     className="text-sm text-muted-foreground hover:text-foreground"
