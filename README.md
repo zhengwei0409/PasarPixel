@@ -23,10 +23,49 @@ A web-based marketplace for buying and selling digital assets — supporting bot
 
 ## Local Development
 
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
+- [Stripe CLI](https://stripe.com/docs/stripe-cli) — for testing payments locally
+
+### 1. Set up environment variables
+
+Each service ships a `.env.example`. Copy it to `.env` and fill in your own keys:
+
 ```bash
-# Start everything (Kong on :8000, client on :5173)
+cp services/auth-service/.env.example         services/auth-service/.env
+cp services/main-api/.env.example             services/main-api/.env
+cp services/notification-service/.env.example services/notification-service/.env
+cp services/blockchain-service/.env.example   services/blockchain-service/.env
+```
+
+You'll need credentials from these external services:
+
+| Variable(s) | Where to get it |
+|---|---|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | [Google Cloud Console](https://console.cloud.google.com/) → OAuth credentials |
+| `JWT_SECRET`, `DOWNLOAD_TOKEN_SECRET` | Any random string you generate |
+| `RESEND_API_KEY` | [Resend](https://resend.com/) dashboard |
+| `AWS_*`, `S3_BUCKET_NAME` | AWS IAM user with S3 access |
+| `STRIPE_SECRET_KEY` | [Stripe](https://dashboard.stripe.com/test/apikeys) (test mode) |
+| `STRIPE_WEBHOOK_SECRET` | Printed by `stripe listen` (see below) |
+
+The client also needs a `client/.env`:
+
+```bash
+echo "VITE_API_URL=http://localhost:8000" > client/.env
+```
+
+> `DATABASE_URL`, `RABBITMQ_URL`, and service URLs already point at Docker's internal network in the examples — leave them as-is.
+
+### 2. Start everything
+
+```bash
+# Kong gateway on :8000, client on :5173
 cd infra/docker && docker compose up -d --build
 ```
+
+On startup, main-api automatically runs database migrations and seeds the DB — no manual Prisma commands needed.
 
 ### Testing Stripe payments locally
 
