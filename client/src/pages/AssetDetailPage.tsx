@@ -260,7 +260,6 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                                     className="w-full"
                                     size="lg"
                                     disabled={asset.priceSol === null}
-                                    title="Purchase flow coming soon"
                                 >
                                     {asset.priceSol === null
                                         ? "Not for sale"
@@ -318,7 +317,6 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                                     className="w-full"
                                     size="lg"
                                     disabled={fiatPrice === null}
-                                    title="Purchase flow coming soon"
                                 >
                                     {fiatPrice === null
                                         ? "Tier not available"
@@ -342,9 +340,6 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                                 )}
                             </>
                         )}
-                        <p className="text-center text-xs text-muted-foreground">
-                            Purchase flow coming soon
-                        </p>
                     </div>
 
                     {asset.description && (
