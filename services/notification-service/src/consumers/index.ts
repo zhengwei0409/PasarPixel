@@ -5,6 +5,8 @@ import { startSellerRejectedConsumer } from './sellerRejected';
 import { startAssetApprovedConsumer } from './assetApproved';
 import { startAssetRejectedConsumer } from './assetRejected';
 import { startAssetRemovedConsumer } from './assetRemoved';
+import { startOrderPaidConsumer } from './orderPaid';
+import { startAssetSoldConsumer } from './assetSold';
 
 export async function startConsumers(): Promise<void> {
     await startUserRegisteredConsumer();
@@ -14,4 +16,6 @@ export async function startConsumers(): Promise<void> {
     await startAssetApprovedConsumer();
     await startAssetRejectedConsumer();
     await startAssetRemovedConsumer();
+    await startOrderPaidConsumer();
+    await startAssetSoldConsumer();
 }

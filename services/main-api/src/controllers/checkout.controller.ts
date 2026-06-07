@@ -3,6 +3,7 @@ import { Currency, LicenseType } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { stripe } from "../lib/stripe";
 import { convert } from "../lib/currency";
+import { publishOrderPaid, publishAssetSold } from "../lib/publisher";
 
 const SUPPORTED_CURRENCIES: Currency[] = ["USD", "MYR"];
 
@@ -15,7 +16,10 @@ function toStripeAmount(amount: number): number {
 // acts on a PENDING order, so it's safe to call from both the webhook and the
 // success-page verify endpoint (whichever arrives first wins; the other no-ops).
 async function fulfilOrder(orderId: number): Promise<void> {
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: { orderItems: { include: { asset: true } } },
+    });
     if (!order || order.paymentStatus !== "PENDING") return;
 
     await prisma.order.update({
@@ -23,6 +27,23 @@ async function fulfilOrder(orderId: number): Promise<void> {
         data: { paymentStatus: "COMPLETED" },
     });
     await prisma.cartItem.deleteMany({ where: { userId: order.buyerId } });
+
+    // Notify the buyer that their order went through.
+    await publishOrderPaid({
+        buyerId: order.buyerId,
+        orderId: order.id,
+        itemCount: order.orderItems.length,
+    });
+
+    // Notify each seller about the asset they sold (one event per item).
+    for (const item of order.orderItems) {
+        await publishAssetSold({
+            sellerId: item.asset.sellerId,
+            assetId: item.assetId,
+            assetTitle: item.asset.title,
+            orderId: order.id,
+        });
+    }
 }
 
 function priceForLicense(
