@@ -83,6 +83,15 @@ export async function approveApplication(req: Request, res: Response) {
         data: { status: "APPROVED", reviewedAt: new Date() },
     });
 
+    await prisma.roleChangeLog.create({
+        data: {
+            targetUserId: application.userId,
+            adminUserId: req.user!.userId,
+            action: "GRANT",
+            role: "SELLER",
+        },
+    });
+
     const userProfile = await prisma.userProfile.findUnique({
         where: { userId: application.userId },
     });
@@ -172,6 +181,16 @@ export async function revokeSeller(req: Request, res: Response) {
         data: { status: "REVOKED", adminNote: "Seller role revoked by admin" },
     });
 
+    await prisma.roleChangeLog.create({
+        data: {
+            targetUserId: userId,
+            adminUserId: req.user!.userId,
+            action: "REVOKE",
+            role: "SELLER",
+            reason: "Seller role revoked by admin",
+        },
+    });
+
     const userProfile = await prisma.userProfile.findUnique({ where: { userId } });
     if (!userProfile?.email) {
         res.status(500).json({ error: "User email not found; cannot notify seller" });
@@ -214,6 +233,16 @@ export async function reinstateSeller(req: Request, res: Response) {
     await prisma.sellerApplication.update({
         where: { id: application.id },
         data: { status: "APPROVED", adminNote: null },
+    });
+
+    await prisma.roleChangeLog.create({
+        data: {
+            targetUserId: userId,
+            adminUserId: req.user!.userId,
+            action: "GRANT",
+            role: "SELLER",
+            reason: "Seller reinstated by admin",
+        },
     });
 
     const userProfile = await prisma.userProfile.findUnique({ where: { userId } });

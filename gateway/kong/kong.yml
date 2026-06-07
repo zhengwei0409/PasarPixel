@@ -45,6 +45,10 @@ services:
         paths:
           - /seller
         strip_path: false
+      - name: role-logs-route
+        paths:
+          - /role-logs
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003

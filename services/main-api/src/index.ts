@@ -12,6 +12,7 @@ import exchangeRateRoutes from './routes/exchangeRate.routes';
 import checkoutRoutes from './routes/checkout.routes';
 import ordersRoutes from './routes/orders.routes';
 import sellerRoutes from './routes/seller.routes';
+import roleLogRoutes from './routes/roleLog.routes';
 import { handleWebhook } from './controllers/checkout.controller';
 
 const app = express();
@@ -35,6 +36,7 @@ app.use("/exchange-rate", exchangeRateRoutes);
 app.use("/checkout", checkoutRoutes);
 app.use("/orders", ordersRoutes);
 app.use("/seller", sellerRoutes);
+app.use("/role-logs", roleLogRoutes);
 
 app.get("/test/buyer", authenticate, requireRole("BUYER"), (req, res) => {
     res.json({ message: "Hello, Buyer!", user: req.user });
