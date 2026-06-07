@@ -313,17 +313,21 @@ export async function googleCallback(req: Request, res: Response) {
         create: { userId: user.id, roleId: buyerRole!.id },
     });
 
-    const roles = await getUserRoles(user.id);
-    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email, roles);
-
-    await prisma.refreshToken.create({
-        data: { userId: user.id, token: refreshToken, expiresAt },
-    });
-
     if (isNewUser) {
         await publishUserRegistered({ userId: user.id, name: user.displayName ?? user.email, email: user.email });
     }
 
+    // Same 2FA gate as password login, but the signal is carried in the redirect
+    // URL instead of a JSON body. A brand-new user can't have 2FA enabled yet,
+    // so they always fall through to the normal token path.
+    const twoFactor = await prisma.twoFactorAuth.findUnique({ where: { userId: user.id } });
+    if (twoFactor?.isEnabled) {
+        const tempToken = generateTempToken(user.id);
+        res.redirect(`http://localhost:5173/auth/callback?twoFactorRequired=true&tempToken=${tempToken}`);
+        return;
+    }
+
+    const { accessToken, refreshToken } = await issueLoginTokens(user.id, user.email);
     res.redirect(`http://localhost:5173/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
 }
 
