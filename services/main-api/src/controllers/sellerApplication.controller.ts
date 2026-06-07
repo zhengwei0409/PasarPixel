@@ -158,16 +158,18 @@ export async function revokeSeller(req: Request, res: Response) {
         return;
     }
 
-    // Hide this seller's live listings from the marketplace.
+    // Hide this seller's live listings from the marketplace. Tag them with
+    // hiddenByRevoke so a later reinstate restores exactly these assets.
     await prisma.asset.updateMany({
         where: { sellerId: userId, status: "PUBLISHED" },
-        data: { status: "TAKEN_DOWN" },
+        data: { status: "TAKEN_DOWN", hiddenByRevoke: true },
     });
 
-    // Mark the application so the user can re-apply later.
+    // Mark the application REVOKED (distinct from a rejected applicant) so it
+    // can be listed and reinstated later.
     await prisma.sellerApplication.update({
         where: { id: application.id },
-        data: { status: "REJECTED", adminNote: "Seller role revoked by admin" },
+        data: { status: "REVOKED", adminNote: "Seller role revoked by admin" },
     });
 
     // Tell auth-service to drop the SELLER role.
