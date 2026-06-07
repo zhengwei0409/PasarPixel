@@ -25,3 +25,7 @@ export async function approveApplication(id: number): Promise<void> {
 export async function rejectApplication(id: number, adminNote: string): Promise<void> {
     await apiClient.patch(`/seller-applications/${id}/reject`, { adminNote });
 }
+
+export async function revokeSeller(userId: number): Promise<void> {
+    await apiClient.post(`/seller-applications/sellers/${userId}/revoke`);
+}

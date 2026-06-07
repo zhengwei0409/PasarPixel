@@ -97,6 +97,9 @@ export default function DashboardPage() {
                                 <Button asChild variant="outline" className="w-full">
                                     <Link to="/admin/assets/pending">Pending Asset Reviews</Link>
                                 </Button>
+                                <Button asChild variant="outline" className="w-full">
+                                    <Link to="/admin/sellers">Manage Sellers</Link>
+                                </Button>
                             </CardContent>
                         </Card>
                     )}
