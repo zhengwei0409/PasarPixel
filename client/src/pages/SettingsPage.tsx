@@ -1,5 +1,6 @@
 import { useCurrencyStore } from "@/stores/currencyStore";
 import { useSetCurrency } from "@/hooks/useSetCurrency";
+import TwoFactorSection from "@/components/settings/TwoFactorSection";
 import type { Currency } from "@/types/asset";
 
 const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
@@ -47,6 +48,8 @@ export default function SettingsPage() {
                     })}
                 </div>
             </section>
+
+            <TwoFactorSection />
         </div>
     );
 }

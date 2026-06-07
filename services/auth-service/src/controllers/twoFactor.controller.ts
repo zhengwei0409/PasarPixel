@@ -17,6 +17,13 @@ function generateRecoveryCode(): string {
     return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}`;
 }
 
+// Tells the UI whether to show "Enable 2FA" or "Disable 2FA".
+export async function twoFactorStatus(req: AuthedRequest, res: Response) {
+    const userId = req.userId!;
+    const record = await prisma.twoFactorAuth.findUnique({ where: { userId } });
+    res.json({ enabled: !!record?.isEnabled });
+}
+
 // Step 1 of enabling 2FA: generate a fresh secret, store it (not yet enabled),
 // and return a QR code the user scans with their authenticator app.
 export async function setupTwoFactor(req: AuthedRequest, res: Response) {
