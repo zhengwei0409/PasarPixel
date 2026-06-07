@@ -429,14 +429,22 @@ function ReviewsSection({ asset }: { asset: AssetData }) {
     const canShowForm = !!user && !isAdmin && !isSeller;
     const myReview = userId !== null ? reviews.find((r) => r.userId === userId) ?? null : null;
 
+    // When the buyer already has a review, hide the form until they click "Edit"
+    // on their own review — otherwise the form duplicates what's shown below.
+    const [isEditing, setIsEditing] = useState(false);
+
     return (
         <div className="mt-10">
             <h2 className="mb-3 text-sm font-medium">
                 Ratings &amp; reviews ({asset.reviewCount})
             </h2>
 
-            {canShowForm && (
-                <ReviewForm assetId={asset.id} existingReview={myReview} />
+            {canShowForm && (!myReview || isEditing) && (
+                <ReviewForm
+                    assetId={asset.id}
+                    existingReview={myReview}
+                    onClose={() => setIsEditing(false)}
+                />
             )}
 
             {isLoading ? (
@@ -469,6 +477,15 @@ function ReviewsSection({ asset }: { asset: AssetData }) {
                                     <span className="text-xs text-muted-foreground">
                                         {formatReviewDate(review.createdAt)}
                                     </span>
+                                    {review.id === myReview?.id && !isEditing && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsEditing(true)}
+                                            className="text-xs font-medium text-primary hover:underline"
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
                                 </div>
                                 {review.comment && (
                                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">
@@ -487,9 +504,11 @@ function ReviewsSection({ asset }: { asset: AssetData }) {
 function ReviewForm({
     assetId,
     existingReview,
+    onClose,
 }: {
     assetId: number;
     existingReview: ReviewData | null;
+    onClose: () => void;
 }) {
     const [rating, setRating] = useState<number>(existingReview?.rating ?? 0);
     const [comment, setComment] = useState<string>(existingReview?.comment ?? "");
@@ -509,7 +528,10 @@ function ReviewForm({
         submit.mutate(
             { assetId, payload: { rating, comment: comment.trim() || undefined } },
             {
-                onSuccess: () => setMessage(isEditing ? "Review updated" : "Review submitted"),
+                onSuccess: () => {
+                    setMessage(isEditing ? "Review updated" : "Review submitted");
+                    if (isEditing) onClose();
+                },
                 onError: (err) => {
                     const status = (err as { response?: { status?: number } }).response?.status;
                     setMessage(
@@ -529,6 +551,7 @@ function ReviewForm({
                 setRating(0);
                 setComment("");
                 setMessage("Review removed");
+                onClose();
             },
             onError: () => setMessage("Could not remove review."),
         });
@@ -556,14 +579,19 @@ function ReviewForm({
                           : "Submit review"}
                 </Button>
                 {isEditing && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        disabled={remove.isPending}
-                        onClick={handleDelete}
-                    >
-                        {remove.isPending ? "Removing…" : "Delete"}
-                    </Button>
+                    <>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={remove.isPending}
+                            onClick={handleDelete}
+                        >
+                            {remove.isPending ? "Removing…" : "Delete"}
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={onClose}>
+                            Cancel
+                        </Button>
+                    </>
                 )}
             </div>
             {message && <p className="text-xs text-muted-foreground">{message}</p>}
