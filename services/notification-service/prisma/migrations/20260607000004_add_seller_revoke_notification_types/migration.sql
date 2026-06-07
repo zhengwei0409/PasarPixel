@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "NotificationType" ADD VALUE 'SELLER_REVOKED';
+ALTER TYPE "NotificationType" ADD VALUE 'SELLER_REINSTATED';
