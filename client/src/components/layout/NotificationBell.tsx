@@ -23,6 +23,7 @@ function formatTime(iso: string): string {
 
 export default function NotificationBell() {
     const [open, setOpen] = useState(false);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const { data: unreadCount = 0 } = useUnreadCount();
@@ -43,6 +44,7 @@ export default function NotificationBell() {
 
     const handleClickNotification = (n: Notification) => {
         if (!n.readAt) markAsRead.mutate(n.id);
+        setExpandedId((prev) => (prev === n.id ? null : n.id));
     };
 
     const badge = unreadCount > 9 ? "9+" : String(unreadCount);
@@ -97,7 +99,11 @@ export default function NotificationBell() {
                                     }`}
                                 >
                                     <p className="text-sm font-semibold">{n.title}</p>
-                                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                                    <p
+                                        className={`mt-1 text-xs text-muted-foreground ${
+                                            expandedId === n.id ? "whitespace-pre-wrap" : "line-clamp-2"
+                                        }`}
+                                    >
                                         {n.body}
                                     </p>
                                     <p className="mt-1 text-xs text-muted-foreground">
