@@ -1,10 +1,11 @@
 import { getRabbitChannel } from './rabbitmq';
 import { prisma } from './prisma';
-import { SellerApprovedEvent, SellerRevokedEvent } from '../../../../shared/types/events';
-import { EXCHANGE_SELLER_APPROVED, EXCHANGE_SELLER_REVOKED } from '../../../../shared/utils/messaging';
+import { SellerApprovedEvent, SellerRevokedEvent, SellerReinstatedEvent } from '../../../../shared/types/events';
+import { EXCHANGE_SELLER_APPROVED, EXCHANGE_SELLER_REVOKED, EXCHANGE_SELLER_REINSTATED } from '../../../../shared/utils/messaging';
 
 const APPROVED_QUEUE = 'seller.approved.auth';
 const REVOKED_QUEUE = 'seller.revoked.auth';
+const REINSTATED_QUEUE = 'seller.reinstated.auth';
 
 export async function startConsumer(): Promise<void> {
     const channel = await getRabbitChannel();
@@ -61,5 +62,32 @@ export async function startConsumer(): Promise<void> {
         console.log(`Removed SELLER role from user ${event.userId}`);
     });
 
-    console.log(`Auth-service consumer listening on queues: ${APPROVED_QUEUE}, ${REVOKED_QUEUE}`);
+    // seller.reinstated -> grant SELLER role back
+    await channel.assertExchange(EXCHANGE_SELLER_REINSTATED, 'fanout', { durable: true });
+    await channel.assertQueue(REINSTATED_QUEUE, { durable: true });
+    await channel.bindQueue(REINSTATED_QUEUE, EXCHANGE_SELLER_REINSTATED, '');
+
+    channel.consume(REINSTATED_QUEUE, async (msg) => {
+        if (!msg) return;
+
+        const event: SellerReinstatedEvent = JSON.parse(msg.content.toString());
+
+        const sellerRole = await prisma.role.findUnique({ where: { name: 'SELLER' } });
+        if (!sellerRole) {
+            console.error('SELLER role not found in DB');
+            channel.nack(msg, false, false);
+            return;
+        }
+
+        await prisma.userRole.upsert({
+            where: { userId_roleId: { userId: event.userId, roleId: sellerRole.id } },
+            update: {},
+            create: { userId: event.userId, roleId: sellerRole.id },
+        });
+
+        channel.ack(msg);
+        console.log(`Restored SELLER role to user ${event.userId}`);
+    });
+
+    console.log(`Auth-service consumer listening on queues: ${APPROVED_QUEUE}, ${REVOKED_QUEUE}, ${REINSTATED_QUEUE}`);
 }
