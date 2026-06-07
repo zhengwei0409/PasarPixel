@@ -17,6 +17,11 @@ export interface SellerRejectedEvent {
   adminNote?: string;
 }
 
+// Admin revoked a user's SELLER role -> auth-service drops the role
+export interface SellerRevokedEvent {
+  userId: number;
+}
+
 export interface PasswordResetEvent {
   userId: number;
   email: string;
