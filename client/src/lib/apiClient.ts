@@ -3,6 +3,7 @@ import { getAccessToken } from "../hooks/useAuth";
 
 const PUBLIC_PATHS = [
     "/auth/login",
+    "/auth/2fa/verify-login",
     "/auth/register",
     "/auth/forgot-password",
     "/auth/reset-password",

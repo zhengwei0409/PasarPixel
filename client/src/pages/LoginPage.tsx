@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +8,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useLogin } from "../hooks/useLogin";
 import { getErrorMessage } from "../lib/errors";
+import TwoFactorChallenge from "../components/auth/TwoFactorChallenge";
 
 const schema = z.object({
     email: z.string().email("Invalid email"),
@@ -16,7 +18,8 @@ const schema = z.object({
 type LoginForm = z.infer<typeof schema>;
 
 export default function LoginPage() {
-    const { mutate: login, isPending, error } = useLogin();
+    const [tempToken, setTempToken] = useState<string | null>(null);
+    const { mutate: login, isPending, error } = useLogin(setTempToken);
     const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
         resolver: zodResolver(schema),
     });
@@ -25,6 +28,14 @@ export default function LoginPage() {
         const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
         window.location.href = `${apiUrl}/auth/google`;
     };
+
+    if (tempToken) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <TwoFactorChallenge tempToken={tempToken} />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center">

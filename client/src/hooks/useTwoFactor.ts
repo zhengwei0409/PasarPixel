@@ -4,7 +4,9 @@ import {
     setupTwoFactor,
     enableTwoFactor,
     disableTwoFactor,
+    verifyLogin,
 } from "../services/twoFactorService";
+import { finishLogin } from "../lib/finishLogin";
 
 const STATUS_KEY = ["twoFactor", "status"];
 
@@ -31,6 +33,14 @@ export function useEnableTwoFactor() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: STATUS_KEY });
         },
+    });
+}
+
+// Login step two: submit the temp token + code, then complete the login.
+export function useVerifyLogin(tempToken: string) {
+    return useMutation({
+        mutationFn: (code: string) => verifyLogin(tempToken, code),
+        onSuccess: (tokens) => finishLogin(tokens),
     });
 }
 

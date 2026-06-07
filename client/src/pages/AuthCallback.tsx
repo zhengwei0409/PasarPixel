@@ -1,21 +1,33 @@
-import { useEffect } from "react";
-import { getPendingCartItem } from "../lib/cartIntent";
+import { useEffect, useState } from "react";
+import { finishLogin } from "../lib/finishLogin";
+import TwoFactorChallenge from "../components/auth/TwoFactorChallenge";
 
 export default function AuthCallback() {
+    const [tempToken, setTempToken] = useState<string | null>(null);
+
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const accessToken = params.get('accessToken');
-        const refreshToken = params.get('refreshToken');
+        const accessToken = params.get("accessToken");
+        const refreshToken = params.get("refreshToken");
+        const twoFactorRequired = params.get("twoFactorRequired");
+        const incomingTempToken = params.get("tempToken");
 
-        if (accessToken && refreshToken) {
-            localStorage.setItem('accessToken', accessToken);
-            localStorage.setItem('refreshToken', refreshToken);
-            // Land on the cart if the user was mid "Add to cart" (see useCartIntent).
-            window.location.href = getPendingCartItem() ? '/cart' : '/dashboard';
+        if (twoFactorRequired && incomingTempToken) {
+            setTempToken(incomingTempToken);
+        } else if (accessToken && refreshToken) {
+            finishLogin({ accessToken, refreshToken });
         } else {
-            window.location.href = '/login';
+            window.location.href = "/login";
         }
     }, []);
 
-    return <div>Logging you in...</div>
+    if (tempToken) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <TwoFactorChallenge tempToken={tempToken} />
+            </div>
+        );
+    }
+
+    return <div>Logging you in...</div>;
 }

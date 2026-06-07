@@ -1,16 +1,18 @@
 import { useMutation } from "@tanstack/react-query";
 import { login } from "../services/authService";
-import { getPendingCartItem } from "../lib/cartIntent";
+import { finishLogin } from "../lib/finishLogin";
 
-export function useLogin() {
+// onTwoFactorRequired fires when the account has 2FA on; the page then shows
+// the code-entry step using the provided temp token.
+export function useLogin(onTwoFactorRequired: (tempToken: string) => void) {
     return useMutation({
         mutationFn: login,
-        onSuccess: (tokens) => {
-            localStorage.setItem("accessToken", tokens.accessToken);
-            localStorage.setItem("refreshToken", tokens.refreshToken);
-            // If the user came here from "Add to cart", land them on the cart
-            // so the pending item is added there (see useCartIntent).
-            window.location.href = getPendingCartItem() ? "/cart" : "/dashboard";
+        onSuccess: (result) => {
+            if ("twoFactorRequired" in result) {
+                onTwoFactorRequired(result.tempToken);
+                return;
+            }
+            finishLogin(result);
         },
     });
 }

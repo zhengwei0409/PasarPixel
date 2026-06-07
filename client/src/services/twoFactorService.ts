@@ -1,4 +1,5 @@
 import apiClient from "../lib/apiClient";
+import type { AuthTokens } from "../types/auth";
 
 export interface TwoFactorStatus {
     enabled: boolean;
@@ -30,4 +31,11 @@ export async function enableTwoFactor(code: string): Promise<TwoFactorEnableResu
 
 export async function disableTwoFactor(): Promise<void> {
     await apiClient.post("/auth/2fa/disable");
+}
+
+// Login step two: exchange the temp token + a code (authenticator or recovery)
+// for the real login tokens.
+export async function verifyLogin(tempToken: string, code: string): Promise<AuthTokens> {
+    const res = await apiClient.post<AuthTokens>("/auth/2fa/verify-login", { tempToken, code });
+    return res.data;
 }
