@@ -17,14 +17,20 @@ export interface SellerRejectedEvent {
   adminNote?: string;
 }
 
-// Admin revoked a user's SELLER role -> auth-service drops the role
+// Admin revoked a user's SELLER role -> auth-service drops the role,
+// notification-service tells the seller
 export interface SellerRevokedEvent {
   userId: number;
+  email: string;
+  storeName: string;
 }
 
-// Admin undid a revoke -> auth-service grants the SELLER role back
+// Admin undid a revoke -> auth-service grants the SELLER role back,
+// notification-service tells the seller
 export interface SellerReinstatedEvent {
   userId: number;
+  email: string;
+  storeName: string;
 }
 
 export interface PasswordResetEvent {
