@@ -274,3 +274,20 @@ model ActivityLog {
 
   @@map("activity_logs")
 }
+
+model RoleChangeLog {
+  id           Int              @id @default(autoincrement())
+  targetUserId Int              // the user whose role changed
+  adminUserId  Int              // the admin who performed the change
+  action       RoleChangeAction // GRANT or REVOKE
+  role         String           // e.g. "SELLER"
+  reason       String?          // optional context (e.g. revoke note)
+  createdAt    DateTime         @default(now())
+
+  @@map("role_change_logs")
+}
+
+enum RoleChangeAction {
+  GRANT
+  REVOKE
+}
