@@ -12,6 +12,9 @@ enum NotificationType {
   PASSWORD_RESET
   SELLER_APPROVED
   SELLER_REJECTED
+  ASSET_APPROVED
+  ASSET_REJECTED
+  ASSET_REMOVED
 }
 
 model Notification {

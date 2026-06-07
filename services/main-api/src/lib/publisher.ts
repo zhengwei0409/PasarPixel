@@ -1,6 +1,18 @@
 import { getRabbitChannel } from './rabbitmq';
-import { SellerApprovedEvent, SellerRejectedEvent } from '../../../../shared/types/events';
-import { EXCHANGE_SELLER_APPROVED, EXCHANGE_SELLER_REJECTED } from '../../../../shared/utils/messaging';
+import {
+    SellerApprovedEvent,
+    SellerRejectedEvent,
+    AssetApprovedEvent,
+    AssetRejectedEvent,
+    AssetRemovedEvent,
+} from '../../../../shared/types/events';
+import {
+    EXCHANGE_SELLER_APPROVED,
+    EXCHANGE_SELLER_REJECTED,
+    EXCHANGE_ASSET_APPROVED,
+    EXCHANGE_ASSET_REJECTED,
+    EXCHANGE_ASSET_REMOVED,
+} from '../../../../shared/utils/messaging';
 
 export async function publishSellerApproved(event: SellerApprovedEvent): Promise<void> {
     const channel = await getRabbitChannel();
@@ -12,4 +24,22 @@ export async function publishSellerRejected(event: SellerRejectedEvent): Promise
     const channel = await getRabbitChannel();
     await channel.assertExchange(EXCHANGE_SELLER_REJECTED, 'fanout', { durable: true });
     channel.publish(EXCHANGE_SELLER_REJECTED, '', Buffer.from(JSON.stringify(event)));
+}
+
+export async function publishAssetApproved(event: AssetApprovedEvent): Promise<void> {
+    const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_ASSET_APPROVED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_ASSET_APPROVED, '', Buffer.from(JSON.stringify(event)));
+}
+
+export async function publishAssetRejected(event: AssetRejectedEvent): Promise<void> {
+    const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_ASSET_REJECTED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_ASSET_REJECTED, '', Buffer.from(JSON.stringify(event)));
+}
+
+export async function publishAssetRemoved(event: AssetRemovedEvent): Promise<void> {
+    const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_ASSET_REMOVED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_ASSET_REMOVED, '', Buffer.from(JSON.stringify(event)));
 }

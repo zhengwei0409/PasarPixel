@@ -13,6 +13,7 @@ import { watermarkImage } from "../lib/watermark";
 import { generateVideoPreview } from "../lib/videoPreview";
 import { generateAudioPreview } from "../lib/audioPreview";
 import { generateFontPreview } from "../lib/fontPreview";
+import { publishAssetApproved, publishAssetRejected, publishAssetRemoved } from "../lib/publisher";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -545,6 +546,13 @@ export async function deleteOrTakeDownAsset(req: Request, res: Response) {
             where: { id: assetId },
             data: { status: "TAKEN_DOWN", isDeleted: true },
         });
+
+        await publishAssetRemoved({
+            sellerId: asset.sellerId,
+            assetId: asset.id,
+            assetTitle: asset.title,
+        });
+
         res.json(updated);
         return;
     }
@@ -798,6 +806,12 @@ export async function approveAsset(req: Request, res: Response) {
         data: { status: "PUBLISHED", rejectionReason: null },
     });
 
+    await publishAssetApproved({
+        sellerId: asset.sellerId,
+        assetId: asset.id,
+        assetTitle: asset.title,
+    });
+
     res.json(updated);
 }
 
@@ -823,6 +837,13 @@ export async function rejectAsset(req: Request, res: Response) {
     const updated = await prisma.asset.update({
         where: { id: assetId },
         data: { status: "REJECTED", rejectionReason: reason.trim() },
+    });
+
+    await publishAssetRejected({
+        sellerId: asset.sellerId,
+        assetId: asset.id,
+        assetTitle: asset.title,
+        rejectionReason: reason.trim(),
     });
 
     res.json(updated);

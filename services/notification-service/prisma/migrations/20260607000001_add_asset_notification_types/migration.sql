@@ -1,0 +1,4 @@
+-- AlterEnum
+ALTER TYPE "NotificationType" ADD VALUE 'ASSET_APPROVED';
+ALTER TYPE "NotificationType" ADD VALUE 'ASSET_REJECTED';
+ALTER TYPE "NotificationType" ADD VALUE 'ASSET_REMOVED';
