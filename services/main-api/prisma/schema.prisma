@@ -119,17 +119,23 @@ enum AssetStatus {
 }
 
 model AssetFile {
-  id         Int      @id @default(autoincrement())
+  id         Int             @id @default(autoincrement())
   assetId    Int
   fileType   String
   fileUrl    String
   previewUrl String?
   fileSize   Int
-  createdAt  DateTime @default(now())
+  purpose    AssetFilePurpose @default(ORIGINAL)
+  createdAt  DateTime        @default(now())
 
   asset Asset @relation(fields: [assetId], references: [id])
 
   @@map("asset_files")
+}
+
+enum AssetFilePurpose {
+  ORIGINAL
+  PREVIEW
 }
 
 model Tag {
