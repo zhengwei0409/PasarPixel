@@ -45,13 +45,9 @@ services:
         paths:
           - /seller
         strip_path: false
-      - name: role-logs-route
+      - name: logs-route
         paths:
-          - /role-logs
-        strip_path: false
-      - name: asset-review-logs-route
-        paths:
-          - /asset-review-logs
+          - /logs
         strip_path: false
 
   - name: notification-service
