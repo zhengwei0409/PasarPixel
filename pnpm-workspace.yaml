@@ -2,3 +2,11 @@ packages:
   - "services/*"
   - "client"
   - "shared"
+
+# Allow these packages to run their install scripts (pnpm 10 blocks them by default).
+# prisma's postinstall builds the CLI binary that `prisma generate` needs.
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - "prisma"
+  - "esbuild"
