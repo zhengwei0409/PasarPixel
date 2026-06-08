@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useSyncRoles } from "../hooks/useSyncRoles";
 import SellerDashboardSection from "../components/SellerDashboardSection";
 import RoleChangeLogSection from "../components/RoleChangeLogSection";
+import AssetReviewLogSection from "../components/AssetReviewLogSection";
 
 // TODO: This is a prototype UI for testing purposes only. Replace with proper dashboard design in future.
 export default function DashboardPage() {
@@ -123,6 +124,8 @@ export default function DashboardPage() {
                 {isSeller && <SellerDashboardSection />}
 
                 {isAdmin && <RoleChangeLogSection />}
+
+                {isAdmin && <AssetReviewLogSection />}
             </div>
         </div>
     );
