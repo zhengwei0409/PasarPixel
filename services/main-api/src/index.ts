@@ -13,6 +13,7 @@ import checkoutRoutes from './routes/checkout.routes';
 import ordersRoutes from './routes/orders.routes';
 import sellerRoutes from './routes/seller.routes';
 import roleLogRoutes from './routes/roleLog.routes';
+import assetReviewLogRoutes from './routes/assetReviewLog.routes';
 import { handleWebhook } from './controllers/checkout.controller';
 
 const app = express();
@@ -37,6 +38,7 @@ app.use("/checkout", checkoutRoutes);
 app.use("/orders", ordersRoutes);
 app.use("/seller", sellerRoutes);
 app.use("/role-logs", roleLogRoutes);
+app.use("/asset-review-logs", assetReviewLogRoutes);
 
 app.get("/test/buyer", authenticate, requireRole("BUYER"), (req, res) => {
     res.json({ message: "Hello, Buyer!", user: req.user });

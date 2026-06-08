@@ -49,6 +49,10 @@ services:
         paths:
           - /role-logs
         strip_path: false
+      - name: asset-review-logs-route
+        paths:
+          - /asset-review-logs
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003
