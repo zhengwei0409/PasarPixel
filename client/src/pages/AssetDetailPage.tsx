@@ -97,7 +97,12 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
     const videoFile = asset.files.find((f) => f.fileType.startsWith("video/"));
     const audioFile = asset.files.find((f) => f.fileType.startsWith("audio/"));
-    const glbFile = asset.files.find((f) => /\.glb$/i.test(f.fileUrl));
+    // The ModelViewer loads this file's URL directly into the public page, so it
+    // MUST be the PREVIEW glb. The high-poly ORIGINAL glb lives in a private S3
+    // prefix and would 404 — and loading it would leak the paid file for free.
+    const glbFile = asset.files.find(
+        (f) => f.purpose === "PREVIEW" && /\.glb$/i.test(f.fileUrl),
+    );
     const fontFile = asset.files.find(
         (f) =>
             f.fileType.startsWith("font/") ||
