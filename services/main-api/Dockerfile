@@ -6,7 +6,7 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY services/auth-service/package.json ./services/auth-service/
 COPY services/main-api/package.json ./services/main-api/
 COPY services/blockchain-service/package.json ./services/blockchain-service/
@@ -18,7 +18,7 @@ COPY shared ./shared
 COPY services/main-api ./services/main-api
 
 WORKDIR /app/services/main-api
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 RUN pnpm run build
 
 RUN chmod +x docker-entrypoint.sh
