@@ -300,3 +300,19 @@ enum RoleChangeAction {
   GRANT
   REVOKE
 }
+
+model AssetReviewLog {
+  id          Int               @id @default(autoincrement())
+  assetId     Int               // the asset that was reviewed
+  adminUserId Int               // the admin who performed the review
+  action      AssetReviewAction // APPROVE or REJECT
+  reason      String?           // optional context (e.g. rejection reason)
+  createdAt   DateTime          @default(now())
+
+  @@map("asset_review_logs")
+}
+
+enum AssetReviewAction {
+  APPROVE
+  REJECT
+}

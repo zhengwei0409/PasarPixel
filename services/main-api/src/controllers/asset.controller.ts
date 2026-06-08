@@ -886,6 +886,14 @@ export async function approveAsset(req: Request, res: Response) {
         data: { status: "PUBLISHED", rejectionReason: null },
     });
 
+    await prisma.assetReviewLog.create({
+        data: {
+            assetId: asset.id,
+            adminUserId: req.user!.userId,
+            action: "APPROVE",
+        },
+    });
+
     await publishAssetApproved({
         sellerId: asset.sellerId,
         assetId: asset.id,
@@ -917,6 +925,15 @@ export async function rejectAsset(req: Request, res: Response) {
     const updated = await prisma.asset.update({
         where: { id: assetId },
         data: { status: "REJECTED", rejectionReason: reason.trim() },
+    });
+
+    await prisma.assetReviewLog.create({
+        data: {
+            assetId: asset.id,
+            adminUserId: req.user!.userId,
+            action: "REJECT",
+            reason: reason.trim(),
+        },
     });
 
     await publishAssetRejected({
