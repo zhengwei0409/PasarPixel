@@ -8,6 +8,7 @@ import {
     getRelatedAssets,
     getMyAssets,
     getPendingReviewAssets,
+    getAssetForReview,
     getUploadUrl,
     uploadToS3,
     registerFile,
@@ -74,6 +75,14 @@ export function usePendingReviewAssets() {
     return useQuery({
         queryKey: ["assets", "pending-review"],
         queryFn: () => getPendingReviewAssets(),
+    });
+}
+
+export function useAssetForReview(assetId: number | null) {
+    return useQuery({
+        queryKey: ["assets", "review", assetId],
+        queryFn: () => getAssetForReview(assetId as number),
+        enabled: assetId != null,
     });
 }
 

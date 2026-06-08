@@ -61,6 +61,22 @@ export interface AssetWithSeller extends AssetWithFileCount {
     seller: { userId: number; name: string; email: string | null };
 }
 
+// Full detail an admin sees when reviewing one asset (see getAssetForReview).
+export interface AssetReviewDetail extends AssetWithFiles {
+    seller: {
+        userId: number;
+        name: string;
+        email: string | null;
+        bio: string | null;
+        avatarUrl: string | null;
+    };
+    store: {
+        storeName: string;
+        reason: string;
+        portfolioLink: string | null;
+    } | null;
+}
+
 export interface CreateAssetPayload {
     title: string;
     description?: string;

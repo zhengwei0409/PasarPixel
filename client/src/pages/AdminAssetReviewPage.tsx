@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Textarea } from "../components/ui/textarea";
@@ -73,7 +74,14 @@ export default function AdminAssetReviewPage() {
                         <Card key={asset.id}>
                             <CardHeader className="pb-2">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="text-lg">{asset.title}</CardTitle>
+                                    <CardTitle className="text-lg">
+                                        <Link
+                                            to={`/admin/assets/${asset.id}/review`}
+                                            className="hover:underline"
+                                        >
+                                            {asset.title}
+                                        </Link>
+                                    </CardTitle>
                                     <span className="text-xs font-medium px-2 py-1 rounded bg-yellow-200 text-yellow-900">
                                         Pending Review
                                     </span>
@@ -118,6 +126,11 @@ export default function AdminAssetReviewPage() {
                                         onClick={() => setRejectingId(asset.id)}
                                     >
                                         Reject
+                                    </Button>
+                                    <Button size="sm" variant="ghost" asChild>
+                                        <Link to={`/admin/assets/${asset.id}/review`}>
+                                            View details
+                                        </Link>
                                     </Button>
                                 </div>
                             </CardContent>

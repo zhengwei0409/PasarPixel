@@ -6,6 +6,7 @@ import type {
     AssetWithFileCount,
     AssetWithFiles,
     AssetWithSeller,
+    AssetReviewDetail,
     BrowseAssetItem,
     BrowseAssetsParams,
     BrowseAssetsResponse,
@@ -84,6 +85,11 @@ export async function submitForReview(assetId: number): Promise<Asset> {
 
 export async function getPendingReviewAssets(): Promise<AssetWithSeller[]> {
     const res = await apiClient.get<AssetWithSeller[]>("/assets/pending-review");
+    return res.data;
+}
+
+export async function getAssetForReview(assetId: number): Promise<AssetReviewDetail> {
+    const res = await apiClient.get<AssetReviewDetail>(`/assets/${assetId}/review`);
     return res.data;
 }
 

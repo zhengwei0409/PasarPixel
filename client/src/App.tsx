@@ -17,6 +17,7 @@ import MySellerListingsPage from './pages/MySellerListingsPage';
 import AdminApplicationsPage from './pages/AdminApplicationsPage';
 import AdminApplicationDetailPage from './pages/AdminApplicationDetailPage';
 import AdminAssetReviewPage from './pages/AdminAssetReviewPage';
+import AdminAssetReviewDetailPage from './pages/AdminAssetReviewDetailPage';
 import AdminSellersPage from './pages/AdminSellersPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
@@ -72,6 +73,7 @@ function App() {
         <Route path="/admin/applications" element={<AdminApplicationsPage />} />
         <Route path="/admin/applications/:id" element={<AdminApplicationDetailPage />} />
         <Route path="/admin/assets/pending" element={<AdminAssetReviewPage />} />
+        <Route path="/admin/assets/:id/review" element={<AdminAssetReviewDetailPage />} />
         <Route path="/admin/sellers" element={<AdminSellersPage />} />
       </Route>
     </Routes>
