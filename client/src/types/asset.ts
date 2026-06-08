@@ -36,6 +36,8 @@ export interface Asset {
     updatedAt: string;
 }
 
+export type AssetFilePurpose = "ORIGINAL" | "PREVIEW";
+
 export interface AssetFile {
     id: number;
     assetId: number;
@@ -43,6 +45,7 @@ export interface AssetFile {
     fileUrl: string;
     previewUrl: string | null;
     fileSize: number;
+    purpose: AssetFilePurpose;
     createdAt: string;
 }
 
@@ -86,6 +89,7 @@ export interface GetUploadUrlPayload {
     fileName: string;
     fileType: string;
     fileSize: number;
+    purpose?: AssetFilePurpose;
 }
 
 export interface GetUploadUrlResponse {
@@ -98,6 +102,7 @@ export interface RegisterFilePayload {
     key: string;
     fileType: string;
     fileSize: number;
+    purpose?: AssetFilePurpose;
 }
 
 export interface BrowseAssetItem extends AssetWithFiles {

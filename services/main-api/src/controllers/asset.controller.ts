@@ -760,10 +760,19 @@ export async function submitForReview(req: Request, res: Response) {
     }
 
     if (asset.category === "THREE_D_MODEL") {
-        const hasGlb = asset.files.some((f) => /\.glb$/i.test(f.fileUrl));
-        if (!hasGlb) {
+        const hasPreviewGlb = asset.files.some(
+            (f) => f.purpose === "PREVIEW" && /\.glb$/i.test(f.fileUrl),
+        );
+        const hasOriginal = asset.files.some((f) => f.purpose === "ORIGINAL");
+        if (!hasPreviewGlb) {
             res.status(400).json({
-                error: "3D Model assets must include a .glb file for the interactive 3D preview",
+                error: "3D Model assets must include a preview .glb file for the interactive 3D viewer",
+            });
+            return;
+        }
+        if (!hasOriginal) {
+            res.status(400).json({
+                error: "3D Model assets must include the original file for buyers to download",
             });
             return;
         }

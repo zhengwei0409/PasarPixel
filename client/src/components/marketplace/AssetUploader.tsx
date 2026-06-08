@@ -3,7 +3,7 @@ import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { useAsset, useDeleteAssetFile, useUploadAssetFile } from "../../hooks/useAsset";
 import { getErrorMessage } from "../../lib/errors";
-import type { AssetCategory, AssetFile } from "../../types/asset";
+import type { AssetCategory, AssetFile, AssetFilePurpose } from "../../types/asset";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -30,6 +30,10 @@ interface SlotDef {
     match: (name: string, type: string) => boolean;
     accept: string; // value for <input accept="...">
     hint: string;
+    // Whether files in this slot are the public PREVIEW or the private ORIGINAL.
+    // The backend stores this so we can bucket files reliably and keep paid
+    // originals out of the public previews/ prefix.
+    purpose: AssetFilePurpose;
 }
 
 const matchExt = (name: string, exts: string[]) =>
@@ -46,6 +50,7 @@ const coverSlot: SlotDef = {
     match: (_name, type) => type.startsWith("image/"),
     accept: "image/*",
     hint: "Shown as the thumbnail in the marketplace. One image.",
+    purpose: "PREVIEW", // public — shown before purchase
 };
 
 // A catch-all optional slot for any remaining files (the download bundle).
@@ -57,6 +62,7 @@ const extraSlot = (hint: string): SlotDef => ({
     match: () => true,
     accept: "",
     hint,
+    purpose: "ORIGINAL", // private — part of the paid download
 });
 
 // Per-category slot layout. Categories not listed fall back to a single box.
@@ -70,23 +76,22 @@ const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
             single: true,
             match: (name) => matchExt(name, [".glb"]),
             accept: ".glb",
-            hint: "Used for the interactive 3D preview. Exactly one .glb file.",
+            hint: "A low-poly .glb shown in the public interactive 3D preview. One file.",
+            purpose: "PREVIEW", // public — the in-browser viewer
         },
-        extraSlot(
-            "Other formats bundled in the download (.fbx, .blend, .obj, textures, etc.)",
-        ),
+        {
+            key: "original",
+            title: "Original Files — required",
+            required: true,
+            single: false,
+            match: () => true,
+            accept: "",
+            hint: "The real files buyers download after paying (.fbx, .blend, .obj, high-poly .glb, textures, etc.).",
+            purpose: "ORIGINAL", // private — only delivered after purchase
+        },
     ],
     ANIMATION: [
         coverSlot,
-        {
-            key: "model",
-            title: "3D File (.glb / .fbx / .blend) — required",
-            required: true,
-            single: true,
-            match: (name) => matchExt(name, [".glb", ".fbx", ".blend"]),
-            accept: ".glb,.fbx,.blend",
-            hint: "The animated 3D model. One file.",
-        },
         {
             key: "video",
             title: "MP4 Preview — required",
@@ -95,6 +100,17 @@ const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
             match: (_name, type) => type.startsWith("video/"),
             accept: "video/mp4",
             hint: "A video preview buyers watch before purchase. One MP4.",
+            purpose: "PREVIEW", // public — shown before purchase
+        },
+        {
+            key: "model",
+            title: "3D File (.glb / .fbx / .blend) — required",
+            required: true,
+            single: true,
+            match: (name) => matchExt(name, [".glb", ".fbx", ".blend"]),
+            accept: ".glb,.fbx,.blend",
+            hint: "The animated 3D model buyers download. One file.",
+            purpose: "ORIGINAL", // private — part of the paid download
         },
         extraSlot("Any other files to bundle in the download."),
     ],
@@ -127,10 +143,13 @@ function bucketFiles(files: AssetFile[], slots: SlotDef[]): Record<string, Asset
 
     for (const f of files) {
         const name = fileNameOf(f);
+        // Only consider slots with the same purpose as the stored file, so a
+        // public PREVIEW never lands in an ORIGINAL slot (or vice versa).
+        const candidates = slots.filter((s) => s.purpose === f.purpose);
         const slot =
-            slots.find(
+            candidates.find(
                 (s) => s.single && !claimed.has(s.key) && s.match(name, f.fileType),
-            ) ?? slots.find((s) => !s.single); // catch-all: the multi-file extras slot
+            ) ?? candidates.find((s) => !s.single); // catch-all: the multi-file slot
         if (slot) {
             buckets[slot.key].push(f);
             if (slot.single) claimed.add(slot.key);
@@ -160,6 +179,7 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
             {
                 assetId,
                 file,
+                purpose: slot.purpose,
                 onProgress: (p) =>
                     setInFlight((prev) =>
                         prev.map((u) => (u.id === id ? { ...u, progress: p } : u)),

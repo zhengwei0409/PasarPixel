@@ -24,6 +24,7 @@ import {
 import type {
     Asset,
     AssetFile,
+    AssetFilePurpose,
     BrowseAssetsParams,
     CreateAssetPayload,
     UpdateAssetPayload,
@@ -156,23 +157,26 @@ export function useUpdateAsset() {
 export interface UploadAssetFileVars {
     assetId: number;
     file: File;
+    purpose?: AssetFilePurpose;
     onProgress?: (percent: number) => void;
 }
 
 export function useUploadAssetFile() {
     const queryClient = useQueryClient();
     return useMutation<AssetFile, Error, UploadAssetFileVars>({
-        mutationFn: async ({ assetId, file, onProgress }) => {
+        mutationFn: async ({ assetId, file, purpose, onProgress }) => {
             const { uploadUrl, key } = await getUploadUrl(assetId, {
                 fileName: file.name,
                 fileType: file.type || "application/octet-stream",
                 fileSize: file.size,
+                purpose,
             });
             await uploadToS3(uploadUrl, file, onProgress);
             return registerFile(assetId, {
                 key,
                 fileType: file.type || "application/octet-stream",
                 fileSize: file.size,
+                purpose,
             });
         },
         onSuccess: (_data, vars) => {
