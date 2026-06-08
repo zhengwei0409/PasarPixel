@@ -1,6 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMyApplication, submitApplication, listApplications, approveApplication, rejectApplication, revokeSeller, reinstateSeller } from "../services/sellerApplicationService";
+import { getMyApplication, submitApplication, listApplications, approveApplication, rejectApplication, revokeSeller, reinstateSeller, getIdDocumentUploadUrl, uploadIdDocumentToS3 } from "../services/sellerApplicationService";
 import type { SubmitApplicationPayload } from "../types/sellerApplication";
+
+export function useUploadIdDocument() {
+    return useMutation<string, Error, File>({
+        mutationFn: async (file: File) => {
+            const { uploadUrl, key } = await getIdDocumentUploadUrl({
+                fileName: file.name,
+                fileType: file.type,
+                fileSize: file.size,
+            });
+            await uploadIdDocumentToS3(uploadUrl, file);
+            return key;
+        },
+    });
+}
 
 export function useMyApplication() {
     return useQuery({

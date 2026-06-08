@@ -1,17 +1,23 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { useMyApplication, useSubmitApplication } from "../hooks/useSellerApplication";
+import { useMyApplication, useSubmitApplication, useUploadIdDocument } from "../hooks/useSellerApplication";
 import { getErrorMessage } from "../lib/errors";
+
+const ALLOWED_ID_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const MAX_ID_SIZE = 10 * 1024 * 1024;
 
 const schema = z.object({
     storeName: z.string().min(1, "Store name is required"),
     reason: z.string().min(10, "Please provide at least 10 characters"),
     portfolioLink: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-    idVerificationUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+    fullName: z.string().min(1, "Full legal name is required"),
+    dateOfBirth: z.string().min(1, "Date of birth is required"),
+    address: z.string().min(1, "Address is required"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -31,17 +37,47 @@ const statusColor: Record<string, string> = {
 export default function SellerApplicationPage() {
     const { data: application, isLoading } = useMyApplication();
     const { mutate: submit, isPending, error } = useSubmitApplication();
+    const { mutateAsync: uploadIdDocument, isPending: isUploading } = useUploadIdDocument();
+
+    const [idFile, setIdFile] = useState<File | null>(null);
+    const [idFileError, setIdFileError] = useState<string | null>(null);
 
     const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
         resolver: zodResolver(schema),
     });
 
-    const onSubmit = (data: FormData) => {
+    const handleIdFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] ?? null;
+        setIdFileError(null);
+        if (file && !ALLOWED_ID_TYPES.includes(file.type)) {
+            setIdFileError("ID document must be a JPG, PNG, or PDF");
+            setIdFile(null);
+            return;
+        }
+        if (file && file.size > MAX_ID_SIZE) {
+            setIdFileError("ID document must be 10 MB or smaller");
+            setIdFile(null);
+            return;
+        }
+        setIdFile(file);
+    };
+
+    const onSubmit = async (data: FormData) => {
+        if (!idFile) {
+            setIdFileError("Please upload your ID document");
+            return;
+        }
+
+        const idDocumentKey = await uploadIdDocument(idFile);
+
         submit({
             storeName: data.storeName,
             reason: data.reason,
             portfolioLink: data.portfolioLink || undefined,
-            idVerificationUrl: data.idVerificationUrl || undefined,
+            fullName: data.fullName,
+            dateOfBirth: data.dateOfBirth,
+            address: data.address,
+            idDocumentKey,
         });
     };
 
@@ -114,15 +150,39 @@ export default function SellerApplicationPage() {
                     </div>
 
                     <div className="space-y-1">
-                        <Label>ID Verification URL (optional)</Label>
-                        <Input {...register("idVerificationUrl")} placeholder="https://drive.google.com/..." />
-                        {errors.idVerificationUrl && <p className="text-sm text-red-500">{errors.idVerificationUrl.message}</p>}
+                        <Label>Full Legal Name</Label>
+                        <Input {...register("fullName")} placeholder="As shown on your ID" />
+                        {errors.fullName && <p className="text-sm text-red-500">{errors.fullName.message}</p>}
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label>Date of Birth</Label>
+                        <Input type="date" {...register("dateOfBirth")} />
+                        {errors.dateOfBirth && <p className="text-sm text-red-500">{errors.dateOfBirth.message}</p>}
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label>Address</Label>
+                        <Input {...register("address")} placeholder="Your residential address" />
+                        {errors.address && <p className="text-sm text-red-500">{errors.address.message}</p>}
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label>ID Document (JPG, PNG, or PDF)</Label>
+                        <Input
+                            type="file"
+                            accept="image/jpeg,image/png,application/pdf"
+                            onChange={handleIdFileChange}
+                        />
+                        <p className="text-xs text-gray-500">Upload a clear photo or scan of your ID. Max 10 MB.</p>
+                        {idFile && <p className="text-sm text-green-600">Selected: {idFile.name}</p>}
+                        {idFileError && <p className="text-sm text-red-500">{idFileError}</p>}
                     </div>
 
                     {error && <p className="text-sm text-red-500">{getErrorMessage(error)}</p>}
 
-                    <Button type="submit" className="w-full" disabled={isPending}>
-                        {isPending ? "Submitting..." : "Submit Application"}
+                    <Button type="submit" className="w-full" disabled={isPending || isUploading}>
+                        {isUploading ? "Uploading ID..." : isPending ? "Submitting..." : "Submit Application"}
                     </Button>
                 </form>
             </div>

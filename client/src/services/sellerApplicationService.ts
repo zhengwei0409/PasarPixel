@@ -1,9 +1,32 @@
+import axios from "axios";
 import apiClient from "../lib/apiClient";
-import type { SellerApplication, SellerApplicationWithUser, SubmitApplicationPayload } from "../types/sellerApplication";
+import type {
+    SellerApplication,
+    SellerApplicationWithUser,
+    SubmitApplicationPayload,
+    IdDocumentUploadUrlPayload,
+    IdDocumentUploadUrlResponse,
+} from "../types/sellerApplication";
 
 export async function submitApplication(payload: SubmitApplicationPayload): Promise<SellerApplication> {
     const res = await apiClient.post<SellerApplication>("/seller-applications", payload);
     return res.data;
+}
+
+export async function getIdDocumentUploadUrl(
+    payload: IdDocumentUploadUrlPayload,
+): Promise<IdDocumentUploadUrlResponse> {
+    const res = await apiClient.post<IdDocumentUploadUrlResponse>(
+        "/seller-applications/id-document/upload-url",
+        payload,
+    );
+    return res.data;
+}
+
+export async function uploadIdDocumentToS3(uploadUrl: string, file: File): Promise<void> {
+    await axios.put(uploadUrl, file, {
+        headers: { "Content-Type": file.type },
+    });
 }
 
 export async function getMyApplication(): Promise<SellerApplication> {

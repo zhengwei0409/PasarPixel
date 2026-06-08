@@ -6,7 +6,10 @@ export interface SellerApplication {
     storeName: string;
     reason: string;
     portfolioLink: string | null;
-    idVerificationUrl: string | null;
+    fullName: string | null;
+    dateOfBirth: string | null;
+    address: string | null;
+    idDocumentKey: string | null;
     status: SellerApplicationStatus;
     adminNote: string | null;
     reviewedAt: string | null;
@@ -25,5 +28,20 @@ export interface SubmitApplicationPayload {
     storeName: string;
     reason: string;
     portfolioLink?: string;
-    idVerificationUrl?: string;
+    fullName: string;
+    dateOfBirth: string;
+    address: string;
+    idDocumentKey: string;
+}
+
+export interface IdDocumentUploadUrlPayload {
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+}
+
+export interface IdDocumentUploadUrlResponse {
+    uploadUrl: string;
+    key: string;
+    expiresIn: number;
 }

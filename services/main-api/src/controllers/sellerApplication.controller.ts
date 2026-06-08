@@ -1,6 +1,47 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { getPresignedUploadUrl } from "../lib/s3";
 import { publishSellerApproved, publishSellerRejected, publishSellerRevoked, publishSellerReinstated } from "../lib/publisher";
+
+const MAX_ID_DOCUMENT_SIZE = 10 * 1024 * 1024;
+const ALLOWED_ID_DOCUMENT_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+
+function sanitizeFileName(name: string): string {
+    return name.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+export async function getIdDocumentUploadUrl(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const { fileName, fileType, fileSize } = req.body;
+
+    if (!fileName || !fileType || typeof fileSize !== "number") {
+        res.status(400).json({ error: "fileName, fileType, and fileSize are required" });
+        return;
+    }
+
+    if (!ALLOWED_ID_DOCUMENT_TYPES.includes(fileType)) {
+        res.status(400).json({ error: "ID document must be a JPG, PNG, or PDF" });
+        return;
+    }
+
+    if (fileSize <= 0 || fileSize > MAX_ID_DOCUMENT_SIZE) {
+        res.status(400).json({
+            error: `fileSize must be between 1 and ${MAX_ID_DOCUMENT_SIZE} bytes (10 MB)`,
+        });
+        return;
+    }
+
+    const safeName = sanitizeFileName(fileName);
+    const key = `seller-ids/${userId}/${Date.now()}-${safeName}`;
+
+    const result = await getPresignedUploadUrl({
+        key,
+        contentType: fileType,
+        contentLength: fileSize,
+    });
+
+    res.json({ uploadUrl: result.url, key: result.key, expiresIn: result.expiresIn });
+}
 
 export async function submitApplication(req: Request, res: Response) {
     const userId = req.user!.userId;
