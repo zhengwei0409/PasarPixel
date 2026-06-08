@@ -21,7 +21,7 @@ WORKDIR /app/services/main-api
 RUN pnpm exec prisma generate
 RUN pnpm run build
 
-RUN chmod +x docker-entrypoint.sh
+RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
 EXPOSE 3002
 
