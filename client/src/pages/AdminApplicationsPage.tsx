@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useListApplications, useApproveApplication, useRejectApplication } from "../hooks/useSellerApplication";
@@ -48,12 +49,17 @@ export default function AdminApplicationsPage() {
 
                         <p className="text-sm">{app.reason}</p>
 
-                        {app.portfolioLink && (
-                            <a href={app.portfolioLink} target="_blank" rel="noreferrer"
-                                className="text-sm text-blue-600 underline">
-                                Portfolio
-                            </a>
-                        )}
+                        <div className="flex gap-4">
+                            {app.portfolioLink && (
+                                <a href={app.portfolioLink} target="_blank" rel="noreferrer"
+                                    className="text-sm text-blue-600 underline">
+                                    Portfolio
+                                </a>
+                            )}
+                            <Link to={`/admin/applications/${app.id}`} className="text-sm text-blue-600 underline">
+                                View details &amp; ID
+                            </Link>
+                        </div>
 
                         {rejectingId === app.id ? (
                             <div className="space-y-2 pt-2">

@@ -24,6 +24,14 @@ export interface SellerApplicationWithUser extends SellerApplication {
     };
 }
 
+export interface SellerApplicationDetail extends SellerApplication {
+    user: {
+        name: string;
+        email: string | null;
+        avatarUrl: string | null;
+    };
+}
+
 export interface SubmitApplicationPayload {
     storeName: string;
     reason: string;

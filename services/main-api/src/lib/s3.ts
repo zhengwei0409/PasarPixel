@@ -35,6 +35,12 @@ export async function getPresignedUploadUrl(params: {
   return { url, key: params.key, expiresIn: EXPIRES_IN };
 }
 
+export async function getPresignedDownloadUrl(key: string): Promise<{ url: string; expiresIn: number }> {
+  const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
+  const url = await getSignedUrl(s3, command, { expiresIn: EXPIRES_IN });
+  return { url, expiresIn: EXPIRES_IN };
+}
+
 export async function getObjectBuffer(key: string): Promise<Buffer> {
   const command = new GetObjectCommand({ Bucket: BUCKET, Key: key });
   const response = await s3.send(command);

@@ -3,6 +3,7 @@ import apiClient from "../lib/apiClient";
 import type {
     SellerApplication,
     SellerApplicationWithUser,
+    SellerApplicationDetail,
     SubmitApplicationPayload,
     IdDocumentUploadUrlPayload,
     IdDocumentUploadUrlResponse,
@@ -39,6 +40,16 @@ export async function listApplications(status?: string): Promise<SellerApplicati
         params: status ? { status } : undefined,
     });
     return res.data;
+}
+
+export async function getApplication(id: number): Promise<SellerApplicationDetail> {
+    const res = await apiClient.get<SellerApplicationDetail>(`/seller-applications/${id}`);
+    return res.data;
+}
+
+export async function getIdDocumentDownloadUrl(id: number): Promise<string> {
+    const res = await apiClient.get<{ downloadUrl: string }>(`/seller-applications/${id}/id-document`);
+    return res.data.downloadUrl;
 }
 
 export async function approveApplication(id: number): Promise<void> {

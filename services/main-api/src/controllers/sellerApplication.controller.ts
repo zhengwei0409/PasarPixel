@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
-import { getPresignedUploadUrl } from "../lib/s3";
+import { getPresignedUploadUrl, getPresignedDownloadUrl } from "../lib/s3";
 import { publishSellerApproved, publishSellerRejected, publishSellerRevoked, publishSellerReinstated } from "../lib/publisher";
 
 const MAX_ID_DOCUMENT_SIZE = 10 * 1024 * 1024;
@@ -118,6 +118,47 @@ export async function listApplications(req: Request, res: Response) {
     });
 
     res.json(applications);
+}
+
+export async function getApplication(req: Request, res: Response) {
+    const id = parseInt(req.params.id as string);
+    if (Number.isNaN(id)) {
+        res.status(400).json({ error: "Invalid application id" });
+        return;
+    }
+
+    const application = await prisma.sellerApplication.findUnique({
+        where: { id },
+        include: { user: { select: { name: true, email: true, avatarUrl: true } } },
+    });
+
+    if (!application) {
+        res.status(404).json({ error: "Application not found" });
+        return;
+    }
+
+    res.json(application);
+}
+
+export async function getIdDocumentDownloadUrl(req: Request, res: Response) {
+    const id = parseInt(req.params.id as string);
+    if (Number.isNaN(id)) {
+        res.status(400).json({ error: "Invalid application id" });
+        return;
+    }
+
+    const application = await prisma.sellerApplication.findUnique({ where: { id } });
+    if (!application) {
+        res.status(404).json({ error: "Application not found" });
+        return;
+    }
+    if (!application.idDocumentKey) {
+        res.status(404).json({ error: "This application has no ID document" });
+        return;
+    }
+
+    const { url, expiresIn } = await getPresignedDownloadUrl(application.idDocumentKey);
+    res.json({ downloadUrl: url, expiresIn });
 }
 
 export async function approveApplication(req: Request, res: Response) {

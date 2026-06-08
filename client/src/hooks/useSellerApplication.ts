@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMyApplication, submitApplication, listApplications, approveApplication, rejectApplication, revokeSeller, reinstateSeller, getIdDocumentUploadUrl, uploadIdDocumentToS3 } from "../services/sellerApplicationService";
+import { getMyApplication, submitApplication, listApplications, getApplication, getIdDocumentDownloadUrl, approveApplication, rejectApplication, revokeSeller, reinstateSeller, getIdDocumentUploadUrl, uploadIdDocumentToS3 } from "../services/sellerApplicationService";
 import type { SubmitApplicationPayload } from "../types/sellerApplication";
 
 export function useUploadIdDocument() {
@@ -38,6 +38,19 @@ export function useListApplications(status?: string) {
     return useQuery({
         queryKey: ["sellerApplications", status],
         queryFn: () => listApplications(status),
+    });
+}
+
+export function useApplication(id: number) {
+    return useQuery({
+        queryKey: ["sellerApplication", id],
+        queryFn: () => getApplication(id),
+    });
+}
+
+export function useIdDocumentDownloadUrl() {
+    return useMutation<string, Error, number>({
+        mutationFn: (id: number) => getIdDocumentDownloadUrl(id),
     });
 }
 
