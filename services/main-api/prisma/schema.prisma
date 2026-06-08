@@ -39,7 +39,10 @@ model SellerApplication {
   storeName           String
   reason              String
   portfolioLink       String?
-  idVerificationUrl   String?
+  fullName            String?
+  dateOfBirth         DateTime?
+  address             String?
+  idDocumentKey       String?
   status              SellerApplicationStatus @default(PENDING)
   adminNote           String?
   reviewedAt          DateTime?

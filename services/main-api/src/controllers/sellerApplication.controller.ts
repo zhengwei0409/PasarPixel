@@ -4,15 +4,29 @@ import { publishSellerApproved, publishSellerRejected, publishSellerRevoked, pub
 
 export async function submitApplication(req: Request, res: Response) {
     const userId = req.user!.userId;
-    const { storeName, reason, portfolioLink, idVerificationUrl } = req.body;
+    const { storeName, reason, portfolioLink, fullName, dateOfBirth, address, idDocumentKey } = req.body;
 
     if (req.user!.roles.includes("ADMIN")) {
         res.status(403).json({ error: "Admins cannot apply as sellers" });
         return;
     }
 
-    if (!storeName || !reason) {
-        res.status(400).json({ error: "storeName and reason are required" });
+    if (!storeName || !reason || !fullName || !dateOfBirth || !address || !idDocumentKey) {
+        res.status(400).json({
+            error: "storeName, reason, fullName, dateOfBirth, address, and idDocumentKey are required",
+        });
+        return;
+    }
+
+    const dob = new Date(dateOfBirth);
+    if (Number.isNaN(dob.getTime())) {
+        res.status(400).json({ error: "dateOfBirth must be a valid date" });
+        return;
+    }
+
+    const expectedPrefix = `seller-ids/${userId}/`;
+    if (!idDocumentKey.startsWith(expectedPrefix)) {
+        res.status(403).json({ error: "idDocumentKey does not belong to this user" });
         return;
     }
 
@@ -31,7 +45,7 @@ export async function submitApplication(req: Request, res: Response) {
     }
 
     const application = await prisma.sellerApplication.create({
-        data: { userId, storeName, reason, portfolioLink, idVerificationUrl },
+        data: { userId, storeName, reason, portfolioLink, fullName, dateOfBirth: dob, address, idDocumentKey },
     });
 
     res.status(201).json(application);
