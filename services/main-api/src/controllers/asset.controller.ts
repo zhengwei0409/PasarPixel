@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { AssetCategory, ListingType, Currency, AssetFilePurpose } from "@prisma/client";
 import {
     getPresignedUploadUrl,
+    getPresignedDownloadUrl,
     deleteObject,
     extractKeyFromUrl,
     getObjectBuffer,
@@ -748,6 +749,24 @@ export async function getAssetForReview(req: Request, res: Response) {
     });
 
     res.json({ ...asset, store: application });
+}
+
+// GET /assets/:id/files/:fileId/download-url — short-lived signed link so an
+// admin can open/download an asset file (incl. the private ORIGINAL) while
+// reviewing it, without going through a purchase.
+export async function getAssetFileDownloadUrl(req: Request, res: Response) {
+    const assetId = parseInt(req.params.id as string);
+    const fileId = parseInt(req.params.fileId as string);
+
+    const file = await prisma.assetFile.findUnique({ where: { id: fileId } });
+    if (!file || file.assetId !== assetId) {
+        res.status(404).json({ error: "File not found" });
+        return;
+    }
+
+    const key = extractKeyFromUrl(file.fileUrl);
+    const { url, expiresIn } = await getPresignedDownloadUrl(key);
+    res.json({ downloadUrl: url, expiresIn });
 }
 
 export async function submitForReview(req: Request, res: Response) {
