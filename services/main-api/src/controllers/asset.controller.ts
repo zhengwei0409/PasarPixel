@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { AssetCategory, ListingType, Currency } from "@prisma/client";
+import { AssetCategory, ListingType, Currency, AssetFilePurpose } from "@prisma/client";
 import {
     getPresignedUploadUrl,
     deleteObject,
@@ -148,10 +148,15 @@ function sanitizeFileName(name: string): string {
 export async function getUploadUrl(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);
-    const { fileName, fileType, fileSize } = req.body;
+    const { fileName, fileType, fileSize, purpose } = req.body;
 
     if (!fileName || !fileType || typeof fileSize !== "number") {
         res.status(400).json({ error: "fileName, fileType, and fileSize are required" });
+        return;
+    }
+
+    if (purpose !== undefined && purpose !== "ORIGINAL" && purpose !== "PREVIEW") {
+        res.status(400).json({ error: "purpose must be ORIGINAL or PREVIEW" });
         return;
     }
 
@@ -185,8 +190,12 @@ export async function getUploadUrl(req: Request, res: Response) {
         return;
     }
 
+    // PREVIEW files (e.g. a low-poly glb) live under the public previews/ prefix
+    // so they can be shown to anyone. ORIGINAL paid files stay under assets/,
+    // which is private and only served through the authenticated download.
+    const prefix = purpose === "PREVIEW" ? "previews" : "assets";
     const safeName = sanitizeFileName(fileName);
-    const key = `assets/${userId}/${assetId}/${Date.now()}-${safeName}`;
+    const key = `${prefix}/${userId}/${assetId}/${Date.now()}-${safeName}`;
 
     const result = await getPresignedUploadUrl({
         key,
@@ -206,19 +215,28 @@ function buildPublicFileUrl(key: string): string {
 export async function registerFile(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);
-    const { key, fileType, fileSize } = req.body;
+    const { key, fileType, fileSize, purpose } = req.body;
 
     if (!key || !fileType || typeof fileSize !== "number") {
         res.status(400).json({ error: "key, fileType, and fileSize are required" });
         return;
     }
 
+    if (purpose !== undefined && purpose !== "ORIGINAL" && purpose !== "PREVIEW") {
+        res.status(400).json({ error: "purpose must be ORIGINAL or PREVIEW" });
+        return;
+    }
+    const filePurpose: AssetFilePurpose = purpose === "PREVIEW" ? "PREVIEW" : "ORIGINAL";
+
     if (fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
         res.status(400).json({ error: `fileSize must be between 1 and ${MAX_FILE_SIZE} bytes (100 MB)` });
         return;
     }
 
-    const expectedPrefix = `assets/${userId}/${assetId}/`;
+    // The prefix must match what getUploadUrl handed out for this purpose, so a
+    // seller can't smuggle a paid original into the public previews/ prefix.
+    const prefix = filePurpose === "PREVIEW" ? "previews" : "assets";
+    const expectedPrefix = `${prefix}/${userId}/${assetId}/`;
     if (!key.startsWith(expectedPrefix)) {
         res.status(403).json({ error: "Key does not belong to this asset" });
         return;
@@ -252,13 +270,19 @@ export async function registerFile(req: Request, res: Response) {
     const fileUrl = buildPublicFileUrl(key);
     let previewUrl: string | null = null;
 
-    if (fileType.startsWith("image/")) {
+    // Auto-generated previews (watermark, clip, etc.) must be publicly readable,
+    // so derive their key under previews/ — the original may now live under the
+    // private assets/ prefix. A PREVIEW file is already a preview, so skip this.
+    const previewBaseKey = `previews/${userId}/${assetId}/${key.split("/").pop()}`.replace(/(\.[^.]+)?$/, "");
+
+    if (filePurpose === "PREVIEW") {
+        // No derived preview needed; the uploaded file itself is the preview.
+    } else if (fileType.startsWith("image/")) {
         try {
             const original = await getObjectBuffer(key);
             const watermarked = await watermarkImage(original);
-            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.jpg";
             previewUrl = await putObjectBuffer({
-                key: previewKey,
+                key: previewBaseKey + ".preview.jpg",
                 body: watermarked,
                 contentType: "image/jpeg",
             });
@@ -269,9 +293,8 @@ export async function registerFile(req: Request, res: Response) {
         try {
             const original = await getObjectBuffer(key);
             const preview = await generateVideoPreview(original, { fullLength: true });
-            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.mp4";
             previewUrl = await putObjectBuffer({
-                key: previewKey,
+                key: previewBaseKey + ".preview.mp4",
                 body: preview,
                 contentType: "video/mp4",
             });
@@ -282,9 +305,8 @@ export async function registerFile(req: Request, res: Response) {
         try {
             const original = await getObjectBuffer(key);
             const preview = await generateVideoPreview(original);
-            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.mp4";
             previewUrl = await putObjectBuffer({
-                key: previewKey,
+                key: previewBaseKey + ".preview.mp4",
                 body: preview,
                 contentType: "video/mp4",
             });
@@ -295,9 +317,8 @@ export async function registerFile(req: Request, res: Response) {
         try {
             const original = await getObjectBuffer(key);
             const preview = await generateAudioPreview(original);
-            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.m4a";
             previewUrl = await putObjectBuffer({
-                key: previewKey,
+                key: previewBaseKey + ".preview.m4a",
                 body: preview,
                 contentType: "audio/mp4",
             });
@@ -312,9 +333,8 @@ export async function registerFile(req: Request, res: Response) {
         try {
             const original = await getObjectBuffer(key);
             const preview = await generateFontPreview(original);
-            const previewKey = key.replace(/(\.[^.]+)?$/, "") + ".preview.png";
             previewUrl = await putObjectBuffer({
-                key: previewKey,
+                key: previewBaseKey + ".preview.png",
                 body: preview,
                 contentType: "image/png",
             });
@@ -330,6 +350,7 @@ export async function registerFile(req: Request, res: Response) {
             fileSize,
             fileUrl,
             previewUrl,
+            purpose: filePurpose,
         },
     });
 
