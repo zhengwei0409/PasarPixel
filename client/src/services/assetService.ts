@@ -93,6 +93,16 @@ export async function getAssetForReview(assetId: number): Promise<AssetReviewDet
     return res.data;
 }
 
+export async function getAssetFileDownloadUrl(
+    assetId: number,
+    fileId: number,
+): Promise<string> {
+    const res = await apiClient.get<{ downloadUrl: string }>(
+        `/assets/${assetId}/files/${fileId}/download-url`,
+    );
+    return res.data.downloadUrl;
+}
+
 export async function approveAsset(assetId: number): Promise<Asset> {
     const res = await apiClient.patch<Asset>(`/assets/${assetId}/approve`);
     return res.data;

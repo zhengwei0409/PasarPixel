@@ -9,6 +9,7 @@ import {
     getMyAssets,
     getPendingReviewAssets,
     getAssetForReview,
+    getAssetFileDownloadUrl,
     getUploadUrl,
     uploadToS3,
     registerFile,
@@ -83,6 +84,19 @@ export function useAssetForReview(assetId: number | null) {
         queryKey: ["assets", "review", assetId],
         queryFn: () => getAssetForReview(assetId as number),
         enabled: assetId != null,
+    });
+}
+
+export interface AssetFileDownloadVars {
+    assetId: number;
+    fileId: number;
+}
+
+// On-demand: fetches a short-lived signed URL for one asset file so an admin
+// can open/download it while reviewing. Not cached — each click re-issues.
+export function useAssetFileDownloadUrl() {
+    return useMutation<string, Error, AssetFileDownloadVars>({
+        mutationFn: ({ assetId, fileId }) => getAssetFileDownloadUrl(assetId, fileId),
     });
 }
 

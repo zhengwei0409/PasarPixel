@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input";
 import {
     useApproveAsset,
     useAssetForReview,
+    useAssetFileDownloadUrl,
     useRejectAsset,
 } from "../hooks/useAsset";
 import { getErrorMessage } from "../lib/errors";
@@ -42,9 +43,12 @@ export default function AdminAssetReviewDetailPage() {
     const { data: asset, isLoading, error } = useAssetForReview(assetId);
     const { mutate: approve, isPending: isApproving } = useApproveAsset();
     const { mutate: reject, isPending: isRejecting, error: rejectError } = useRejectAsset();
+    const { mutateAsync: fetchDownloadUrl } = useAssetFileDownloadUrl();
 
     const [showReject, setShowReject] = useState(false);
     const [reason, setReason] = useState("");
+    const [loadingFileId, setLoadingFileId] = useState<number | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
 
     if (isLoading) return <p className="p-8">Loading...</p>;
     if (error || !asset)
@@ -64,6 +68,19 @@ export default function AdminAssetReviewDetailPage() {
             { assetId, reason: reason.trim() },
             { onSuccess: () => navigate("/admin/assets/pending") },
         );
+    };
+
+    const handleOpenFile = async (fileId: number) => {
+        setFileError(null);
+        setLoadingFileId(fileId);
+        try {
+            const url = await fetchDownloadUrl({ assetId, fileId });
+            window.open(url, "_blank", "noopener,noreferrer");
+        } catch (e) {
+            setFileError(getErrorMessage(e));
+        } finally {
+            setLoadingFileId(null);
+        }
     };
 
     return (
@@ -144,11 +161,19 @@ export default function AdminAssetReviewDetailPage() {
                                         · {file.purpose} · {formatSize(file.fileSize)}
                                     </span>
                                 </div>
-                                {/* Download wiring added in step 4 */}
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={loadingFileId === file.id}
+                                    onClick={() => handleOpenFile(file.id)}
+                                >
+                                    {loadingFileId === file.id ? "Opening..." : "View / Download"}
+                                </Button>
                             </li>
                         ))}
                     </ul>
                 )}
+                {fileError && <p className="text-sm text-red-500">{fileError}</p>}
             </div>
 
             <div className="border rounded-lg p-6 space-y-3">
