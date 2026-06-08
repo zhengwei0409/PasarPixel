@@ -719,6 +719,37 @@ export async function getAssetById(req: Request, res: Response) {
     res.json(asset);
 }
 
+// GET /assets/:id/review — full detail for an admin reviewing an asset.
+// Returns the asset, all its files, the seller's profile, and their approved
+// store application so the admin can vet store + files before approving.
+export async function getAssetForReview(req: Request, res: Response) {
+    const assetId = parseInt(req.params.id as string);
+
+    const asset = await prisma.asset.findUnique({
+        where: { id: assetId },
+        include: {
+            files: true,
+            seller: {
+                select: { userId: true, name: true, email: true, bio: true, avatarUrl: true },
+            },
+        },
+    });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+
+    // Store details (storeName, etc.) live on the seller's approved application,
+    // not the user profile. Fetch the latest approved one for context.
+    const application = await prisma.sellerApplication.findFirst({
+        where: { userId: asset.sellerId, status: "APPROVED" },
+        orderBy: { reviewedAt: "desc" },
+        select: { storeName: true, reason: true, portfolioLink: true },
+    });
+
+    res.json({ ...asset, store: application });
+}
+
 export async function submitForReview(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);

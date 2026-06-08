@@ -2,18 +2,32 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useAuth } from "../hooks/useAuth";
+import { useSyncRoles } from "../hooks/useSyncRoles";
 import SellerDashboardSection from "../components/SellerDashboardSection";
 import RoleChangeLogSection from "../components/RoleChangeLogSection";
 
 // TODO: This is a prototype UI for testing purposes only. Replace with proper dashboard design in future.
 export default function DashboardPage() {
     const { user } = useAuth();
+    const { newRoles } = useSyncRoles();
     const isSeller = user?.roles.includes("SELLER");
     const isAdmin = user?.roles.includes("ADMIN");
 
     return (
         <div className="min-h-screen p-8">
             <div className="max-w-3xl mx-auto space-y-6">
+                {newRoles && (
+                    <div className="flex items-center justify-between gap-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
+                        <p className="text-sm text-blue-800">
+                            Your account was upgraded — new access: <span className="font-medium">{newRoles.join(", ")}</span>.
+                            Reload to unlock these features.
+                        </p>
+                        <Button size="sm" onClick={() => window.location.reload()}>
+                            Reload
+                        </Button>
+                    </div>
+                )}
+
                 <h1 className="text-2xl font-bold">Dashboard</h1>
                 <p className="text-sm text-gray-600">
                     Logged in as <span className="font-medium">{user?.email}</span>

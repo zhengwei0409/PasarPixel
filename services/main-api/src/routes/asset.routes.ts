@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
-import { createAsset, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
+import { createAsset, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getAssetForReview, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
 import { getAssetReviews, upsertReview, deleteReview } from "../controllers/review.controller";
 
 const router = Router();
@@ -15,6 +15,7 @@ router.post("/", authenticate, requireRole("SELLER"), createAsset);
 router.patch("/:id", authenticate, requireRole("SELLER"), updateAsset);
 router.get("/mine", authenticate, requireRole("SELLER"), getMyAssets);
 router.get("/pending-review", authenticate, requireRole("ADMIN"), getPendingReviewAssets);
+router.get("/:id/review", authenticate, requireRole("ADMIN"), getAssetForReview);
 router.get("/:id", authenticate, getAssetById);
 router.post("/:id/upload-url", authenticate, requireRole("SELLER"), getUploadUrl);
 router.post("/:id/files", authenticate, requireRole("SELLER"), registerFile);

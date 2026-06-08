@@ -18,3 +18,11 @@ export async function forgotPassword(email: string): Promise<void> {
 export async function resetPassword(payload: ResetPasswordPayload): Promise<void> {
     await apiClient.post("/auth/reset-password", payload);
 }
+
+// Re-issues an access token. The auth-service re-reads roles from the DB when
+// signing it, so this is how the client picks up roles granted after login
+// (e.g. SELLER after admin approval) without a full logout/login.
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
+    const res = await apiClient.post<{ accessToken: string }>("/auth/refresh", { refreshToken });
+    return res.data.accessToken;
+}
