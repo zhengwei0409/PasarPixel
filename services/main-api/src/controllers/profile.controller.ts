@@ -129,7 +129,7 @@ export async function deleteAvatar(req: Request, res: Response) {
 
 export async function updateMyProfile(req: Request, res: Response) {
     const userId = req.user!.userId;
-    const { name, bio, phone, socialLinks, preferredCurrency } = req.body;
+    const { name, bio, phone, country, billingAddress, preferredCurrency } = req.body;
 
     if (
         preferredCurrency !== undefined &&
@@ -145,7 +145,8 @@ export async function updateMyProfile(req: Request, res: Response) {
             ...(name !== undefined && { name }),
             ...(bio !== undefined && { bio }),
             ...(phone !== undefined && { phone }),
-            ...(socialLinks !== undefined && { socialLinks }),
+            ...(country !== undefined && { country }),
+            ...(billingAddress !== undefined && { billingAddress }),
             ...(preferredCurrency !== undefined && { preferredCurrency }),
         },
     });

@@ -1,17 +1,12 @@
-export interface SocialLinks {
-    github?: string;
-    twitter?: string;
-    linkedin?: string;
-}
-
 import type { Currency } from "./asset";
 
 export interface UserProfile {
     name: string;
     bio: string | null;
     phone: string | null;
+    country: string | null;
+    billingAddress: string | null;
     avatarUrl: string | null;
-    socialLinks: SocialLinks | null;
     preferredCurrency: Currency;
 }
 
@@ -31,6 +26,7 @@ export interface UpdateProfilePayload {
     name?: string;
     bio?: string;
     phone?: string;
-    socialLinks?: SocialLinks;
+    country?: string | null;
+    billingAddress?: string | null;
     preferredCurrency?: Currency;
 }

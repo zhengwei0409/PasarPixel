@@ -14,9 +14,8 @@ interface ProfileForm {
     name: string;
     bio: string;
     phone: string;
-    github: string;
-    twitter: string;
-    linkedin: string;
+    country: string;
+    billingAddress: string;
 }
 
 export default function ProfilePage() {
@@ -49,9 +48,8 @@ export default function ProfilePage() {
             name: profile.name ?? "",
             bio: profile.bio ?? "",
             phone: profile.phone ?? "",
-            github: profile.socialLinks?.github ?? "",
-            twitter: profile.socialLinks?.twitter ?? "",
-            linkedin: profile.socialLinks?.linkedin ?? "",
+            country: profile.country ?? "",
+            billingAddress: profile.billingAddress ?? "",
         });
     }, [profile, reset]);
 
@@ -60,11 +58,8 @@ export default function ProfilePage() {
             name: data.name,
             bio: data.bio,
             phone: data.phone,
-            socialLinks: {
-                github: data.github,
-                twitter: data.twitter,
-                linkedin: data.linkedin,
-            },
+            country: data.country,
+            billingAddress: data.billingAddress,
         });
     };
 
@@ -141,18 +136,16 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="space-y-1">
-                        <Label>GitHub</Label>
-                        <Input {...register("github")} placeholder="https://github.com/username" />
+                        <Label>Country / Region</Label>
+                        <Input {...register("country")} placeholder="Malaysia" />
                     </div>
 
                     <div className="space-y-1">
-                        <Label>Twitter</Label>
-                        <Input {...register("twitter")} placeholder="https://twitter.com/username" />
-                    </div>
-
-                    <div className="space-y-1">
-                        <Label>LinkedIn</Label>
-                        <Input {...register("linkedin")} placeholder="https://linkedin.com/in/username" />
+                        <Label>Billing address</Label>
+                        <Input
+                            {...register("billingAddress")}
+                            placeholder="Street, city, postcode"
+                        />
                     </div>
 
                     {isSuccess && <p className="text-sm text-green-600">Profile saved successfully.</p>}
