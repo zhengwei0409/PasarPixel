@@ -17,6 +17,7 @@ import {
     deleteAsset,
     deleteFile,
     cancelSubmission,
+    reopenRejected,
     submitForReview,
     updateAsset,
     getAssetReviews,
@@ -127,6 +128,17 @@ export function useCancelSubmission() {
     const queryClient = useQueryClient();
     return useMutation<Asset, Error, number>({
         mutationFn: (assetId: number) => cancelSubmission(assetId),
+        onSuccess: (_data, assetId) => {
+            queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
+            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+        },
+    });
+}
+
+export function useReopenRejected() {
+    const queryClient = useQueryClient();
+    return useMutation<Asset, Error, number>({
+        mutationFn: (assetId: number) => reopenRejected(assetId),
         onSuccess: (_data, assetId) => {
             queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });

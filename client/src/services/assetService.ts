@@ -123,6 +123,11 @@ export async function cancelSubmission(assetId: number): Promise<Asset> {
     return res.data;
 }
 
+export async function reopenRejected(assetId: number): Promise<Asset> {
+    const res = await apiClient.post<Asset>(`/assets/${assetId}/reopen`);
+    return res.data;
+}
+
 export async function browseAssets(params: BrowseAssetsParams = {}): Promise<BrowseAssetsResponse> {
     const res = await apiClient.get<BrowseAssetsResponse>("/assets/browse", { params });
     return res.data;
