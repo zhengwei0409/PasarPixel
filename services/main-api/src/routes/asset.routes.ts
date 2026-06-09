@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
-import { createAsset, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getAssetForReview, getAssetFileDownloadUrl, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
+import { createAsset, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getAssetForReview, getAssetFileDownloadUrl, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, reopenRejected, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
 import { getAssetReviews, upsertReview, deleteReview } from "../controllers/review.controller";
 
 const router = Router();
@@ -26,5 +26,6 @@ router.patch("/:id/approve", authenticate, requireRole("ADMIN"), approveAsset);
 router.patch("/:id/reject", authenticate, requireRole("ADMIN"), rejectAsset);
 router.delete("/:id", authenticate, requireRole("SELLER"), deleteOrTakeDownAsset);
 router.post("/:id/cancel-submission", authenticate, requireRole("SELLER"), cancelSubmission);
+router.post("/:id/reopen", authenticate, requireRole("SELLER"), reopenRejected);
 
 export default router;

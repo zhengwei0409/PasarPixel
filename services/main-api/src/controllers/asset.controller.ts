@@ -686,6 +686,34 @@ export async function cancelSubmission(req: Request, res: Response) {
     res.json(updated);
 }
 
+// Move a REJECTED asset back to DRAFT so the seller can fix what was flagged
+// and re-submit. Existing files are kept; the old rejection reason is cleared.
+export async function reopenRejected(req: Request, res: Response) {
+    const userId = req.user!.userId;
+    const assetId = parseInt(req.params.id as string);
+
+    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    if (!asset || asset.isDeleted) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    if (asset.sellerId !== userId) {
+        res.status(403).json({ error: "You do not own this asset" });
+        return;
+    }
+    if (asset.status !== "REJECTED") {
+        res.status(409).json({ error: "Only rejected assets can be reopened" });
+        return;
+    }
+
+    const updated = await prisma.asset.update({
+        where: { id: assetId },
+        data: { status: "DRAFT", rejectionReason: null },
+    });
+
+    res.json(updated);
+}
+
 export async function getPendingReviewAssets(_req: Request, res: Response) {
     const assets = await prisma.asset.findMany({
         where: { status: "PENDING_REVIEW", isDeleted: false },
