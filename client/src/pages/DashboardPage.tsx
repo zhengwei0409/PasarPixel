@@ -116,6 +116,9 @@ export default function DashboardPage() {
                                 <Button asChild variant="outline" className="w-full">
                                     <Link to="/admin/sellers">Manage Sellers</Link>
                                 </Button>
+                                <Button asChild variant="outline" className="w-full">
+                                    <Link to="/admin/users">Manage Users</Link>
+                                </Button>
                             </CardContent>
                         </Card>
                     )}
