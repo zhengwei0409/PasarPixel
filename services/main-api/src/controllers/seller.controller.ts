@@ -1,16 +1,31 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { convert } from "../lib/currency";
 
-// Total revenue = sum of this seller's order items in COMPLETED orders.
+// Order items store price in the currency the buyer paid in (Order.currency),
+// not always USD. The dashboard reports revenue in USD (the frontend converts
+// it to the user's display currency), so each item must be converted to USD
+// before summing — otherwise an RM order is counted as if it were USD.
+async function sumItemsInUsd(
+    items: { price: unknown; order: { currency: string } }[],
+): Promise<number> {
+    let total = 0;
+    for (const item of items) {
+        total += await convert(Number(item.price), item.order.currency, "USD");
+    }
+    return total;
+}
+
+// Total revenue (in USD) = sum of this seller's order items in COMPLETED orders.
 async function getRevenue(sellerId: number): Promise<number> {
     const soldItems = await prisma.orderItem.findMany({
         where: {
             asset: { sellerId },
             order: { paymentStatus: "COMPLETED" },
         },
-        select: { price: true },
+        select: { price: true, order: { select: { currency: true } } },
     });
-    return soldItems.reduce((sum, item) => sum + Number(item.price), 0);
+    return sumItemsInUsd(soldItems);
 }
 
 // Available balance = revenue minus money already locked in withdrawals.
@@ -41,10 +56,11 @@ export async function getDashboard(req: Request, res: Response) {
         select: {
             price: true,
             createdAt: true,
+            order: { select: { currency: true } },
         },
     });
 
-    const revenue = soldItems.reduce((sum, item) => sum + Number(item.price), 0);
+    const revenue = await sumItemsInUsd(soldItems);
     const salesCount = soldItems.length;
 
     // Count this seller's listings grouped by status (excludes soft-deleted).
@@ -64,10 +80,12 @@ export async function getDashboard(req: Request, res: Response) {
     const pendingReviewCount = productsByStatus["PENDING_REVIEW"] ?? 0;
 
     // Monthly revenue series for the chart, e.g. { month: "2026-05", revenue: 120 }.
+    // Revenue is in USD; convert each item from its order's currency first.
     const revenueByMonth = new Map<string, number>();
     for (const item of soldItems) {
         const month = item.createdAt.toISOString().slice(0, 7); // YYYY-MM
-        revenueByMonth.set(month, (revenueByMonth.get(month) ?? 0) + Number(item.price));
+        const priceUsd = await convert(Number(item.price), item.order.currency, "USD");
+        revenueByMonth.set(month, (revenueByMonth.get(month) ?? 0) + priceUsd);
     }
     const revenueSeries = Array.from(revenueByMonth.entries())
         .map(([month, value]) => ({ month, revenue: value }))
