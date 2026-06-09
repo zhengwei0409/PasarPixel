@@ -10,6 +10,7 @@ import { startAssetRemovedConsumer } from './assetRemoved';
 import { startOrderPaidConsumer } from './orderPaid';
 import { startAssetSoldConsumer } from './assetSold';
 import { startReviewReceivedConsumer } from './reviewReceived';
+import { startUserDeletedConsumer } from './userDeleted';
 
 export async function startConsumers(): Promise<void> {
     await startUserRegisteredConsumer();
@@ -24,4 +25,5 @@ export async function startConsumers(): Promise<void> {
     await startOrderPaidConsumer();
     await startAssetSoldConsumer();
     await startReviewReceivedConsumer();
+    await startUserDeletedConsumer();
 }

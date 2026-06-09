@@ -1,11 +1,12 @@
 import { getRabbitChannel } from './rabbitmq';
 import { prisma } from './prisma';
-import { SellerApprovedEvent, SellerRevokedEvent, SellerReinstatedEvent } from '../../../../shared/types/events';
-import { EXCHANGE_SELLER_APPROVED, EXCHANGE_SELLER_REVOKED, EXCHANGE_SELLER_REINSTATED } from '../../../../shared/utils/messaging';
+import { SellerApprovedEvent, SellerRevokedEvent, SellerReinstatedEvent, UserDeletedEvent } from '../../../../shared/types/events';
+import { EXCHANGE_SELLER_APPROVED, EXCHANGE_SELLER_REVOKED, EXCHANGE_SELLER_REINSTATED, EXCHANGE_USER_DELETED } from '../../../../shared/utils/messaging';
 
 const APPROVED_QUEUE = 'seller.approved.auth';
 const REVOKED_QUEUE = 'seller.revoked.auth';
 const REINSTATED_QUEUE = 'seller.reinstated.auth';
+const USER_DELETED_QUEUE = 'user.deleted.auth';
 
 export async function startConsumer(): Promise<void> {
     const channel = await getRabbitChannel();
@@ -89,5 +90,41 @@ export async function startConsumer(): Promise<void> {
         console.log(`Restored SELLER role to user ${event.userId}`);
     });
 
-    console.log(`Auth-service consumer listening on queues: ${APPROVED_QUEUE}, ${REVOKED_QUEUE}, ${REINSTATED_QUEUE}`);
+    // user.deleted -> delete the account and everything tied to it
+    await channel.assertExchange(EXCHANGE_USER_DELETED, 'fanout', { durable: true });
+    await channel.assertQueue(USER_DELETED_QUEUE, { durable: true });
+    await channel.bindQueue(USER_DELETED_QUEUE, EXCHANGE_USER_DELETED, '');
+
+    channel.consume(USER_DELETED_QUEUE, async (msg) => {
+        if (!msg) return;
+
+        try {
+            const event: UserDeletedEvent = JSON.parse(msg.content.toString());
+
+            // Delete children before the User row, in FK-safe order.
+            await prisma.$transaction(async (tx) => {
+                const twoFactor = await tx.twoFactorAuth.findUnique({
+                    where: { userId: event.userId },
+                });
+                if (twoFactor) {
+                    await tx.recoveryCode.deleteMany({ where: { twoFactorAuthId: twoFactor.id } });
+                    await tx.twoFactorAuth.delete({ where: { userId: event.userId } });
+                }
+
+                await tx.userRole.deleteMany({ where: { userId: event.userId } });
+                await tx.loginAttempt.deleteMany({ where: { userId: event.userId } });
+                await tx.passwordReset.deleteMany({ where: { userId: event.userId } });
+                await tx.refreshToken.deleteMany({ where: { userId: event.userId } });
+                await tx.user.delete({ where: { id: event.userId } });
+            });
+
+            channel.ack(msg);
+            console.log(`Deleted account for user ${event.userId}`);
+        } catch (err) {
+            console.error('Failed to process user.deleted:', err);
+            channel.nack(msg, false, false);
+        }
+    });
+
+    console.log(`Auth-service consumer listening on queues: ${APPROVED_QUEUE}, ${REVOKED_QUEUE}, ${REINSTATED_QUEUE}, ${USER_DELETED_QUEUE}`);
 }
