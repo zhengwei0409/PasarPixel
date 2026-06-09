@@ -49,6 +49,10 @@ services:
         paths:
           - /logs
         strip_path: false
+      - name: users-route
+        paths:
+          - /users
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003

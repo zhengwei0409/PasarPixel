@@ -1,5 +1,6 @@
 import { getRabbitChannel } from './rabbitmq';
 import {
+    UserDeletedEvent,
     SellerApprovedEvent,
     SellerRejectedEvent,
     SellerRevokedEvent,
@@ -12,6 +13,7 @@ import {
     ReviewReceivedEvent,
 } from '../../../../shared/types/events';
 import {
+    EXCHANGE_USER_DELETED,
     EXCHANGE_SELLER_APPROVED,
     EXCHANGE_SELLER_REJECTED,
     EXCHANGE_SELLER_REVOKED,
@@ -23,6 +25,12 @@ import {
     EXCHANGE_ASSET_SOLD,
     EXCHANGE_REVIEW_RECEIVED,
 } from '../../../../shared/utils/messaging';
+
+export async function publishUserDeleted(event: UserDeletedEvent): Promise<void> {
+    const channel = await getRabbitChannel();
+    await channel.assertExchange(EXCHANGE_USER_DELETED, 'fanout', { durable: true });
+    channel.publish(EXCHANGE_USER_DELETED, '', Buffer.from(JSON.stringify(event)));
+}
 
 export async function publishSellerApproved(event: SellerApprovedEvent): Promise<void> {
     const channel = await getRabbitChannel();
