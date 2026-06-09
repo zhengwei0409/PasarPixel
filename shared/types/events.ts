@@ -4,6 +4,12 @@ export interface UserRegisteredEvent {
   email: string;
 }
 
+// Admin deleted a user in main-api -> auth-service deletes the account,
+// notification-service deletes the user's notifications
+export interface UserDeletedEvent {
+  userId: number;
+}
+
 export interface SellerApprovedEvent {
   userId: number;
   email: string;
