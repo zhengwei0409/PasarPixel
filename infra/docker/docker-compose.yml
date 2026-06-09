@@ -1,6 +1,6 @@
 services:
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4-management
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -86,7 +86,7 @@ services:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
 
   kong:
-    image: kong:3.7
+    image: kong:3.9
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
