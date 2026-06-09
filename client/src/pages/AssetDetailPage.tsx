@@ -18,6 +18,7 @@ import ModelViewer from "@/components/marketplace/ModelViewer";
 import StarRating from "@/components/marketplace/StarRating";
 import type { AssetCategory } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
+import { shopDisplay } from "@/lib/store";
 import { useCurrencyStore } from "@/stores/currencyStore";
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
@@ -94,6 +95,7 @@ type AssetData = NonNullable<ReturnType<typeof usePublicAsset>["data"]>;
 type ReviewData = NonNullable<ReturnType<typeof useAssetReviews>["data"]>["items"][number];
 
 function AssetDetailContent({ asset }: { asset: AssetData }) {
+    const shop = shopDisplay(asset.seller);
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
     const videoFile = asset.files.find((f) => f.fileType.startsWith("video/"));
     const audioFile = asset.files.find((f) => f.fileType.startsWith("audio/"));
@@ -238,23 +240,19 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                         </span>
                     </div>
 
-                    <div className="flex items-center gap-3 rounded-lg border p-3">
+                    <Link
+                        to={`/stores/${asset.seller.userId}`}
+                        className="flex items-center gap-3 rounded-lg border p-3 transition hover:bg-muted/50"
+                    >
                         <Avatar size="lg">
-                            {asset.seller.avatarUrl && (
-                                <AvatarImage
-                                    src={asset.seller.avatarUrl}
-                                    alt={asset.seller.name}
-                                />
-                            )}
-                            <AvatarFallback>
-                                {asset.seller.name.charAt(0).toUpperCase()}
-                            </AvatarFallback>
+                            {shop.logoUrl && <AvatarImage src={shop.logoUrl} alt={shop.name} />}
+                            <AvatarFallback>{shop.initial}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                            <p className="text-xs text-muted-foreground">Seller</p>
-                            <p className="truncate text-sm font-medium">{asset.seller.name}</p>
+                            <p className="text-xs text-muted-foreground">Shop</p>
+                            <p className="truncate text-sm font-medium">{shop.name}</p>
                         </div>
-                    </div>
+                    </Link>
 
                     <div className="rounded-lg border p-4 space-y-3">
                         {isBlockchain ? (

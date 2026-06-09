@@ -121,8 +121,17 @@ export interface RegisterFilePayload {
     purpose?: AssetFilePurpose;
 }
 
+// Seller shape on public asset responses. `store` carries the shop's display
+// name + logo; null only for legacy assets whose seller has no store yet.
+export interface AssetSeller {
+    userId: number;
+    name: string;
+    avatarUrl: string | null;
+    store: { storeName: string; logoUrl: string | null } | null;
+}
+
 export interface BrowseAssetItem extends AssetWithFiles {
-    seller: { userId: number; name: string; avatarUrl: string | null };
+    seller: AssetSeller;
     averageRating: number;
     reviewCount: number;
 }

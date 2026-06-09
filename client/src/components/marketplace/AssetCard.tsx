@@ -1,9 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
 import StarRating from "@/components/marketplace/StarRating";
 import type { BrowseAssetItem, Currency } from "@/types/asset";
 import { formatPrice, formatSol } from "@/lib/price";
+import { shopDisplay } from "@/lib/store";
 import { useCurrencyStore } from "@/stores/currencyStore";
 
 const CATEGORY_LABELS: Record<BrowseAssetItem["category"], string> = {
@@ -44,6 +45,8 @@ function cardThumbnailUrl(asset: BrowseAssetItem): string | null {
 export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
     const thumbnailUrl = cardThumbnailUrl(asset);
     const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
+    const shop = shopDisplay(asset.seller);
+    const navigate = useNavigate();
 
     return (
         <Link
@@ -71,16 +74,20 @@ export default function AssetCard({ asset }: { asset: BrowseAssetItem }) {
                         {CATEGORY_LABELS[asset.category]}
                     </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div
+                    role="link"
+                    tabIndex={0}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        navigate(`/stores/${asset.seller.userId}`);
+                    }}
+                    className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                >
                     <Avatar size="sm">
-                        {asset.seller.avatarUrl && (
-                            <AvatarImage src={asset.seller.avatarUrl} alt={asset.seller.name} />
-                        )}
-                        <AvatarFallback>
-                            {asset.seller.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
+                        {shop.logoUrl && <AvatarImage src={shop.logoUrl} alt={shop.name} />}
+                        <AvatarFallback>{shop.initial}</AvatarFallback>
                     </Avatar>
-                    <span className="truncate">by {asset.seller.name}</span>
+                    <span className="truncate">{shop.name}</span>
                 </div>
                 <p className="text-sm font-semibold">{startingPriceLabel(asset, displayCurrency)}</p>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
