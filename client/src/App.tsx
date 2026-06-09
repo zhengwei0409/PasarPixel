@@ -29,6 +29,8 @@ import { useCartIntent } from './hooks/useCartIntent';
 import { useCurrencySync } from './hooks/useCurrencySync';
 import SettingsPage from './pages/SettingsPage';
 import VerifyPage from './pages/VerifyPage';
+import StorePage from './pages/StorePage';
+import StoreSettingsPage from './pages/StoreSettingsPage';
 
 
 function App() {
@@ -42,6 +44,7 @@ function App() {
       <Route path='/' element={<HomePage/>} />
       <Route path='/marketplace' element={<MarketplacePage/>} />
       <Route path='/assets/:id' element={<AssetDetailPage/>} />
+      <Route path='/stores/:sellerId' element={<StorePage/>} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
@@ -68,6 +71,7 @@ function App() {
         <Route path="/seller/upload" element={<SellerUploadPage />} />
         <Route path="/seller/upload/:assetId" element={<SellerUploadPage />} />
         <Route path="/seller/listings" element={<MySellerListingsPage />} />
+        <Route path="/seller/store" element={<StoreSettingsPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>

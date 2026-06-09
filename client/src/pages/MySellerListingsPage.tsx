@@ -120,9 +120,14 @@ export default function MySellerListingsPage() {
             <div className="max-w-4xl mx-auto space-y-6">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-bold">My Listings</h1>
-                    <Link to="/seller/upload">
-                        <Button>Upload New Asset</Button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <Link to="/seller/store">
+                            <Button variant="outline">Store Settings</Button>
+                        </Link>
+                        <Link to="/seller/upload">
+                            <Button>Upload New Asset</Button>
+                        </Link>
+                    </div>
                 </div>
 
                 {isLoading && <p className="text-gray-600">Loading...</p>}
