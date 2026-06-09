@@ -179,6 +179,14 @@ export async function approveApplication(req: Request, res: Response) {
         data: { status: "APPROVED", reviewedAt: new Date() },
     });
 
+    // Give the new seller a shop, seeded from their application's store name.
+    // upsert so re-approval (after a revoke) doesn't overwrite an edited shop.
+    await prisma.store.upsert({
+        where: { sellerId: application.userId },
+        create: { sellerId: application.userId, storeName: application.storeName },
+        update: {},
+    });
+
     await prisma.roleChangeLog.create({
         data: {
             targetUserId: application.userId,

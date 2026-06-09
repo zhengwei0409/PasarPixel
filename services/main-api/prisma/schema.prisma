@@ -22,6 +22,7 @@ model UserProfile {
   updatedAt      DateTime @updatedAt
 
   sellerApplications SellerApplication[]
+  store              Store?
   assets             Asset[]
   cartItems          CartItem[]
   orders             Order[]
@@ -59,6 +60,24 @@ enum SellerApplicationStatus {
   APPROVED
   REJECTED
   REVOKED
+}
+
+// One shop per seller. Created automatically when a seller application is
+// approved (seeded from the application's storeName). Editable by the seller
+// afterwards; publicly readable for the shop profile page.
+model Store {
+  id          Int      @id @default(autoincrement())
+  sellerId    Int      @unique // references UserProfile.userId
+  storeName   String
+  description String?
+  logoUrl     String?
+  bannerUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller UserProfile @relation(fields: [sellerId], references: [userId])
+
+  @@map("stores")
 }
 
 model Asset {
