@@ -19,7 +19,7 @@ export async function startSellerRevokedConsumer(): Promise<void> {
             const event: SellerRevokedEvent = JSON.parse(msg.content.toString());
 
             const title = 'Your seller role has been revoked';
-            const body = `Your seller role for store "${event.storeName}" has been revoked by an admin. Your published listings are now hidden from the marketplace.`;
+            const body = `Your seller role for store "${event.storeName}" has been revoked by an admin. Reason: ${event.adminNote}. Your published listings are now hidden from the marketplace.`;
 
             try {
                 await sendEmail({
@@ -27,6 +27,7 @@ export async function startSellerRevokedConsumer(): Promise<void> {
                     subject: title,
                     html: `
                         <p>Your seller role for store <strong>${event.storeName}</strong> has been revoked by an admin on PasarPixel.</p>
+                        <p><strong>Reason:</strong> ${event.adminNote}</p>
                         <p>Your published listings are now hidden from the marketplace.</p>
                         <p>If you believe this was a mistake, please contact support.</p>
                     `,

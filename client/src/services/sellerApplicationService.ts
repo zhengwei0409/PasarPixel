@@ -60,8 +60,8 @@ export async function rejectApplication(id: number, adminNote: string): Promise<
     await apiClient.patch(`/seller-applications/${id}/reject`, { adminNote });
 }
 
-export async function revokeSeller(userId: number): Promise<void> {
-    await apiClient.post(`/seller-applications/sellers/${userId}/revoke`);
+export async function revokeSeller(userId: number, adminNote: string): Promise<void> {
+    await apiClient.post(`/seller-applications/sellers/${userId}/revoke`, { adminNote });
 }
 
 export async function reinstateSeller(userId: number): Promise<void> {

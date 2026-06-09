@@ -23,6 +23,7 @@ export interface SellerRevokedEvent {
   userId: number;
   email: string;
   storeName: string;
+  adminNote: string;
 }
 
 // Admin undid a revoke -> auth-service grants the SELLER role back,

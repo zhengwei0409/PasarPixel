@@ -249,9 +249,15 @@ export async function rejectApplication(req: Request, res: Response) {
 
 export async function revokeSeller(req: Request, res: Response) {
     const userId = parseInt(req.params.userId as string);
+    const { adminNote } = req.body;
 
     if (Number.isNaN(userId)) {
         res.status(400).json({ error: "Invalid userId" });
+        return;
+    }
+
+    if (!adminNote) {
+        res.status(400).json({ error: "adminNote is required when revoking" });
         return;
     }
 
@@ -274,7 +280,7 @@ export async function revokeSeller(req: Request, res: Response) {
     // can be listed and reinstated later.
     await prisma.sellerApplication.update({
         where: { id: application.id },
-        data: { status: "REVOKED", adminNote: "Seller role revoked by admin" },
+        data: { status: "REVOKED", adminNote },
     });
 
     await prisma.roleChangeLog.create({
@@ -283,7 +289,7 @@ export async function revokeSeller(req: Request, res: Response) {
             adminUserId: req.user!.userId,
             action: "REVOKE",
             role: "SELLER",
-            reason: "Seller role revoked by admin",
+            reason: adminNote,
         },
     });
 
@@ -298,6 +304,7 @@ export async function revokeSeller(req: Request, res: Response) {
         userId,
         email: userProfile.email,
         storeName: application.storeName,
+        adminNote,
     });
 
     res.json({ message: "Seller role revoked and listings hidden" });

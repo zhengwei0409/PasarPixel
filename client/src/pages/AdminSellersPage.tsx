@@ -5,6 +5,7 @@ import type { SellerApplicationWithUser } from "../types/sellerApplication";
 
 export default function AdminSellersPage() {
     const [confirmingRevokeId, setConfirmingRevokeId] = useState<number | null>(null);
+    const [revokeNote, setRevokeNote] = useState("");
 
     const { data: active, isLoading: loadingActive } = useListApplications("APPROVED");
     const { data: revoked, isLoading: loadingRevoked } = useListApplications("REVOKED");
@@ -12,8 +13,9 @@ export default function AdminSellersPage() {
     const { mutate: reinstate, isPending: isReinstating } = useReinstateSeller();
 
     const handleRevoke = (userId: number) => {
-        revoke(userId);
+        revoke({ userId, adminNote: revokeNote.trim() });
         setConfirmingRevokeId(null);
+        setRevokeNote("");
     };
 
     if (loadingActive || loadingRevoked) return <p className="p-8">Loading...</p>;
@@ -46,19 +48,29 @@ export default function AdminSellersPage() {
                                 <p className="text-sm text-red-600">
                                     Revoke seller role? Their published listings will be hidden from the marketplace.
                                 </p>
+                                <textarea
+                                    className="w-full rounded-md border p-2 text-sm"
+                                    rows={3}
+                                    placeholder="Reason for revoking (shown to the seller)"
+                                    value={revokeNote}
+                                    onChange={(e) => setRevokeNote(e.target.value)}
+                                />
                                 <div className="flex gap-2">
                                     <Button
                                         variant="destructive"
                                         size="sm"
                                         onClick={() => handleRevoke(seller.userId)}
-                                        disabled={isRevoking}
+                                        disabled={isRevoking || !revokeNote.trim()}
                                     >
                                         Confirm Revoke
                                     </Button>
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setConfirmingRevokeId(null)}
+                                        onClick={() => {
+                                            setConfirmingRevokeId(null);
+                                            setRevokeNote("");
+                                        }}
                                     >
                                         Cancel
                                     </Button>
@@ -69,7 +81,10 @@ export default function AdminSellersPage() {
                                 <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => setConfirmingRevokeId(seller.userId)}
+                                    onClick={() => {
+                                        setConfirmingRevokeId(seller.userId);
+                                        setRevokeNote("");
+                                    }}
                                 >
                                     Revoke Seller
                                 </Button>

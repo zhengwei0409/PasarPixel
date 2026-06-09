@@ -77,7 +77,7 @@ export function useRejectApplication() {
 export function useRevokeSeller() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (userId: number) => revokeSeller(userId),
+        mutationFn: ({ userId, adminNote }: { userId: number; adminNote: string }) => revokeSeller(userId, adminNote),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["sellerApplications"] });
         },
