@@ -426,7 +426,7 @@ export async function browseAssets(req: Request, res: Response) {
             where,
             include: {
                 files: true,
-                seller: { select: { userId: true, name: true, avatarUrl: true } },
+                seller: { select: { userId: true, name: true, avatarUrl: true, store: { select: { storeName: true, logoUrl: true } } } },
             },
             orderBy,
             skip: (page - 1) * pageSize,
@@ -466,7 +466,7 @@ export async function getPublicAssetById(req: Request, res: Response) {
         where: { id: assetId, status: "PUBLISHED", isDeleted: false },
         include: {
             files: true,
-            seller: { select: { userId: true, name: true, avatarUrl: true } },
+            seller: { select: { userId: true, name: true, avatarUrl: true, store: { select: { storeName: true, logoUrl: true } } } },
         },
     });
     if (!asset) {
@@ -514,7 +514,7 @@ export async function getRelatedAssets(req: Request, res: Response) {
         },
         include: {
             files: true,
-            seller: { select: { userId: true, name: true, avatarUrl: true } },
+            seller: { select: { userId: true, name: true, avatarUrl: true, store: { select: { storeName: true, logoUrl: true } } } },
         },
         orderBy: { createdAt: "desc" },
         take: RELATED_LIMIT,

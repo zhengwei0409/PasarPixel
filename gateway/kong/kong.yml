@@ -53,6 +53,10 @@ services:
         paths:
           - /users
         strip_path: false
+      - name: stores-route
+        paths:
+          - /stores
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003

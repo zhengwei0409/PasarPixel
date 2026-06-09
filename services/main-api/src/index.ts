@@ -14,6 +14,7 @@ import ordersRoutes from './routes/orders.routes';
 import sellerRoutes from './routes/seller.routes';
 import logRoutes from './routes/log.routes';
 import userRoutes from './routes/user.routes';
+import storeRoutes from './routes/store.routes';
 import { handleWebhook } from './controllers/checkout.controller';
 
 const app = express();
@@ -39,6 +40,7 @@ app.use("/orders", ordersRoutes);
 app.use("/seller", sellerRoutes);
 app.use("/logs", logRoutes);
 app.use("/users", userRoutes);
+app.use("/stores", storeRoutes);
 
 app.get("/test/buyer", authenticate, requireRole("BUYER"), (req, res) => {
     res.json({ message: "Hello, Buyer!", user: req.user });
