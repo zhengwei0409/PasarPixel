@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
     useCancelSubmission,
     useDeleteAsset,
     useMyAssets,
+    useReopenRejected,
 } from "../hooks/useAsset";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -87,8 +88,17 @@ export default function MySellerListingsPage() {
         isPending: isCancelling,
         error: cancelError,
     } = useCancelSubmission();
+    const { mutate: reopen, isPending: isReopening } = useReopenRejected();
+
+    const navigate = useNavigate();
 
     const [pending, setPending] = useState<PendingAction | null>(null);
+
+    const handleReopen = (assetId: number) => {
+        reopen(assetId, {
+            onSuccess: () => navigate(`/seller/upload/${assetId}`),
+        });
+    };
 
     const closeDialog = () => setPending(null);
 
@@ -167,6 +177,17 @@ export default function MySellerListingsPage() {
                                         </span>{" "}
                                         {asset.rejectionReason}
                                     </p>
+                                )}
+                                {asset.status === "REJECTED" && (
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            onClick={() => handleReopen(asset.id)}
+                                            disabled={isReopening}
+                                        >
+                                            Edit & Re-submit
+                                        </Button>
+                                    </div>
                                 )}
                                 {asset.status === "DRAFT" && (
                                     <div className="flex gap-2">
