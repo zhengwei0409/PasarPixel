@@ -84,6 +84,22 @@ export default function DashboardPage() {
                         </Card>
                     )}
 
+                    {isSeller && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>My Store</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                <p className="text-sm text-gray-600">
+                                    Edit your store name, description, logo and banner.
+                                </p>
+                                <Button asChild className="w-full">
+                                    <Link to="/seller/store">Store Settings</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     <Card>
                         <CardHeader>
                             <CardTitle>Profile</CardTitle>
