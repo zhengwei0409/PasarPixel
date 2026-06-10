@@ -35,7 +35,7 @@ export async function deleteUser(req: Request, res: Response) {
 
     const profile = await prisma.userProfile.findUnique({
         where: { userId: targetUserId },
-        include: { assets: { include: { files: true } } },
+        include: { assets: { include: { files: true } }, store: true },
     });
 
     if (!profile) {
@@ -51,6 +51,12 @@ export async function deleteUser(req: Request, res: Response) {
     }
     if (profile.avatarUrl) {
         await deleteObject(extractKeyFromUrl(profile.avatarUrl));
+    }
+    if (profile.store?.logoUrl) {
+        await deleteObject(extractKeyFromUrl(profile.store.logoUrl));
+    }
+    if (profile.store?.bannerUrl) {
+        await deleteObject(extractKeyFromUrl(profile.store.bannerUrl));
     }
 
     const assetIds = profile.assets.map((asset) => asset.id);
@@ -77,8 +83,9 @@ export async function deleteUser(req: Request, res: Response) {
         await tx.activityLog.deleteMany({ where: { userId: targetUserId } });
         await tx.sellerApplication.deleteMany({ where: { userId: targetUserId } });
 
-        // The user's own assets, then the profile itself.
+        // The user's own assets and store, then the profile itself.
         await tx.asset.deleteMany({ where: { sellerId: targetUserId } });
+        await tx.store.deleteMany({ where: { sellerId: targetUserId } });
         await tx.userProfile.delete({ where: { userId: targetUserId } });
     });
 
