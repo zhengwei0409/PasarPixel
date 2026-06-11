@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+import ReasonPicker from "../components/ReasonPicker";
+import { ASSET_REJECT_REASONS } from "../lib/adminReasons";
 import {
     useApproveAsset,
     useAssetForReview,
@@ -179,10 +180,10 @@ export default function AdminAssetReviewDetailPage() {
             <div className="border rounded-lg p-6 space-y-3">
                 {showReject ? (
                     <div className="space-y-2">
-                        <Input
-                            placeholder="Reason for rejection"
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
+                        <ReasonPicker
+                            presets={ASSET_REJECT_REASONS}
+                            onChange={setReason}
+                            placeholder="Select a reason for rejection"
                         />
                         {rejectError && (
                             <p className="text-sm text-red-500">{getErrorMessage(rejectError)}</p>
