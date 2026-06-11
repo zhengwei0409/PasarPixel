@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
+import ReasonPicker from "../components/ReasonPicker";
+import { APPLICATION_REJECT_REASONS } from "../lib/adminReasons";
 import {
     useApplication,
     useIdDocumentDownloadUrl,
@@ -135,10 +136,10 @@ export default function AdminApplicationDetailPage() {
                 <div className="border rounded-lg p-6 space-y-3">
                     {showReject ? (
                         <div className="space-y-2">
-                            <Input
-                                placeholder="Reason for rejection"
-                                value={adminNote}
-                                onChange={(e) => setAdminNote(e.target.value)}
+                            <ReasonPicker
+                                presets={APPLICATION_REJECT_REASONS}
+                                onChange={setAdminNote}
+                                placeholder="Select a reason for rejection"
                             />
                             <div className="flex gap-2">
                                 <Button variant="destructive" size="sm" onClick={handleReject} disabled={isRejecting || !adminNote.trim()}>
