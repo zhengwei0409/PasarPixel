@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button } from "../components/ui/button";
+import ReasonPicker from "../components/ReasonPicker";
+import { SELLER_REVOKE_REASONS } from "../lib/adminReasons";
 import { useListApplications, useRevokeSeller, useReinstateSeller } from "../hooks/useSellerApplication";
 import type { SellerApplicationWithUser } from "../types/sellerApplication";
 
@@ -48,12 +50,10 @@ export default function AdminSellersPage() {
                                 <p className="text-sm text-red-600">
                                     Revoke seller role? Their published listings will be hidden from the marketplace.
                                 </p>
-                                <textarea
-                                    className="w-full rounded-md border p-2 text-sm"
-                                    rows={3}
-                                    placeholder="Reason for revoking (shown to the seller)"
-                                    value={revokeNote}
-                                    onChange={(e) => setRevokeNote(e.target.value)}
+                                <ReasonPicker
+                                    presets={SELLER_REVOKE_REASONS}
+                                    onChange={setRevokeNote}
+                                    placeholder="Select a reason for revoking (shown to the seller)"
                                 />
                                 <div className="flex gap-2">
                                     <Button
