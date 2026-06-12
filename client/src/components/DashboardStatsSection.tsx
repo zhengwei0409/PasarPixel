@@ -1,6 +1,8 @@
 import { Users, Package, DollarSign, ClipboardList } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { useDashboardStats } from "../hooks/useDashboardStats";
+import { useCurrencyStore } from "../stores/currencyStore";
+import { formatPrice } from "../lib/price";
 
 // One stats card: a label, an icon, and the big number underneath.
 function StatCard({
@@ -27,6 +29,7 @@ function StatCard({
 
 export default function DashboardStatsSection() {
     const { data, isLoading, isError } = useDashboardStats();
+    const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
 
     if (isLoading) {
         return <p className="text-sm text-gray-500">Loading stats…</p>;
@@ -50,7 +53,7 @@ export default function DashboardStatsSection() {
             />
             <StatCard
                 title="Platform Revenue"
-                value={`USD ${data.totalRevenue.toLocaleString()}`}
+                value={formatPrice(data.totalRevenue, data.revenueCurrency, displayCurrency)}
                 icon={<DollarSign className="h-4 w-4" />}
             />
             <StatCard
