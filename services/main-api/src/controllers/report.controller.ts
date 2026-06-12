@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { publishAssetRemoved } from "../lib/publisher";
 
 // POST /reports — a signed-in user reports a published asset for review by
 // admins. Stored with status PENDING; admins review it in a later step.
@@ -119,9 +120,8 @@ export async function resolveReport(req: Request, res: Response) {
     }
 
     // take_down: mark the asset removed (same end state as a seller takedown)
-    // and record the report as resolved. Notifying the seller comes in a later
-    // step.
-    const [, updated] = await prisma.$transaction([
+    // and record the report as resolved, atomically.
+    const [asset, updated] = await prisma.$transaction([
         prisma.asset.update({
             where: { id: report.assetId },
             data: { status: "TAKEN_DOWN", isDeleted: true },
@@ -131,6 +131,14 @@ export async function resolveReport(req: Request, res: Response) {
             data: { status: "TAKEN_DOWN" },
         }),
     ]);
+
+    // Reuse the existing asset.removed event so the seller gets the same
+    // "your asset was taken down" notification as any other takedown.
+    await publishAssetRemoved({
+        sellerId: asset.sellerId,
+        assetId: asset.id,
+        assetTitle: asset.title,
+    });
 
     res.json(updated);
 }
