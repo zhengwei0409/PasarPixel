@@ -6,6 +6,7 @@ import { useSyncRoles } from "../hooks/useSyncRoles";
 import SellerDashboardSection from "../components/SellerDashboardSection";
 import RoleChangeLogSection from "../components/RoleChangeLogSection";
 import AssetReviewLogSection from "../components/AssetReviewLogSection";
+import DashboardStatsSection from "../components/DashboardStatsSection";
 
 // TODO: This is a prototype UI for testing purposes only. Replace with proper dashboard design in future.
 export default function DashboardPage() {
@@ -139,6 +140,8 @@ export default function DashboardPage() {
                         </Card>
                     )}
                 </div>
+
+                {isAdmin && <DashboardStatsSection />}
 
                 {isSeller && <SellerDashboardSection />}
 
