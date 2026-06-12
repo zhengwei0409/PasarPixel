@@ -36,3 +36,48 @@ export async function createReport(req: Request, res: Response) {
 
     res.status(201).json(report);
 }
+
+// GET /reports — admin-only list of all reports, newest first. Each report
+// stores only IDs, so we look up the reporter's name/email and the reported
+// asset's title (plus its seller) and attach them for display.
+export async function listReports(req: Request, res: Response) {
+    const reports = await prisma.report.findMany({
+        orderBy: { createdAt: "desc" },
+    });
+
+    const reporterIds = [...new Set(reports.map((r) => r.userId))];
+    const assetIds = [...new Set(reports.map((r) => r.assetId))];
+
+    const reporters = await prisma.userProfile.findMany({
+        where: { userId: { in: reporterIds } },
+        select: { userId: true, name: true, email: true },
+    });
+    const assets = await prisma.asset.findMany({
+        where: { id: { in: assetIds } },
+        select: { id: true, title: true, status: true, sellerId: true },
+    });
+
+    const reporterByUserId = new Map(reporters.map((r) => [r.userId, r]));
+    const assetById = new Map(assets.map((a) => [a.id, a]));
+
+    const result = reports.map((report) => ({
+        id: report.id,
+        reason: report.reason,
+        status: report.status,
+        createdAt: report.createdAt,
+        updatedAt: report.updatedAt,
+        asset: assetById.get(report.assetId) ?? {
+            id: report.assetId,
+            title: null,
+            status: null,
+            sellerId: null,
+        },
+        reporter: reporterByUserId.get(report.userId) ?? {
+            userId: report.userId,
+            name: null,
+            email: null,
+        },
+    }));
+
+    res.json(result);
+}
