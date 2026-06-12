@@ -1,6 +1,16 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { useReports } from "../hooks/useReport";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "../components/ui/dialog";
+import { useReports, useResolveReport } from "../hooks/useReport";
 import { getErrorMessage } from "../lib/errors";
 import type { ReportStatus } from "../types/report";
 
@@ -18,6 +28,20 @@ const STATUS_LABELS: Record<ReportStatus, string> = {
 
 export default function AdminReportsPage() {
     const { data: reports, isLoading, error } = useReports();
+    const { mutate: resolve, isPending, error: resolveError } = useResolveReport();
+
+    // The report awaiting a take-down confirmation (null = dialog closed).
+    const [takingDownId, setTakingDownId] = useState<number | null>(null);
+
+    const closeDialog = () => setTakingDownId(null);
+
+    const handleConfirmTakeDown = () => {
+        if (takingDownId == null) return;
+        resolve(
+            { reportId: takingDownId, action: "take_down" },
+            { onSuccess: () => closeDialog() },
+        );
+    };
 
     return (
         <div className="min-h-screen p-8">
@@ -71,11 +95,73 @@ export default function AdminReportsPage() {
                                         {report.reason}
                                     </p>
                                 </div>
+
+                                {report.status === "PENDING" && (
+                                    <div className="flex gap-2 pt-1">
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            disabled={isPending}
+                                            onClick={() => setTakingDownId(report.id)}
+                                        >
+                                            Take down
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={isPending}
+                                            onClick={() =>
+                                                resolve({
+                                                    reportId: report.id,
+                                                    action: "dismiss",
+                                                })
+                                            }
+                                        >
+                                            Dismiss
+                                        </Button>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             </div>
+
+            <Dialog
+                open={takingDownId != null}
+                onOpenChange={(open) => {
+                    if (!open) closeDialog();
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Take down this listing?</DialogTitle>
+                        <DialogDescription>
+                            The asset will be removed from the marketplace and the seller
+                            will be notified. This resolves the report.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {resolveError && (
+                        <p className="text-sm text-red-500">
+                            {getErrorMessage(resolveError)}
+                        </p>
+                    )}
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={closeDialog}>
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            disabled={isPending}
+                            onClick={handleConfirmTakeDown}
+                        >
+                            {isPending ? "Taking down..." : "Confirm take down"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
