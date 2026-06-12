@@ -61,6 +61,10 @@ services:
         paths:
           - /admin
         strip_path: false
+      - name: reports-route
+        paths:
+          - /reports
+        strip_path: false
 
   - name: notification-service
     url: http://notification-service:3003
