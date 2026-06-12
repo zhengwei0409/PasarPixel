@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
 import AssetCard from "@/components/marketplace/AssetCard";
+import ReportDialog from "@/components/marketplace/ReportDialog";
 import ModelViewer from "@/components/marketplace/ModelViewer";
 import StarRating from "@/components/marketplace/StarRating";
 import type { AssetCategory } from "@/types/asset";
@@ -128,6 +129,20 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     const canAddToCart = !isAdmin; // guests and buyers can; admins cannot
     const addToCart = useAddToCart();
     const [cartMessage, setCartMessage] = useState<string | null>(null);
+    const [reportOpen, setReportOpen] = useState(false);
+
+    // Anyone except an admin or the asset's own seller can report this listing.
+    // Guests see the button too — clicking sends them to log in first.
+    const isOwner = user ? Number(user.sub) === asset.sellerId : false;
+    const canReport = !isAdmin && !isOwner;
+
+    const handleReportClick = () => {
+        if (isGuest) {
+            navigate("/login");
+            return;
+        }
+        setReportOpen(true);
+    };
 
     const handleAddToCart = () => {
         // Guest: save the intent and send them to log in. After login the app
@@ -344,6 +359,22 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                             </>
                         )}
                     </div>
+
+                    {canReport && (
+                        <button
+                            type="button"
+                            onClick={handleReportClick}
+                            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                        >
+                            Report this listing
+                        </button>
+                    )}
+
+                    <ReportDialog
+                        assetId={asset.id}
+                        open={reportOpen}
+                        onOpenChange={setReportOpen}
+                    />
 
                     {asset.description && (
                         <div>
