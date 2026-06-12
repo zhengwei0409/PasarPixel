@@ -81,3 +81,56 @@ export async function listReports(req: Request, res: Response) {
 
     res.json(result);
 }
+
+// PATCH /reports/:id/resolve — admin-only. Resolves a pending report by either
+// taking the asset down or dismissing the report.
+//   action="take_down" -> asset set to TAKEN_DOWN, report status TAKEN_DOWN
+//   action="dismiss"    -> report status DISMISSED, asset untouched
+export async function resolveReport(req: Request, res: Response) {
+    const reportId = parseInt(req.params.id as string);
+    if (isNaN(reportId)) {
+        res.status(400).json({ error: "Invalid report id" });
+        return;
+    }
+
+    const { action } = req.body;
+    if (action !== "take_down" && action !== "dismiss") {
+        res.status(400).json({ error: "action must be 'take_down' or 'dismiss'" });
+        return;
+    }
+
+    const report = await prisma.report.findUnique({ where: { id: reportId } });
+    if (!report) {
+        res.status(404).json({ error: "Report not found" });
+        return;
+    }
+    if (report.status !== "PENDING") {
+        res.status(409).json({ error: "Report has already been resolved" });
+        return;
+    }
+
+    if (action === "dismiss") {
+        const updated = await prisma.report.update({
+            where: { id: reportId },
+            data: { status: "DISMISSED" },
+        });
+        res.json(updated);
+        return;
+    }
+
+    // take_down: mark the asset removed (same end state as a seller takedown)
+    // and record the report as resolved. Notifying the seller comes in a later
+    // step.
+    const [, updated] = await prisma.$transaction([
+        prisma.asset.update({
+            where: { id: report.assetId },
+            data: { status: "TAKEN_DOWN", isDeleted: true },
+        }),
+        prisma.report.update({
+            where: { id: reportId },
+            data: { status: "TAKEN_DOWN" },
+        }),
+    ]);
+
+    res.json(updated);
+}
