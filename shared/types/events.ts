@@ -66,6 +66,7 @@ export interface AssetRemovedEvent {
   sellerId: number;
   assetId: number;
   assetTitle: string;
+  reason?: string; // why it was taken down (e.g. admin takedown via a report)
 }
 
 // A buyer's order was paid successfully -> notify the buyer

@@ -94,9 +94,14 @@ export async function resolveReport(req: Request, res: Response) {
         return;
     }
 
-    const { action } = req.body;
+    const { action, reason } = req.body;
     if (action !== "take_down" && action !== "dismiss") {
         res.status(400).json({ error: "action must be 'take_down' or 'dismiss'" });
+        return;
+    }
+    // A takedown must explain itself: the reason is shown to the seller.
+    if (action === "take_down" && (typeof reason !== "string" || reason.trim().length === 0)) {
+        res.status(400).json({ error: "reason is required to take down a listing" });
         return;
     }
 
@@ -138,6 +143,7 @@ export async function resolveReport(req: Request, res: Response) {
         sellerId: asset.sellerId,
         assetId: asset.id,
         assetTitle: asset.title,
+        reason: reason.trim(),
     });
 
     res.json(updated);

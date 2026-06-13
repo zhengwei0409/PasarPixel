@@ -16,7 +16,11 @@ export type ResolveReportAction = "take_down" | "dismiss";
 export async function resolveReport(
     reportId: number,
     action: ResolveReportAction,
+    reason?: string,
 ): Promise<Report> {
-    const res = await apiClient.patch<Report>(`/reports/${reportId}/resolve`, { action });
+    const res = await apiClient.patch<Report>(`/reports/${reportId}/resolve`, {
+        action,
+        reason,
+    });
     return res.data;
 }

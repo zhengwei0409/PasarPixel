@@ -9,3 +9,14 @@ export const ASSET_REPORT_REASONS = [
     "Spam or scam listing",
     "Stolen or duplicated work",
 ];
+
+// Preset reasons an admin can pick when taking down a reported listing. Shown to
+// the seller in their takedown notification.
+export const ASSET_TAKEDOWN_REASONS = [
+    "Confirmed copyright or trademark infringement",
+    "Inappropriate or prohibited content",
+    "Misleading title, description, or preview",
+    "Spam or scam listing",
+    "Stolen or duplicated work",
+    "Violates PasarPixel's marketplace policies",
+];

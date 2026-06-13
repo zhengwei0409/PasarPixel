@@ -23,12 +23,14 @@ export function useReports() {
 interface ResolveReportVars {
     reportId: number;
     action: ResolveReportAction;
+    reason?: string;
 }
 
 export function useResolveReport() {
     const queryClient = useQueryClient();
     return useMutation<Report, Error, ResolveReportVars>({
-        mutationFn: ({ reportId, action }) => resolveReport(reportId, action),
+        mutationFn: ({ reportId, action, reason }) =>
+            resolveReport(reportId, action, reason),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["reports"] });
         },

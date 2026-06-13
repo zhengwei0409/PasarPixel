@@ -17,12 +17,14 @@ export async function startAssetRemovedConsumer(): Promise<void> {
         try {
             const event: AssetRemovedEvent = JSON.parse(msg.content.toString());
 
+            const reasonSuffix = event.reason ? ` Reason: ${event.reason}` : '';
+
             await prisma.notification.create({
                 data: {
                     userId: event.sellerId,
                     type: 'ASSET_REMOVED',
                     title: 'Your asset was taken down',
-                    body: `Your asset "${event.assetTitle}" has been taken down and is no longer listed on PasarPixel.`,
+                    body: `Your asset "${event.assetTitle}" has been taken down and is no longer listed on PasarPixel.${reasonSuffix}`,
                 },
             });
 

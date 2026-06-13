@@ -10,8 +10,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "../components/ui/dialog";
+import ReasonPicker from "../components/ReasonPicker";
 import { useReports, useResolveReport } from "../hooks/useReport";
 import { getErrorMessage } from "../lib/errors";
+import { ASSET_TAKEDOWN_REASONS } from "../lib/reportReasons";
 import type { ReportStatus } from "../types/report";
 
 const STATUS_STYLES: Record<ReportStatus, string> = {
@@ -32,13 +34,22 @@ export default function AdminReportsPage() {
 
     // The report awaiting a take-down confirmation (null = dialog closed).
     const [takingDownId, setTakingDownId] = useState<number | null>(null);
+    // Reason shown to the seller; required before take-down can be confirmed.
+    const [takedownReason, setTakedownReason] = useState("");
 
-    const closeDialog = () => setTakingDownId(null);
+    const closeDialog = () => {
+        setTakingDownId(null);
+        setTakedownReason("");
+    };
 
     const handleConfirmTakeDown = () => {
-        if (takingDownId == null) return;
+        if (takingDownId == null || !takedownReason.trim()) return;
         resolve(
-            { reportId: takingDownId, action: "take_down" },
+            {
+                reportId: takingDownId,
+                action: "take_down",
+                reason: takedownReason.trim(),
+            },
             { onSuccess: () => closeDialog() },
         );
     };
@@ -137,10 +148,18 @@ export default function AdminReportsPage() {
                     <DialogHeader>
                         <DialogTitle>Take down this listing?</DialogTitle>
                         <DialogDescription>
-                            The asset will be removed from the marketplace and the seller
-                            will be notified. This resolves the report.
+                            The asset will be removed from the marketplace. The seller will
+                            be notified with the reason you choose below. This resolves the
+                            report.
                         </DialogDescription>
                     </DialogHeader>
+
+                    <ReasonPicker
+                        key={takingDownId ?? "closed"}
+                        presets={ASSET_TAKEDOWN_REASONS}
+                        onChange={setTakedownReason}
+                        placeholder="Select a reason for the seller"
+                    />
 
                     {resolveError && (
                         <p className="text-sm text-red-500">
@@ -154,7 +173,7 @@ export default function AdminReportsPage() {
                         </Button>
                         <Button
                             variant="destructive"
-                            disabled={isPending}
+                            disabled={isPending || !takedownReason.trim()}
                             onClick={handleConfirmTakeDown}
                         >
                             {isPending ? "Taking down..." : "Confirm take down"}
