@@ -13,7 +13,7 @@ const REVENUE_BASE_CURRENCY = "USD";
 //   - totalAssets:   assets that are live on the marketplace (PUBLISHED)
 //   - totalRevenue:  COMPLETED order totals, each converted to USD, then summed
 //   - pendingItems:  things waiting on an admin = pending seller applications
-//                    + assets awaiting review
+//                    + assets awaiting review + unresolved reports
 export async function getDashboardStats(req: Request, res: Response) {
     const [
         totalUsers,
@@ -21,6 +21,7 @@ export async function getDashboardStats(req: Request, res: Response) {
         completedOrders,
         pendingApplications,
         pendingAssets,
+        pendingReports,
     ] = await Promise.all([
         prisma.userProfile.count(),
         prisma.asset.count({ where: { status: "PUBLISHED" } }),
@@ -30,6 +31,7 @@ export async function getDashboardStats(req: Request, res: Response) {
         }),
         prisma.sellerApplication.count({ where: { status: "PENDING" } }),
         prisma.asset.count({ where: { status: "PENDING_REVIEW" } }),
+        prisma.report.count({ where: { status: "PENDING" } }),
     ]);
 
     let totalRevenue = 0;
@@ -46,6 +48,6 @@ export async function getDashboardStats(req: Request, res: Response) {
         totalAssets,
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         revenueCurrency: REVENUE_BASE_CURRENCY,
-        pendingItems: pendingApplications + pendingAssets,
+        pendingItems: pendingApplications + pendingAssets + pendingReports,
     });
 }
