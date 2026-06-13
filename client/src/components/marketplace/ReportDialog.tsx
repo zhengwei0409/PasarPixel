@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import ReasonPicker from "@/components/ReasonPicker";
 import {
     Dialog,
     DialogContent,
@@ -10,6 +10,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { useCreateReport } from "@/hooks/useReport";
+import { ASSET_REPORT_REASONS } from "@/lib/reportReasons";
 
 interface ReportDialogProps {
     assetId: number;
@@ -23,11 +24,14 @@ interface ReportDialogProps {
 export default function ReportDialog({ assetId, open, onOpenChange }: ReportDialogProps) {
     const [reason, setReason] = useState("");
     const [submitted, setSubmitted] = useState(false);
+    // Bumped on reset so ReasonPicker remounts and clears its own internal state.
+    const [formKey, setFormKey] = useState(0);
     const createReport = useCreateReport();
 
     const reset = () => {
         setReason("");
         setSubmitted(false);
+        setFormKey((k) => k + 1);
         createReport.reset();
     };
 
@@ -67,11 +71,11 @@ export default function ReportDialog({ assetId, open, onOpenChange }: ReportDial
                                 Tell us what's wrong with this listing. An admin will review it.
                             </DialogDescription>
                         </DialogHeader>
-                        <Textarea
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            placeholder="Reason for reporting…"
-                            rows={4}
+                        <ReasonPicker
+                            key={formKey}
+                            presets={ASSET_REPORT_REASONS}
+                            onChange={setReason}
+                            placeholder="Select a reason for reporting"
                         />
                         {createReport.isError && (
                             <p className="text-sm text-destructive">
