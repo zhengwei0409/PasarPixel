@@ -99,6 +99,14 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     const shop = shopDisplay(asset.seller);
     const thumbnail = asset.files.find((f) => f.fileType.startsWith("image/"));
     const videoFile = asset.files.find((f) => f.fileType.startsWith("video/"));
+    // The watermarked previewUrl is the source for a VIDEO listing. ANIMATION
+    // uploads its video as a PREVIEW-purpose public file, so the backend skips
+    // preview generation (previewUrl is null) — the file itself is the clip, so
+    // fall back to fileUrl only when it's safe: a PREVIEW file is never the paid
+    // ORIGINAL, so this can't leak the purchased download.
+    const videoPreviewSrc =
+        videoFile?.previewUrl ??
+        (videoFile?.purpose === "PREVIEW" ? videoFile.fileUrl : null);
     const audioFile = asset.files.find((f) => f.fileType.startsWith("audio/"));
     // The ModelViewer loads this file's URL directly into the public page, so it
     // MUST be the PREVIEW glb. The high-poly ORIGINAL glb lives in a private S3
@@ -194,9 +202,9 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
                                 Interactive 3D preview unavailable for this listing.
                             </div>
                         )
-                    ) : videoFile && videoFile.previewUrl ? (
+                    ) : videoPreviewSrc ? (
                         <video
-                            src={videoFile.previewUrl}
+                            src={videoPreviewSrc}
                             controls
                             controlsList="nodownload"
                             className="h-full w-full object-cover"
