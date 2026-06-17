@@ -52,7 +52,7 @@ export default function WithdrawalSection() {
             <CardContent className="space-y-6">
                 <div>
                     <p className="text-sm text-gray-600">Available balance</p>
-                    <p className="text-2xl font-bold">{formatPrice(data.availableBalance, "USD", displayCurrency)}</p>
+                    <p className="text-2xl font-bold">{formatPrice(data.availableBalance, "USD", displayCurrency, { zeroAsFree: false })}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-2">
@@ -71,7 +71,7 @@ export default function WithdrawalSection() {
                     </div>
                     {amount !== "" && !isValid && (
                         <p className="text-xs text-red-600">
-                            Enter an amount between {formatPrice(0, displayCurrency)} and{" "}
+                            Enter an amount between {formatPrice(0, displayCurrency, displayCurrency, { zeroAsFree: false })} and{" "}
                             {formatPrice(balanceInDisplay, displayCurrency)}.
                         </p>
                     )}

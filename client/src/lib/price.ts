@@ -37,11 +37,14 @@ export function formatPrice(
     amount: number | string | null | undefined,
     from: Currency,
     displayIn: Currency = from,
+    // "Free" only makes sense for an asset's price. For monetary figures like
+    // revenue or balance, a zero should read as $0.00, not "Free".
+    options: { zeroAsFree?: boolean } = { zeroAsFree: true },
 ): string {
     if (amount === null || amount === undefined || amount === "") return "—";
     const n = typeof amount === "number" ? amount : parseFloat(amount);
     if (isNaN(n)) return "—";
-    if (n === 0) return "Free";
+    if (n === 0 && options.zeroAsFree) return "Free";
     const converted = convertFiat(n, from, displayIn);
     return `${CURRENCY_SYMBOL[displayIn]}${converted.toFixed(2)}`;
 }

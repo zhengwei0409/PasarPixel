@@ -53,7 +53,7 @@ export default function DashboardStatsSection() {
             />
             <StatCard
                 title="Platform Revenue"
-                value={formatPrice(data.totalRevenue, data.revenueCurrency, displayCurrency)}
+                value={formatPrice(data.totalRevenue, data.revenueCurrency, displayCurrency, { zeroAsFree: false })}
                 icon={<DollarSign className="h-4 w-4" />}
             />
             <StatCard

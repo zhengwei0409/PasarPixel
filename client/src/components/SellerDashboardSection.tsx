@@ -73,7 +73,7 @@ export default function SellerDashboardSection() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     title="Revenue"
-                    value={formatPrice(data.revenue, "USD", displayCurrency)}
+                    value={formatPrice(data.revenue, "USD", displayCurrency, { zeroAsFree: false })}
                     icon={<DollarSign className="h-4 w-4" />}
                 />
                 <StatCard
