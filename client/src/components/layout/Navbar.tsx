@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import AccountMenu from './AccountMenu';
 import NotificationBell from './NotificationBell';
 import CurrencySwitcher from './CurrencySwitcher';
+import logo from '@/assets/pasarpixel-logo.jpeg';
 
 export default function Navbar() {
     const { user, logout } = useAuth();
@@ -32,12 +33,25 @@ export default function Navbar() {
                 <div className="mx-auto flex h-18 max-w-[1296px] items-center justify-between gap-4 px-4 sm:px-8 lg:px-12">
                     <div className="flex min-w-0 items-center gap-10">
                         <Link to="/" aria-label="PasarPixel home" className="group flex shrink-0 items-center gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7a8568]">
-                            <span aria-hidden="true" className="grid size-6 grid-cols-2 gap-[3px] transition-transform duration-300 group-hover:-rotate-6 motion-reduce:transition-none">
-                                <span className="rounded-[3px] bg-[#30392b]" />
-                                <span className="rounded-[3px] bg-[#9ca98c]" />
-                                <span className="rounded-[3px] bg-[#c5cfb5]" />
-                                <span className="rounded-[3px] bg-[#657152]" />
-                            </span>
+                            <svg
+                                viewBox="600 236 336 344"
+                                className="size-6 transition-transform duration-300 group-hover:-rotate-6 motion-reduce:transition-none"
+                                aria-hidden="true"
+                            >
+                                <defs>
+                                    <filter id="navbar-logo-theme" colorInterpolationFilters="sRGB">
+                                        <feColorMatrix
+                                            in="SourceGraphic"
+                                            type="matrix"
+                                            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -0.26575 -0.894 -0.09025 0 1.25"
+                                            result="logoMask"
+                                        />
+                                        <feFlood floodColor="#30392b" />
+                                        <feComposite in2="logoMask" operator="in" />
+                                    </filter>
+                                </defs>
+                                <image href={logo} width="1536" height="1024" filter="url(#navbar-logo-theme)" />
+                            </svg>
                             <span className="text-lg font-semibold tracking-[-0.045em]">Pasar<span className="font-normal text-[#657152]">Pixel</span></span>
                         </Link>
 
