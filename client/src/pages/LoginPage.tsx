@@ -75,7 +75,7 @@ export default function LoginPage() {
                 </div>
 
                 <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
-                    Login with Google1
+                    Login with Google
                 </Button>
 
                 <p className="text-sm text-center text-gray-500">
