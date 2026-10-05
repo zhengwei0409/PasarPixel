@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { Popover } from "radix-ui";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,23 +25,11 @@ function formatTime(iso: string): string {
 export default function NotificationBell() {
     const [open, setOpen] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
 
     const { data: unreadCount = 0 } = useUnreadCount();
     const { data: notifications = [], isLoading } = useNotifications(open);
     const markAsRead = useMarkAsRead();
     const markAllAsRead = useMarkAllAsRead();
-
-    useEffect(() => {
-        if (!open) return;
-        const handleClickOutside = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [open]);
 
     const handleClickNotification = (n: Notification) => {
         if (!n.readAt) markAsRead.mutate(n.id);
@@ -50,43 +39,45 @@ export default function NotificationBell() {
     const badge = unreadCount > 9 ? "9+" : String(unreadCount);
 
     return (
-        <div ref={containerRef} className="relative">
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setOpen((v) => !v)}
-                className="relative"
-                aria-label="Notifications"
-            >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
-                        {badge}
-                    </span>
-                )}
-            </Button>
+        <Popover.Root open={open} onOpenChange={setOpen}>
+            <Popover.Trigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative size-10 rounded-full text-[#657152] hover:bg-[#eef0e7] hover:text-[#30392b] data-[state=open]:bg-[#eef0e7] motion-reduce:transition-none"
+                    aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+                >
+                    <Bell className="size-[18px]" aria-hidden="true" />
+                    {unreadCount > 0 && (
+                        <span aria-hidden="true" className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#657152] px-1 text-[9px] font-medium text-white ring-2 ring-[#fcfcfa]">
+                            {badge}
+                        </span>
+                    )}
+                </Button>
+            </Popover.Trigger>
 
-            {open && (
-                <div className="absolute right-0 mt-2 w-[360px] rounded-md border bg-white shadow-lg z-50">
-                    <div className="flex items-center justify-between border-b px-4 py-2">
-                        <h3 className="text-sm font-semibold">Notifications</h3>
+            <Popover.Portal>
+                <Popover.Content align="end" sideOffset={12} collisionPadding={16} aria-label="Notifications" className="z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#e7e9e1] bg-[#fcfcfa] text-[#252823] shadow-[0_12px_40px_-12px_rgba(37,40,35,0.2)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 data-[state=open]:duration-150 motion-reduce:animate-none">
+                    <div className="flex items-center justify-between border-b border-[#e7e9e1] px-4 py-4">
+                        <h3 className="text-sm font-medium">Notifications</h3>
                         {unreadCount > 0 && (
                             <button
                                 onClick={() => markAllAsRead.mutate()}
-                                className="text-xs text-blue-600 hover:underline"
+                                disabled={markAllAsRead.isPending}
+                                className="cursor-pointer rounded-sm text-xs text-[#657152] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7a8568] disabled:cursor-wait disabled:opacity-50"
                             >
                                 Mark all as read
                             </button>
                         )}
                     </div>
 
-                    <div className="max-h-[400px] overflow-y-auto">
+                    <div className="max-h-[min(400px,60dvh)] overflow-y-auto rounded-b-xl">
                         {isLoading ? (
-                            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                            <p className="px-4 py-8 text-center text-sm text-[#73776e]">
                                 Loading...
                             </p>
                         ) : notifications.length === 0 ? (
-                            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                            <p className="px-4 py-8 text-center text-sm text-[#73776e]">
                                 No notifications yet
                             </p>
                         ) : (
@@ -94,27 +85,28 @@ export default function NotificationBell() {
                                 <button
                                     key={n.id}
                                     onClick={() => handleClickNotification(n)}
-                                    className={`w-full border-b px-4 py-3 text-left hover:bg-gray-50 ${
-                                        n.readAt ? "bg-white" : "bg-blue-50"
+                                    aria-expanded={expandedId === n.id}
+                                    className={`w-full cursor-pointer border-b border-[#e7e9e1] px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-[#e9ecdf] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#7a8568] motion-reduce:transition-none ${
+                                        n.readAt ? "bg-[#fcfcfa]" : "bg-[#f0f3e9]"
                                     }`}
                                 >
-                                    <p className="text-sm font-semibold">{n.title}</p>
+                                    <p className="text-sm font-medium">{n.title}</p>
                                     <p
-                                        className={`mt-1 text-xs text-muted-foreground ${
+                                        className={`mt-1 text-xs leading-relaxed text-[#73776e] ${
                                             expandedId === n.id ? "whitespace-pre-wrap" : "line-clamp-2"
                                         }`}
                                     >
                                         {n.body}
                                     </p>
-                                    <p className="mt-1 text-xs text-muted-foreground">
+                                    <p className="mt-2 text-[11px] text-[#85897f]">
                                         {formatTime(n.createdAt)}
                                     </p>
                                 </button>
                             ))
                         )}
                     </div>
-                </div>
-            )}
-        </div>
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
     );
 }

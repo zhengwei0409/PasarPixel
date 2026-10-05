@@ -358,7 +358,7 @@ export async function registerFile(req: Request, res: Response) {
     res.status(201).json(file);
 }
 
-const VALID_SORTS = ["newest", "price_asc", "price_desc"] as const;
+const VALID_SORTS = ["newest", "best_selling", "price_asc", "price_desc"] as const;
 type SortOption = (typeof VALID_SORTS)[number];
 
 function parsePositiveInt(value: unknown, fallback: number, max?: number): number {
@@ -421,15 +421,31 @@ export async function browseAssets(req: Request, res: Response) {
         ];
     }
 
+    // Rank only completed purchases. Apply the browse filters before ranking
+    // and pagination so Trending and marketplace use the same sales order.
+    let rankedIds: number[] | undefined;
+    if (sort === "best_selling") {
+        where.orderItems = { some: { order: { paymentStatus: "COMPLETED" } } };
+        const sales = await prisma.orderItem.groupBy({
+            by: ["assetId"],
+            where: { asset: where, order: { paymentStatus: "COMPLETED" } },
+            _count: { assetId: true },
+            orderBy: [{ _count: { assetId: "desc" } }, { assetId: "desc" }],
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+        });
+        rankedIds = sales.map((sale) => sale.assetId);
+    }
+
     const [assets, total] = await Promise.all([
         prisma.asset.findMany({
-            where,
+            where: rankedIds ? { ...where, id: { in: rankedIds } } : where,
             include: {
                 files: true,
                 seller: { select: { userId: true, name: true, avatarUrl: true, store: { select: { storeName: true, logoUrl: true } } } },
             },
             orderBy,
-            skip: (page - 1) * pageSize,
+            skip: rankedIds ? 0 : (page - 1) * pageSize,
             take: pageSize,
         }),
         prisma.asset.count({ where }),
@@ -446,6 +462,8 @@ export async function browseAssets(req: Request, res: Response) {
     const ratingByAssetId = new Map(
         ratings.map((r) => [r.assetId, { averageRating: r._avg.rating ?? 0, reviewCount: r._count }]),
     );
+    const rankById = new Map(rankedIds?.map((id, index) => [id, index]));
+    if (rankedIds) assets.sort((a, b) => rankById.get(a.id)! - rankById.get(b.id)!);
     const items = assets.map((a) => ({
         ...a,
         averageRating: ratingByAssetId.get(a.id)?.averageRating ?? 0,

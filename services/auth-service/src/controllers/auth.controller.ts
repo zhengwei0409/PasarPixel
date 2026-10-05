@@ -14,7 +14,7 @@ async function getUserRoles(userId: number): Promise<string[]> {
     return userRoles.map((ur) => ur.role.name);
 }
 
-function generateTokens(userId: number, email: string, roles: string[]) {
+function generateTokens(userId: number, email: string, roles: string[], rememberMe = false) {
     const accessToken = jwt.sign(
         { sub: userId, email, roles },
         process.env.JWT_SECRET!,
@@ -22,7 +22,8 @@ function generateTokens(userId: number, email: string, roles: string[]) {
     );
 
     const refreshToken = crypto.randomBytes(64).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const refreshTokenDays = rememberMe ? 30 : 7;
+    const expiresAt = new Date(Date.now() + refreshTokenDays * 24 * 60 * 60 * 1000);
 
     return { accessToken, refreshToken, expiresAt };
 }
@@ -30,9 +31,9 @@ function generateTokens(userId: number, email: string, roles: string[]) {
 // A short-lived token issued after the password check but before 2FA.
 // purpose: "2fa" marks it as NOT a normal login token — it can only be
 // exchanged at /auth/2fa/verify-login, never used to access real endpoints.
-function generateTempToken(userId: number) {
+function generateTempToken(userId: number, rememberMe = false) {
     return jwt.sign(
-        { sub: userId, purpose: "2fa" },
+        { sub: userId, purpose: "2fa", rememberMe },
         process.env.JWT_SECRET!,
         { expiresIn: "5m" }
     );
@@ -40,9 +41,9 @@ function generateTempToken(userId: number) {
 
 // Issues the real login tokens and persists the refresh token. Shared by the
 // plain login path and the 2FA verify path so they stay consistent.
-async function issueLoginTokens(userId: number, email: string) {
+async function issueLoginTokens(userId: number, email: string, rememberMe = false) {
     const roles = await getUserRoles(userId);
-    const { accessToken, refreshToken, expiresAt } = generateTokens(userId, email, roles);
+    const { accessToken, refreshToken, expiresAt } = generateTokens(userId, email, roles, rememberMe);
 
     await prisma.refreshToken.create({
         data: { userId, token: refreshToken, expiresAt },
@@ -90,7 +91,12 @@ export async function register(req: Request, res: Response) {
 }
 
 export async function login(req: Request, res: Response) {
-    const { email, password } = req.body;
+    const { email, password, rememberMe = false } = req.body;
+
+    if (typeof rememberMe !== "boolean") {
+        res.status(400).json({ error: "Remember me must be a boolean" });
+        return;
+    }
 
     if (!email || !password) {
         res.status(400).json({ error: "Email and password are required" });
@@ -118,11 +124,11 @@ export async function login(req: Request, res: Response) {
     // yet — hand back a temp token and make them complete the second step.
     const twoFactor = await prisma.twoFactorAuth.findUnique({ where: { userId: user.id } });
     if (twoFactor?.isEnabled) {
-        res.json({ twoFactorRequired: true, tempToken: generateTempToken(user.id) });
+        res.json({ twoFactorRequired: true, tempToken: generateTempToken(user.id, rememberMe) });
         return;
     }
 
-    const tokens = await issueLoginTokens(user.id, user.email);
+    const tokens = await issueLoginTokens(user.id, user.email, rememberMe);
     res.json(tokens);
 }
 
@@ -139,16 +145,19 @@ export async function verifyLogin(req: Request, res: Response) {
     // The temp token must be valid, unexpired, and carry our 2fa marker —
     // a normal access token must not be accepted here.
     let userId: number;
+    let rememberMe = false;
     try {
         const payload = jwt.verify(tempToken, process.env.JWT_SECRET!) as unknown as {
             sub: number;
             purpose?: string;
+            rememberMe?: boolean;
         };
         if (payload.purpose !== "2fa") {
             res.status(401).json({ error: "Invalid token" });
             return;
         }
         userId = payload.sub;
+        rememberMe = payload.rememberMe === true;
     } catch {
         res.status(401).json({ error: "Invalid or expired token" });
         return;
@@ -200,7 +209,7 @@ export async function verifyLogin(req: Request, res: Response) {
         return;
     }
 
-    const tokens = await issueLoginTokens(user.id, user.email);
+    const tokens = await issueLoginTokens(user.id, user.email, rememberMe);
     res.json(tokens);
 }
 

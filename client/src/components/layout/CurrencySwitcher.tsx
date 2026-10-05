@@ -12,16 +12,17 @@ export default function CurrencySwitcher() {
     const setDisplayCurrency = useSetCurrency();
 
     return (
-        <div className="flex gap-1 rounded-md border p-0.5 text-xs" role="group" aria-label="Display currency">
+        <div className="flex gap-0.5 rounded-lg border border-[#e2e5dc] bg-[#f4f5ef] p-1 text-[11px] font-medium" role="group" aria-label="Display currency">
             {CURRENCIES.map((c) => (
                 <button
                     key={c}
                     type="button"
                     onClick={() => setDisplayCurrency(c)}
-                    className={`rounded px-2 py-1 transition ${
+                    aria-pressed={displayCurrency === c}
+                    className={`cursor-pointer rounded-md px-2 py-1.5 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a8568] motion-reduce:transition-none ${
                         displayCurrency === c
-                            ? "bg-foreground text-background"
-                            : "text-muted-foreground hover:text-foreground"
+                            ? "bg-white text-[#30392b] shadow-sm"
+                            : "text-[#85897f] hover:bg-[#e9ecdf] hover:text-[#555e49]"
                     }`}
                 >
                     {c}

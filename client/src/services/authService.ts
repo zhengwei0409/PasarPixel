@@ -1,7 +1,7 @@
 import apiClient from "../lib/apiClient";
-import type { AuthTokens, Credentials, LoginResult, ResetPasswordPayload } from "../types/auth";
+import type { AuthTokens, Credentials, LoginCredentials, LoginResult, ResetPasswordPayload } from "../types/auth";
 
-export async function login(credentials: Credentials): Promise<LoginResult> {
+export async function login(credentials: LoginCredentials): Promise<LoginResult> {
     const res = await apiClient.post<LoginResult>("/auth/login", credentials);
     return res.data;
 }

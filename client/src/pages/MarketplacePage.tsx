@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useBrowseAssets } from "@/hooks/useAsset";
 import { useDebounce } from "@/hooks/useDebounce";
 import AssetCard from "@/components/marketplace/AssetCard";
@@ -25,6 +26,7 @@ const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
 
 const SORT_OPTIONS: { value: BrowseSort; label: string }[] = [
     { value: "newest", label: "Newest" },
+    { value: "best_selling", label: "Best selling" },
     { value: "price_asc", label: "Price: Low to High" },
     { value: "price_desc", label: "Price: High to Low" },
 ];
@@ -33,13 +35,27 @@ const ALL = "ALL";
 const PAGE_SIZE = 20;
 
 export default function MarketplacePage() {
-    const [keyword, setKeyword] = useState("");
-    const [category, setCategory] = useState<AssetCategory | typeof ALL>(ALL);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const keyword = searchParams.get("keyword") ?? "";
+    const categoryParam = searchParams.get("category");
+    const category = CATEGORY_OPTIONS.some((option) => option.value === categoryParam)
+        ? categoryParam as AssetCategory : ALL;
+    const sortParam = searchParams.get("sort");
+    const sort = SORT_OPTIONS.some((option) => option.value === sortParam)
+        ? sortParam as BrowseSort : "newest";
+
+    const setBrowseParam = (key: string, value: string) => {
+        setSearchParams((previous) => {
+            const next = new URLSearchParams(previous);
+            if (!value || value === ALL) next.delete(key);
+            else next.set(key, value);
+            return next;
+        }, { replace: true });
+    };
     const [listingType, setListingType] = useState<ListingType | typeof ALL>(ALL);
     const [aiFilter, setAiFilter] = useState<"ALL" | "AI" | "HUMAN">(ALL);
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
-    const [sort, setSort] = useState<BrowseSort>("newest");
     const [page, setPage] = useState(1);
 
     const debouncedKeyword = useDebounce(keyword, 300);
@@ -87,10 +103,11 @@ export default function MarketplacePage() {
                 <Input
                     placeholder="Search by keyword..."
                     value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
+                    onChange={(e) => setBrowseParam("keyword", e.target.value)}
+                    aria-label="Search marketplace assets"
                 />
 
-                <Select value={category} onValueChange={(v) => setCategory(v as AssetCategory | typeof ALL)}>
+                <Select value={category} onValueChange={(v) => setBrowseParam("category", v)}>
                     <SelectTrigger className="md:w-44">
                         <SelectValue placeholder="Category" />
                     </SelectTrigger>
@@ -126,7 +143,7 @@ export default function MarketplacePage() {
                     </SelectContent>
                 </Select>
 
-                <Select value={sort} onValueChange={(v) => setSort(v as BrowseSort)}>
+                <Select value={sort} onValueChange={(v) => setBrowseParam("sort", v)}>
                     <SelectTrigger className="md:w-48">
                         <SelectValue />
                     </SelectTrigger>

@@ -1,0 +1,50 @@
+.home-floating-shapes {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    container-type: size;
+}
+
+.home-floating-shape {
+    position: absolute;
+    bottom: -180px;
+    width: min(var(--shape-size), 24vw);
+    aspect-ratio: 1;
+    border: 1px solid #657152;
+    background: #9ca98c;
+    opacity: 0;
+    animation: home-shape-rise var(--shape-duration) var(--shape-delay) linear infinite;
+}
+
+.home-floating-shape--square {
+    border-radius: 24%;
+}
+
+.home-floating-shape--ring {
+    border-radius: 50%;
+    background: transparent;
+    border-width: 2px;
+}
+
+.home-floating-shape--dot {
+    border-radius: 50%;
+    border: 0;
+    background: #657152;
+}
+
+@keyframes home-shape-rise {
+    0% {
+        opacity: 0;
+        transform: translate3d(0, 0, 0) rotate(var(--shape-rotation));
+    }
+    12%, 80% {
+        opacity: 0.12;
+    }
+    100% {
+        opacity: 0;
+        transform: translate3d(var(--shape-drift), calc(-100cqh - 360px), 0)
+            rotate(calc(var(--shape-rotation) + 35deg));
+    }
+}

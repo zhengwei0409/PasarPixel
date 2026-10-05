@@ -157,7 +157,7 @@ export interface SubmitReviewPayload {
     comment?: string;
 }
 
-export type BrowseSort = "newest" | "price_asc" | "price_desc";
+export type BrowseSort = "newest" | "best_selling" | "price_asc" | "price_desc";
 
 export interface BrowseAssetsParams {
     page?: number;
