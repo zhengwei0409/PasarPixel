@@ -8,7 +8,7 @@ until npx prisma migrate deploy; do
 done
 
 echo "Running seed..."
-npx prisma db seed || echo "Seed failed or already seeded, continuing..."
+npx prisma db seed
 
 echo "Starting auth-service..."
 exec pnpm start

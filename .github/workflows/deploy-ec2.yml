@@ -1,0 +1,124 @@
+name: Deploy EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ec2-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth-service
+            dockerfile: services/auth-service/Dockerfile
+          - service: main-api
+            dockerfile: services/main-api/Dockerfile
+          - service: notification-service
+            dockerfile: services/notification-service/Dockerfile
+          - service: client
+            dockerfile: client/Dockerfile.ec2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set image name
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "IMAGE_PREFIX=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: ap-southeast-1
+      INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+      DEPLOY_SHA: ${{ github.sha }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Deploy through Systems Manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]]
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          python3 - <<'PY'
+          import json, os
+          sha = os.environ['DEPLOY_SHA']
+          commands = [
+              'set -eu',
+              'cd /home/ubuntu/PasarPixel',
+              'test -z "$(runuser -u ubuntu -- git status --porcelain --untracked-files=no)"',
+              f'runuser -u ubuntu -- git fetch origin {sha}',
+              f'runuser -u ubuntu -- git checkout --detach {sha}',
+              f'bash infra/ec2/deploy.sh {sha}',
+          ]
+          with open('/tmp/ssm-parameters.json', 'w') as f:
+              json.dump({'commands': commands, 'executionTimeout': ['900']}, f)
+          PY
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters file:///tmp/ssm-parameters.json \
+            --query Command.CommandId --output text)
+          for attempt in $(seq 1 100); do
+            if ! status=$(aws ssm get-command-invocation \
+              --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/tmp/ssm-error); then
+              if grep -q InvocationDoesNotExist /tmp/ssm-error; then
+                sleep 10
+                continue
+              fi
+              cat /tmp/ssm-error >&2
+              exit 1
+            fi
+            case "$status" in
+              Success)
+                aws ssm get-command-invocation --command-id "$command_id" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query '{Status:Status,Output:StandardOutputContent}' --output json
+                exit 0 ;;
+              Pending|InProgress|Delayed) sleep 10 ;;
+              *)
+                aws ssm get-command-invocation --command-id "$command_id" \
+                  --instance-id "$INSTANCE_ID" \
+                  --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' --output json
+                exit 1 ;;
+            esac
+          done
+          echo 'Deployment did not finish before the polling deadline'
+          exit 1

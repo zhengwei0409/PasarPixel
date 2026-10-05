@@ -24,7 +24,7 @@ function formatTime(iso: string): string {
 
 export default function NotificationBell() {
     const [open, setOpen] = useState(false);
-    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [expandedId, setExpandedId] = useState<Notification["id"] | null>(null);
 
     const { data: unreadCount = 0 } = useUnreadCount();
     const { data: notifications = [], isLoading } = useNotifications(open);

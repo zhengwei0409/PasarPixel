@@ -5,6 +5,8 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.ec2
+*.pem
 
 # Build output
 dist/

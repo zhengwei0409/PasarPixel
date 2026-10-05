@@ -16,6 +16,9 @@ async function main() {
 
   console.log("Seeded roles: ADMIN, SELLER, BUYER");
 
+  // Public deployments need the roles, but must not create a known-password admin.
+  if (process.env.NODE_ENV === "production") return;
+
   const passwordHash = await bcrypt.hash("admin123", 10);
 
   const admin = await prisma.user.upsert({

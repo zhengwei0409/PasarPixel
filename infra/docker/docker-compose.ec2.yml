@@ -1,0 +1,146 @@
+name: pasarpixel-ec2
+
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-health: &health
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 60s
+
+services:
+  postgres:
+    <<: *service
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pasarpixel
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: pasarpixel
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      <<: *health
+      test: [CMD-SHELL, 'pg_isready -U pasarpixel -d pasarpixel']
+
+  rabbitmq:
+    <<: *service
+    image: rabbitmq:4-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: pasarpixel
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      <<: *health
+      test: [CMD, rabbitmq-diagnostics, ping]
+
+  auth-service:
+    <<: *service
+    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}-auth-service:${IMAGE_TAG:?Set IMAGE_TAG}
+    env_file: ../../services/auth-service/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://pasarpixel:${POSTGRES_PASSWORD}@postgres:5432/pasarpixel?schema=auth
+      RABBITMQ_URL: amqp://pasarpixel:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      CLIENT_URL: https://${SITE_ADDRESS:?Set SITE_ADDRESS}
+      GOOGLE_CALLBACK_URL: https://${SITE_ADDRESS}/api/auth/google/callback
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      <<: *health
+      test: [CMD, node, -e, "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  main-api:
+    <<: *service
+    image: ${IMAGE_PREFIX}-main-api:${IMAGE_TAG}
+    env_file: ../../services/main-api/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://pasarpixel:${POSTGRES_PASSWORD}@postgres:5432/pasarpixel?schema=main
+      RABBITMQ_URL: amqp://pasarpixel:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      AUTH_SERVICE_URL: http://auth-service:3001
+      CLIENT_URL: https://${SITE_ADDRESS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health
+      test: [CMD, node, -e, "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  notification-service:
+    <<: *service
+    image: ${IMAGE_PREFIX}-notification-service:${IMAGE_TAG}
+    env_file: ../../services/notification-service/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://pasarpixel:${POSTGRES_PASSWORD}@postgres:5432/pasarpixel?schema=notifications
+      RABBITMQ_URL: amqp://pasarpixel:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      AUTH_SERVICE_URL: http://auth-service:3001
+      FRONTEND_URL: https://${SITE_ADDRESS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health
+      test: [CMD, node, -e, "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+  kong:
+    <<: *service
+    image: kong:3.9
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_ADMIN_LISTEN: "off"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+    volumes:
+      - ../../gateway/kong:/kong:ro
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      main-api:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health
+      test: [CMD, kong, health]
+
+  client:
+    <<: *service
+    image: ${IMAGE_PREFIX}-client:${IMAGE_TAG}
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      kong:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  caddy_data:
+  caddy_config:

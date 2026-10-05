@@ -1,0 +1,18 @@
+FROM node:24-alpine AS build
+RUN npm install -g pnpm@10.33.3
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY client/package.json ./client/
+COPY services/auth-service/package.json ./services/auth-service/
+COPY services/main-api/package.json ./services/main-api/
+COPY services/notification-service/package.json ./services/notification-service/
+COPY services/blockchain-service/package.json ./services/blockchain-service/
+RUN pnpm install --frozen-lockfile --filter client...
+COPY client ./client
+COPY shared ./shared
+ENV VITE_API_URL=/api
+RUN pnpm --filter client build
+
+FROM caddy:2-alpine
+COPY --from=build /app/client/dist /srv
+COPY infra/docker/Caddyfile /etc/caddy/Caddyfile

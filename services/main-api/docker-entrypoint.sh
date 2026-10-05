@@ -7,8 +7,10 @@ until npx prisma migrate deploy; do
   sleep 3
 done
 
-echo "Running seed..."
-npx prisma db seed || echo "Seed failed or already seeded, continuing..."
+if [ "${NODE_ENV:-development}" != "production" ]; then
+  echo "Running development seed..."
+  npx prisma db seed
+fi
 
 echo "Starting main-api..."
 exec pnpm start

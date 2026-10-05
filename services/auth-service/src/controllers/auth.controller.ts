@@ -360,12 +360,12 @@ export async function googleCallback(req: Request, res: Response) {
     const twoFactor = await prisma.twoFactorAuth.findUnique({ where: { userId: user.id } });
     if (twoFactor?.isEnabled) {
         const tempToken = generateTempToken(user.id);
-        res.redirect(`http://localhost:5173/auth/callback?twoFactorRequired=true&tempToken=${tempToken}`);
+        res.redirect(`${process.env.CLIENT_URL || "http://localhost:5173"}/auth/callback?twoFactorRequired=true&tempToken=${tempToken}`);
         return;
     }
 
     const { accessToken, refreshToken } = await issueLoginTokens(user.id, user.email);
-    res.redirect(`http://localhost:5173/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+    res.redirect(`${process.env.CLIENT_URL || "http://localhost:5173"}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
 }
 
 export async function me(req: Request, res: Response) {

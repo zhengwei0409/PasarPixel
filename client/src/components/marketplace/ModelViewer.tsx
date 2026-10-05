@@ -1,7 +1,7 @@
 import "@google/model-viewer";
 import { useEffect, useRef, useState } from "react";
 
-declare global {
+declare module "react" {
     namespace JSX {
         interface IntrinsicElements {
             "model-viewer": React.DetailedHTMLProps<
