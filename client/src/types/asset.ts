@@ -169,6 +169,15 @@ export interface BrowseAssetsParams {
     minPrice?: number;
     maxPrice?: number;
     keyword?: string;
+    imageOrientation?: string;
+    imageMinResolution?: number;
+    imageFormat?: string;
+    videoOrientation?: string;
+    videoMinResolution?: number;
+    videoFormat?: string;
+    videoMinDuration?: number;
+    videoMaxDuration?: number;
+    videoMinFrameRate?: number;
 }
 
 export interface BrowseAssetsResponse {

@@ -10,7 +10,9 @@ import {
     getObjectBuffer,
     putObjectBuffer,
 } from "../lib/s3";
+import { imageDimensions } from "../lib/imageDimensions";
 import { watermarkImage } from "../lib/watermark";
+import { videoMetadata, type VideoMetadata } from "../lib/videoMetadata";
 import { generateVideoPreview } from "../lib/videoPreview";
 import { generateAudioPreview } from "../lib/audioPreview";
 import { generateFontPreview } from "../lib/fontPreview";
@@ -270,6 +272,7 @@ export async function registerFile(req: Request, res: Response) {
 
     const fileUrl = buildPublicFileUrl(key);
     let previewUrl: string | null = null;
+    let dimensions: { width: number; height: number } | VideoMetadata | undefined;
 
     // Auto-generated previews (watermark, clip, etc.) must be publicly readable,
     // so derive their key under previews/ — the original may now live under the
@@ -281,6 +284,7 @@ export async function registerFile(req: Request, res: Response) {
     } else if (fileType.startsWith("image/")) {
         try {
             const original = await getObjectBuffer(key);
+            dimensions = await imageDimensions(original);
             const watermarked = await watermarkImage(original);
             previewUrl = await putObjectBuffer({
                 key: previewBaseKey + ".preview.jpg",
@@ -293,6 +297,11 @@ export async function registerFile(req: Request, res: Response) {
     } else if (asset.category === "ANIMATION" && fileType.startsWith("video/")) {
         try {
             const original = await getObjectBuffer(key);
+            try {
+                dimensions = await videoMetadata(original);
+            } catch {
+                console.error("Video metadata could not be read", { assetId });
+            }
             const preview = await generateVideoPreview(original, { fullLength: true });
             previewUrl = await putObjectBuffer({
                 key: previewBaseKey + ".preview.mp4",
@@ -305,6 +314,11 @@ export async function registerFile(req: Request, res: Response) {
     } else if (fileType.startsWith("video/")) {
         try {
             const original = await getObjectBuffer(key);
+            try {
+                dimensions = await videoMetadata(original);
+            } catch {
+                console.error("Video metadata could not be read", { assetId });
+            }
             const preview = await generateVideoPreview(original);
             previewUrl = await putObjectBuffer({
                 key: previewBaseKey + ".preview.mp4",
@@ -352,6 +366,7 @@ export async function registerFile(req: Request, res: Response) {
             fileUrl,
             previewUrl,
             purpose: filePurpose,
+            ...dimensions,
         },
     });
 
@@ -390,6 +405,67 @@ export async function browseAssets(req: Request, res: Response) {
     const category = req.query.category as string | undefined;
     if (category && VALID_CATEGORIES.includes(category as AssetCategory)) {
         where.category = category as AssetCategory;
+    }
+
+    // Image filters use the same original file, never a resized preview.
+    // Scope them to IMAGE so other selected category sections stay unaffected.
+    if (category === "IMAGE") {
+        const orientations = String(req.query.imageOrientation ?? "").split(",");
+        const formats = String(req.query.imageFormat ?? "").split(",");
+        const mimeTypes: Record<string, string[]> = {
+            jpeg: ["image/jpeg", "image/jpg"], png: ["image/png"],
+            webp: ["image/webp"], gif: ["image/gif"],
+        };
+        const imageFile: Prisma.AssetFileWhereInput = { purpose: "ORIGINAL" };
+        const conditions: Prisma.AssetFileWhereInput[] = [];
+        const orientationConditions: Prisma.AssetFileWhereInput[] = [];
+        if (orientations.includes("landscape")) orientationConditions.push({ width: { gt: prisma.assetFile.fields.height } });
+        if (orientations.includes("portrait")) orientationConditions.push({ width: { lt: prisma.assetFile.fields.height } });
+        if (orientations.includes("square")) orientationConditions.push({ width: { equals: prisma.assetFile.fields.height } });
+        if (orientationConditions.length) conditions.push({ OR: orientationConditions });
+        const minimum = Number(req.query.imageMinResolution);
+        if (minimum === 1920 || minimum === 3840) conditions.push({ OR: [{ width: { gte: minimum } }, { height: { gte: minimum } }] });
+        const allowedTypes = formats.flatMap((format) => Object.prototype.hasOwnProperty.call(mimeTypes, format) ? mimeTypes[format] : []);
+        if (allowedTypes.length) imageFile.fileType = { in: allowedTypes };
+        else imageFile.fileType = { startsWith: "image/" };
+        if (conditions.length || allowedTypes.length) {
+            imageFile.AND = conditions;
+            where.files = { some: imageFile };
+        }
+    }
+
+    if (category === "VIDEO") {
+        const orientations = String(req.query.videoOrientation ?? "").split(",");
+        const formats = String(req.query.videoFormat ?? "").split(",");
+        const mimeTypes: Record<string, string[]> = {
+            mp4: ["video/mp4"], mov: ["video/quicktime"], webm: ["video/webm"],
+            avi: ["video/x-msvideo", "video/avi", "video/msvideo"],
+        };
+        const videoFile: Prisma.AssetFileWhereInput = { purpose: "ORIGINAL", fileType: { startsWith: "video/" } };
+        const conditions: Prisma.AssetFileWhereInput[] = [];
+        const orientationConditions: Prisma.AssetFileWhereInput[] = [];
+        if (orientations.includes("landscape")) orientationConditions.push({ width: { gt: prisma.assetFile.fields.height } });
+        if (orientations.includes("portrait")) orientationConditions.push({ width: { lt: prisma.assetFile.fields.height } });
+        if (orientations.includes("square")) orientationConditions.push({ width: { equals: prisma.assetFile.fields.height } });
+        if (orientationConditions.length) conditions.push({ OR: orientationConditions });
+        // Both axes must meet the minimum, including portrait videos.
+        const minimum = Number(req.query.videoMinResolution);
+        if ([720, 1080, 2160].includes(minimum)) conditions.push({ width: { gte: minimum }, height: { gte: minimum } });
+        const allowedTypes = formats.flatMap((format) => Object.prototype.hasOwnProperty.call(mimeTypes, format) ? mimeTypes[format] : []);
+        if (allowedTypes.length) videoFile.fileType = { in: allowedTypes };
+        const duration: Prisma.FloatNullableFilter = {};
+        for (const [key, operator] of [["videoMinDuration", "gte"], ["videoMaxDuration", "lte"]] as const) {
+            const raw = req.query[key];
+            const value = Number(raw);
+            if (typeof raw === "string" && raw.trim() !== "" && Number.isFinite(value) && value >= 0) duration[operator] = value;
+        }
+        if (Object.keys(duration).length) conditions.push({ durationSeconds: duration });
+        const frameRate = Number(req.query.videoMinFrameRate);
+        if ([24, 30, 60].includes(frameRate)) conditions.push({ frameRate: { gte: frameRate } });
+        if (conditions.length || allowedTypes.length) {
+            videoFile.AND = conditions;
+            where.files = { some: videoFile };
+        }
     }
 
     const listingType = req.query.listingType as string | undefined;

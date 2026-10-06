@@ -146,6 +146,10 @@ model AssetFile {
   fileUrl    String
   previewUrl String?
   fileSize   Int
+  width      Int?
+  height     Int?
+  durationSeconds Float?
+  frameRate       Float?
   purpose    AssetFilePurpose @default(ORIGINAL)
   createdAt  DateTime        @default(now())
 

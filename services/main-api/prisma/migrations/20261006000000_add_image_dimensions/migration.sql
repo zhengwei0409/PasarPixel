@@ -1,0 +1,1 @@
+ALTER TABLE "asset_files" ADD COLUMN "width" INTEGER, ADD COLUMN "height" INTEGER;

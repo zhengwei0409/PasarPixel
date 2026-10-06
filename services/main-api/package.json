@@ -6,6 +6,8 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
     "test": "node --test tests/*.test.cjs",
+    "backfill:image-dimensions": "ts-node src/scripts/backfillImageDimensions.ts",
+    "backfill:video-metadata": "ts-node src/scripts/backfillVideoMetadata.ts",
     "start": "node dist/services/main-api/src/index.js"
   },
   "prisma": {

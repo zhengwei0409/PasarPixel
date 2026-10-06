@@ -1,0 +1,1 @@
+ALTER TABLE "asset_files" ADD COLUMN "durationSeconds" DOUBLE PRECISION, ADD COLUMN "frameRate" DOUBLE PRECISION;
