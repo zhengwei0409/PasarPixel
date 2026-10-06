@@ -129,8 +129,9 @@
     }
 }
 
-/* Homepage palette, scoped to the asset page and its portaled report dialog. */
-.asset-detail-theme {
+/* Homepage palette for asset and order pages, including portaled controls. */
+.asset-detail-theme,
+.orders-theme {
     --background: #f7f7f2;
     --foreground: #252823;
     --card: #ffffff;

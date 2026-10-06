@@ -63,9 +63,10 @@ export async function downloadCertificate(
 
 // FR-3.4: fetch a short-lived signed link, download the ZIP as a blob, then
 // trigger a browser save. Keeping the token out of the address bar.
-export async function downloadOrder(id: number): Promise<void> {
+export async function downloadOrder(id: number, itemId?: number): Promise<void> {
     const { data } = await apiClient.get<{ url: string }>(
-        `/orders/${id}/download-url`
+        `/orders/${id}/download-url`,
+        { params: itemId === undefined ? undefined : { itemId } },
     );
 
     const res = await apiClient.get<Blob>(data.url, { responseType: "blob" });
@@ -74,10 +75,25 @@ export async function downloadOrder(id: number): Promise<void> {
     try {
         const a = document.createElement("a");
         a.href = objectUrl;
-        a.download = `order-${id}.zip`;
+        a.download = itemId === undefined ? `order-${id}.zip` : `order-${id}-asset-${itemId}.zip`;
         document.body.appendChild(a);
         a.click();
         a.remove();
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
+export async function downloadReceipt(orderId: number): Promise<void> {
+    const { data } = await apiClient.get<Blob>(`/orders/${orderId}/receipt`, { responseType: "blob" });
+    const objectUrl = URL.createObjectURL(data);
+    try {
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `receipt-${orderId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     } finally {
         URL.revokeObjectURL(objectUrl);
     }

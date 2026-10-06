@@ -6,10 +6,15 @@ interface CheckoutResponse {
     url: string;
 }
 
-// Creates a Stripe Checkout session for the current cart and returns the
+export interface CheckoutPayload {
+    currency: Currency;
+    cartItemIds: number[];
+}
+
+// Creates a Stripe Checkout session for selected cart items and returns the
 // hosted payment page URL to redirect the buyer to.
-export async function createCheckout(currency: Currency): Promise<string> {
-    const res = await apiClient.post<CheckoutResponse>("/checkout", { currency });
+export async function createCheckout(payload: CheckoutPayload): Promise<string> {
+    const res = await apiClient.post<CheckoutResponse>("/checkout", payload);
     return res.data.url;
 }
 

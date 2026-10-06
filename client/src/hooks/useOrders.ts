@@ -4,6 +4,7 @@ import {
     getOrderById,
     downloadOrder,
     downloadCertificate,
+    downloadReceipt,
     verifyLicense,
 } from "../services/orderService";
 import type { OrdersParams } from "../types/order";
@@ -27,6 +28,16 @@ export function useDownloadOrder() {
     return useMutation({
         mutationFn: (id: number) => downloadOrder(id),
     });
+}
+
+export function useDownloadOrderItem() {
+    return useMutation({
+        mutationFn: ({ orderId, itemId }: { orderId: number; itemId: number }) => downloadOrder(orderId, itemId),
+    });
+}
+
+export function useDownloadReceipt() {
+    return useMutation({ mutationFn: downloadReceipt });
 }
 
 // FR-3.5: download the PDF certificate for a single purchased item.

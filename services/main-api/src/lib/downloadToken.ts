@@ -11,6 +11,7 @@ const EXPIRES_IN_SECONDS = Number(
 interface DownloadTokenPayload {
   orderId: number;
   userId: number;
+  itemId?: number;
   exp: number; // unix epoch seconds
 }
 
@@ -29,10 +30,12 @@ function sign(payloadB64: string): string {
 export function signDownloadToken(params: {
   orderId: number;
   userId: number;
+  itemId?: number;
 }): string {
   const payload: DownloadTokenPayload = {
     orderId: params.orderId,
     userId: params.userId,
+    ...(params.itemId !== undefined ? { itemId: params.itemId } : {}),
     exp: Math.floor(Date.now() / 1000) + EXPIRES_IN_SECONDS,
   };
   const payloadB64 = base64url(JSON.stringify(payload));

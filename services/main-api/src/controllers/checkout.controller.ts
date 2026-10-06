@@ -12,7 +12,7 @@ function toStripeAmount(amount: number): number {
     return Math.round(amount * 100);
 }
 
-// Marks a paid order COMPLETED and clears the buyer's cart. Idempotent: only
+// Marks a paid order COMPLETED and removes its purchased assets from the cart. Idempotent: only
 // acts on a PENDING order, so it's safe to call from both the webhook and the
 // success-page verify endpoint (whichever arrives first wins; the other no-ops).
 async function fulfilOrder(orderId: number): Promise<void> {
@@ -26,7 +26,15 @@ async function fulfilOrder(orderId: number): Promise<void> {
         where: { id: orderId },
         data: { paymentStatus: "COMPLETED" },
     });
-    await prisma.cartItem.deleteMany({ where: { userId: order.buyerId } });
+    await prisma.cartItem.deleteMany({
+        where: {
+            userId: order.buyerId,
+            OR: order.orderItems.map((item) => ({
+                assetId: item.assetId,
+                licenseType: item.licenseType,
+            })),
+        },
+    });
 
     // Notify the buyer that their order went through.
     await publishOrderPaid({
@@ -65,10 +73,27 @@ export async function createCheckoutSession(req: Request, res: Response) {
         return;
     }
 
+    // Omitted IDs retain full-cart checkout for older clients. An explicit
+    // selection must be nonempty and belong entirely to this buyer's cart.
+    const requestedIds: unknown = req.body.cartItemIds;
+    if (requestedIds !== undefined && (
+        !Array.isArray(requestedIds) || requestedIds.length === 0 ||
+        !requestedIds.every((id) => typeof id === "number" && Number.isSafeInteger(id) && id > 0)
+    )) {
+        res.status(400).json({ error: "cartItemIds must be a nonempty array of positive integer IDs" });
+        return;
+    }
+    const cartItemIds = requestedIds === undefined ? undefined : [...new Set(requestedIds as number[])];
+
     const cartItems = await prisma.cartItem.findMany({
-        where: { userId },
+        where: { userId, ...(cartItemIds ? { id: { in: cartItemIds } } : {}) },
         include: { asset: true },
     });
+
+    if (cartItemIds && cartItems.length !== cartItemIds.length) {
+        res.status(409).json({ error: "Some selected assets are no longer in your cart. Refresh your cart and try again." });
+        return;
+    }
 
     if (cartItems.length === 0) {
         res.status(400).json({ error: "Cart is empty" });
@@ -138,14 +163,14 @@ export async function createCheckoutSession(req: Request, res: Response) {
     // Abandon any earlier PENDING orders for this buyer before creating a new
     // one. Otherwise a buyer who re-clicks Checkout (e.g. because the webhook was
     // slow) accumulates duplicate PENDING orders that never resolve. The new
-    // order below reflects the current cart; older pending attempts are stale.
+    // order below reflects the current selection; older pending attempts are stale.
     await prisma.order.updateMany({
         where: { buyerId: userId, paymentStatus: "PENDING" },
         data: { paymentStatus: "FAILED" },
     });
 
     // Create the PENDING order with its items in one transaction. Prices are
-    // locked in now; the webhook only flips PENDING -> COMPLETED and clears the cart.
+    // locked in now; fulfilment removes only the purchased assets from the cart.
     const order = await prisma.order.create({
         data: {
             buyerId: userId,

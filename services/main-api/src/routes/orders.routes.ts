@@ -7,6 +7,7 @@ import {
     downloadOrderZip,
     verifyLicense,
     getCertificate,
+    getReceipt,
 } from "../controllers/orders.controller";
 
 const router = Router();
@@ -26,5 +27,6 @@ router.get("/", getMyOrders);
 router.get("/:id", getMyOrderById);
 router.get("/:id/download-url", getDownloadUrl);
 router.get("/:id/items/:itemId/certificate", getCertificate);
+router.get("/:id/receipt", getReceipt);
 
 export default router;

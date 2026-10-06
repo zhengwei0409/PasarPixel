@@ -8,6 +8,7 @@ import {
     verifyDownloadToken,
 } from "../lib/downloadToken";
 import { buildCertificate } from "../lib/certificate";
+import { buildReceipt } from "../lib/receipt";
 
 const VALID_PAYMENT_STATUSES: PaymentStatus[] = [
     "PENDING",
@@ -214,6 +215,11 @@ export async function getCertificate(req: Request, res: Response) {
 export async function getDownloadUrl(req: Request, res: Response) {
     const userId = req.user!.userId;
     const orderId = parseInt(req.params.id as string);
+    const itemId = req.query.itemId === undefined ? undefined : Number(req.query.itemId);
+    if (itemId !== undefined && (!Number.isSafeInteger(itemId) || itemId < 1)) {
+        res.status(400).json({ error: "Invalid item id" });
+        return;
+    }
     if (isNaN(orderId)) {
         res.status(400).json({ error: "Invalid order id" });
         return;
@@ -221,7 +227,7 @@ export async function getDownloadUrl(req: Request, res: Response) {
 
     const order = await prisma.order.findUnique({
         where: { id: orderId },
-        select: { id: true, buyerId: true, paymentStatus: true },
+        select: { id: true, buyerId: true, paymentStatus: true, orderItems: { select: { id: true } } },
     });
 
     // Don't reveal existence of other buyers' orders — treat as not found.
@@ -236,7 +242,12 @@ export async function getDownloadUrl(req: Request, res: Response) {
         return;
     }
 
-    const token = signDownloadToken({ orderId, userId });
+    if (itemId !== undefined && !order.orderItems.some((item) => item.id === itemId)) {
+        res.status(404).json({ error: "Order item not found" });
+        return;
+    }
+
+    const token = signDownloadToken({ orderId, userId, itemId });
     res.json({ url: `/orders/${orderId}/download?token=${token}` });
 }
 
@@ -282,7 +293,10 @@ export async function downloadOrderZip(req: Request, res: Response) {
     // Collect every file across every purchased asset, namespaced by asset title
     // so files from different assets don't collide inside the ZIP.
     const entries: { key: string; name: string }[] = [];
-    for (const item of order.orderItems) {
+    const items = payload.itemId === undefined
+        ? order.orderItems
+        : order.orderItems.filter((item) => item.id === payload.itemId);
+    for (const item of items) {
         const folder = `${item.asset.id}-${item.asset.title}`.replace(
             /[/\\]/g,
             "_"
@@ -322,4 +336,39 @@ export async function downloadOrderZip(req: Request, res: Response) {
     }
 
     await archive.finalize();
+}
+
+// Paid receipt generated from the buyer's stored order, without invented tax
+// or card details. Ownership is checked before exposing any order information.
+export async function getReceipt(req: Request, res: Response) {
+    const orderId = Number(req.params.id);
+    if (!Number.isSafeInteger(orderId) || orderId < 1) {
+        res.status(400).json({ error: "Invalid order id" });
+        return;
+    }
+    const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+            buyer: { select: { name: true } },
+            orderItems: { include: { asset: { select: { title: true } } } },
+        },
+    });
+    if (!order || order.buyerId !== req.user!.userId || order.paymentStatus !== "COMPLETED") {
+        res.status(404).json({ error: "Receipt not found" });
+        return;
+    }
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="receipt-${orderId}.pdf"`);
+    buildReceipt({
+        orderId,
+        buyerName: order.buyer.name,
+        createdAt: order.createdAt,
+        currency: order.currency,
+        totalAmount: Number(order.totalAmount),
+        items: order.orderItems.map((item) => ({
+            title: item.asset.title,
+            licenseType: item.licenseType,
+            price: Number(item.price),
+        })),
+    }).pipe(res);
 }
