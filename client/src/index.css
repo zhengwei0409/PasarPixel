@@ -128,3 +128,24 @@
     @apply font-sans;
     }
 }
+
+/* Homepage palette, scoped to the asset page and its portaled report dialog. */
+.asset-detail-theme {
+    --background: #f7f7f2;
+    --foreground: #252823;
+    --card: #ffffff;
+    --card-foreground: #252823;
+    --popover: #ffffff;
+    --popover-foreground: #252823;
+    --primary: #30392b;
+    --primary-foreground: #ffffff;
+    --secondary: #eceee7;
+    --secondary-foreground: #555e49;
+    --muted: #e9ecdf;
+    --muted-foreground: #73776e;
+    --accent: #e3e8d8;
+    --accent-foreground: #30392b;
+    --border: #dfe4d6;
+    --input: #dfe4d6;
+    --ring: #7a8568;
+}

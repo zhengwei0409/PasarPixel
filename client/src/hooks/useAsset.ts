@@ -23,6 +23,8 @@ import {
     getAssetReviews,
     submitReview,
     deleteReview,
+    getReviewEligibility,
+    submitSellerReply,
 } from "../services/assetService";
 import type {
     Asset,
@@ -283,3 +285,22 @@ export function useDeleteReview() {
 }
 
 export type { Asset };
+
+export function useReviewEligibility(assetId: number, userId?: string) {
+    return useQuery({
+        queryKey: ["assets", "review-eligibility", assetId, userId],
+        queryFn: () => getReviewEligibility(assetId),
+        enabled: !!userId,
+    });
+}
+
+export function useSellerReply() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ assetId, reviewId, reply }: { assetId: number; reviewId: number; reply: string }) =>
+            submitSellerReply(assetId, reviewId, reply),
+        onSuccess: (_data, vars) => {
+            queryClient.invalidateQueries({ queryKey: ["assets", "reviews", vars.assetId] });
+        },
+    });
+}

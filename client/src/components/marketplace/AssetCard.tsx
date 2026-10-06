@@ -13,7 +13,7 @@ const CATEGORY_LABELS: Record<BrowseAssetItem["category"], string> = {
     THREE_D_MODEL: "3D Model",
     IMAGE: "Image",
     VIDEO: "Video",
-    SOUND_EFFECT: "Sound",
+    SOUND_EFFECT: "Audio",
     FONT: "Font",
     ANIMATION: "Animation",
 };

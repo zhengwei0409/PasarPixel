@@ -21,7 +21,7 @@ const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
     { value: "THREE_D_MODEL", label: "3D models" },
     { value: "IMAGE", label: "Images" },
     { value: "VIDEO", label: "Videos" },
-    { value: "SOUND_EFFECT", label: "Sound effects" },
+    { value: "SOUND_EFFECT", label: "Audio" },
     { value: "FONT", label: "Fonts" },
     { value: "ANIMATION", label: "Animations" },
 ];
@@ -49,6 +49,32 @@ const VIDEO_FORMATS = [
     { value: "mov", label: "MOV" },
     { value: "webm", label: "WebM" },
     { value: "avi", label: "AVI" },
+];
+const ANIMATION_FORMATS = [
+    { value: "glb", label: "GLB" },
+    { value: "fbx", label: "FBX" },
+    { value: "blend", label: "BLEND" },
+];
+const MODEL_FORMATS = [
+    { value: "glb", label: "GLB" },
+    { value: "gltf", label: "GLTF" },
+    { value: "fbx", label: "FBX" },
+    { value: "obj", label: "OBJ" },
+    { value: "blend", label: "BLEND" },
+    { value: "stl", label: "STL" },
+];
+const FONT_FORMATS = [
+    { value: "ttf", label: "TTF" },
+    { value: "otf", label: "OTF" },
+    { value: "woff", label: "WOFF" },
+    { value: "woff2", label: "WOFF2" },
+];
+const AUDIO_FORMATS = [
+    { value: "mp3", label: "MP3" },
+    { value: "wav", label: "WAV" },
+    { value: "flac", label: "FLAC" },
+    { value: "aac", label: "AAC / M4A" },
+    { value: "ogg", label: "OGG" },
 ];
 const VIDEO_RESOLUTIONS = [
     { value: "720", label: "HD — 720p+" },
@@ -145,6 +171,38 @@ export default function MarketplacePage() {
         ...(validMaxDuration ? { videoMaxDuration: Number(debouncedMaxDuration) } : {}),
     };
     const videoFilterKey = JSON.stringify(videoParams);
+    const audioSelected = selectedCategories.some((option) => option.value === "SOUND_EFFECT");
+    const audioFormats = AUDIO_FORMATS.filter((option) => searchParams.getAll("audioFormat").includes(option.value));
+    const audioMinDuration = searchParams.get("audioMinDuration") ?? "";
+    const audioMaxDuration = searchParams.get("audioMaxDuration") ?? "";
+    const debouncedAudioMinDuration = useDebounce(audioMinDuration, 300);
+    const debouncedAudioMaxDuration = useDebounce(audioMaxDuration, 300);
+    const validAudioMinDuration = debouncedAudioMinDuration.trim() !== "" && Number.isFinite(Number(debouncedAudioMinDuration)) && Number(debouncedAudioMinDuration) >= 0;
+    const validAudioMaxDuration = debouncedAudioMaxDuration.trim() !== "" && Number.isFinite(Number(debouncedAudioMaxDuration)) && Number(debouncedAudioMaxDuration) >= 0;
+    const audioParams: BrowseAssetsParams = {
+        ...(audioFormats.length ? { audioFormat: audioFormats.map((option) => option.value).join(",") } : {}),
+        ...(validAudioMinDuration ? { audioMinDuration: Number(debouncedAudioMinDuration) } : {}),
+        ...(validAudioMaxDuration ? { audioMaxDuration: Number(debouncedAudioMaxDuration) } : {}),
+    };
+    const audioFilterKey = JSON.stringify(audioParams);
+    const fontsSelected = selectedCategories.some((option) => option.value === "FONT");
+    const fontFormats = FONT_FORMATS.filter((option) => searchParams.getAll("fontFormat").includes(option.value));
+    const fontParams: BrowseAssetsParams = {
+        ...(fontFormats.length ? { fontFormat: fontFormats.map((option) => option.value).join(",") } : {}),
+    };
+    const fontFilterKey = JSON.stringify(fontParams);
+    const modelsSelected = selectedCategories.some((option) => option.value === "THREE_D_MODEL");
+    const modelFormats = MODEL_FORMATS.filter((option) => searchParams.getAll("modelFormat").includes(option.value));
+    const modelParams: BrowseAssetsParams = {
+        ...(modelFormats.length ? { modelFormat: modelFormats.map((option) => option.value).join(",") } : {}),
+    };
+    const modelFilterKey = JSON.stringify(modelParams);
+    const animationsSelected = selectedCategories.some((option) => option.value === "ANIMATION");
+    const animationFormats = ANIMATION_FORMATS.filter((option) => searchParams.getAll("animationFormat").includes(option.value));
+    const animationParams: BrowseAssetsParams = {
+        ...(animationFormats.length ? { animationFormat: animationFormats.map((option) => option.value).join(",") } : {}),
+    };
+    const animationFilterKey = JSON.stringify(animationParams);
     const sortParam = searchParams.get("sort");
     const sort = SORT_OPTIONS.some((option) => option.value === sortParam)
         ? sortParam as BrowseSort : "newest";
@@ -196,6 +254,10 @@ export default function MarketplacePage() {
             next.delete("imageOrientation");
             next.delete("imageFormat");
             next.delete("imageMinResolution");
+            next.delete("fontFormat");
+            next.delete("modelFormat");
+            next.delete("animationFormat");
+            ["audioFormat", "audioMinDuration", "audioMaxDuration"].forEach((key) => next.delete(key));
             ["videoOrientation", "videoFormat", "videoMinResolution", "videoMinFrameRate", "videoMinDuration", "videoMaxDuration"].forEach((key) => next.delete(key));
             return next;
         }, { replace: true });
@@ -219,6 +281,14 @@ export default function MarketplacePage() {
             ...(frameRate !== ALL ? [{ key: "video-frame-rate", label: `Videos: ${frameRate} fps+`, remove: () => setBrowseParam("videoMinFrameRate", ALL) }] : []),
             ...(minDuration ? [{ key: "video-min-duration", label: `Videos: ${minDuration}s minimum`, remove: () => setBrowseParam("videoMinDuration", "") }] : []),
             ...(maxDuration ? [{ key: "video-max-duration", label: `Videos: ${maxDuration}s maximum`, remove: () => setBrowseParam("videoMaxDuration", "") }] : []),
+        ] : []),
+        ...(animationsSelected ? animationFormats.map((option) => ({ key: `animation-format-${option.value}`, label: `Animations: ${option.label}`, remove: () => toggleMultiParam("animationFormat", option.value) })) : []),
+        ...(modelsSelected ? modelFormats.map((option) => ({ key: `model-format-${option.value}`, label: `3D models: ${option.label}`, remove: () => toggleMultiParam("modelFormat", option.value) })) : []),
+        ...(fontsSelected ? fontFormats.map((option) => ({ key: `font-format-${option.value}`, label: `Fonts: ${option.label}`, remove: () => toggleMultiParam("fontFormat", option.value) })) : []),
+        ...(audioSelected ? [
+            ...audioFormats.map((option) => ({ key: `audio-format-${option.value}`, label: `Audio: ${option.label}`, remove: () => toggleMultiParam("audioFormat", option.value) })),
+            ...(audioMinDuration ? [{ key: "audio-min-duration", label: `Audio: ${audioMinDuration}s minimum`, remove: () => setBrowseParam("audioMinDuration", "") }] : []),
+            ...(audioMaxDuration ? [{ key: "audio-max-duration", label: `Audio: ${audioMaxDuration}s maximum`, remove: () => setBrowseParam("audioMaxDuration", "") }] : []),
         ] : []),
         ...(listingType !== ALL ? [{ key: "listing", label: listingType === "TRADITIONAL" ? "Traditional" : "Blockchain", remove: () => setListingType(ALL) }] : []),
         ...(aiFilter !== ALL ? [{ key: "source", label: aiFilter === "AI" ? "AI-generated" : "Human-made", remove: () => setAiFilter(ALL) }] : []),
@@ -286,6 +356,44 @@ export default function MarketplacePage() {
                             <fieldset>
                                 <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
                                 {IMAGE_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={imageFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("imageFormat", option.value)} />)}
+                            </fieldset>
+                        </AdvancedFilters>}
+                        {animationsSelected && <AdvancedFilters category="Animations">
+                            <fieldset>
+                                <legend className="mb-2 text-xs font-medium text-[#555e49]">Download file format</legend>
+                                {ANIMATION_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={animationFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("animationFormat", option.value)} />)}
+                            </fieldset>
+                        </AdvancedFilters>}
+                        {modelsSelected && <AdvancedFilters category="3D models">
+                            <fieldset>
+                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
+                                {MODEL_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={modelFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("modelFormat", option.value)} />)}
+                            </fieldset>
+                        </AdvancedFilters>}
+                        {fontsSelected && <AdvancedFilters category="Fonts">
+                            <fieldset>
+                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
+                                {FONT_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={fontFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("fontFormat", option.value)} />)}
+                            </fieldset>
+                        </AdvancedFilters>}
+                        {audioSelected && <AdvancedFilters category="Audio">
+                            <fieldset>
+                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
+                                {AUDIO_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={audioFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("audioFormat", option.value)} />)}
+                            </fieldset>
+                            <fieldset>
+                                <legend className="mb-3 text-xs font-medium text-[#555e49]">Duration (seconds)</legend>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <Label htmlFor="audio-min-duration" className="mb-2 text-xs text-[#73776e]">Minimum</Label>
+                                        <Input id="audio-min-duration" type="number" min="0" step="any" placeholder="0" value={audioMinDuration} onChange={(event) => setBrowseParam("audioMinDuration", event.target.value)} className="h-10 border-[#dfe4d6] bg-white shadow-none focus-visible:ring-[#7a8568]/20" />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="audio-max-duration" className="mb-2 text-xs text-[#73776e]">Maximum</Label>
+                                        <Input id="audio-max-duration" type="number" min="0" step="any" placeholder="Any" value={audioMaxDuration} onChange={(event) => setBrowseParam("audioMaxDuration", event.target.value)} className="h-10 border-[#dfe4d6] bg-white shadow-none focus-visible:ring-[#7a8568]/20" />
+                                    </div>
+                                </div>
+                                {audioMinDuration !== "" && audioMaxDuration !== "" && Number(audioMinDuration) > Number(audioMaxDuration) && <p className="mt-2 text-xs text-destructive">Maximum must be at least the minimum.</p>}
                             </fieldset>
                         </AdvancedFilters>}
                         {videosSelected && <AdvancedFilters category="Videos">
@@ -370,9 +478,9 @@ export default function MarketplacePage() {
                         <div className="space-y-10">
                             {selectedCategories.length > 0 ? selectedCategories.map((option) => (
                                 <CategoryResults
-                                    key={`${option.value}:${filterKey}:${option.value === "IMAGE" ? imageFilterKey : option.value === "VIDEO" ? videoFilterKey : ""}`}
+                                    key={`${option.value}:${filterKey}:${option.value === "IMAGE" ? imageFilterKey : option.value === "VIDEO" ? videoFilterKey : option.value === "SOUND_EFFECT" ? audioFilterKey : option.value === "FONT" ? fontFilterKey : option.value === "THREE_D_MODEL" ? modelFilterKey : option.value === "ANIMATION" ? animationFilterKey : ""}`}
                                     title={option.label}
-                                    params={{ ...params, category: option.value, ...(option.value === "IMAGE" ? imageParams : option.value === "VIDEO" ? videoParams : {}) }}
+                                    params={{ ...params, category: option.value, ...(option.value === "IMAGE" ? imageParams : option.value === "VIDEO" ? videoParams : option.value === "SOUND_EFFECT" ? audioParams : option.value === "FONT" ? fontParams : option.value === "THREE_D_MODEL" ? modelParams : option.value === "ANIMATION" ? animationParams : {}) }}
                                     onClearFilters={clearFilters}
                                     hasFilters={activeFilters.length > 0}
                                 />

@@ -13,7 +13,7 @@ const CATEGORIES = [
     { value: "THREE_D_MODEL", label: "3D models", icon: Box },
     { value: "IMAGE", label: "Images", icon: ImageIcon },
     { value: "VIDEO", label: "Videos", icon: Film },
-    { value: "SOUND_EFFECT", label: "Sound effects", icon: Music2 },
+    { value: "SOUND_EFFECT", label: "Audio", icon: Music2 },
     { value: "FONT", label: "Fonts", icon: Type },
     { value: "ANIMATION", label: "Animations", icon: Sparkles },
 ] satisfies { value: AssetCategory | "ALL"; label: string; icon: typeof Search }[];

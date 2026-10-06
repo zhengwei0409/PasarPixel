@@ -165,3 +165,132 @@ test("zero maximum duration is preserved and AVI MIME variants are accepted", as
     assert.deepEqual(calls.assets.where.files.some.AND, [{ durationSeconds: { lte: 0 } }]);
     assert.deepEqual(calls.assets.where.files.some.fileType.in, ["video/x-msvideo", "video/avi", "video/msvideo"]);
 });
+
+test("audio format and duration match one original before ranking and totals", async () => {
+    const { calls } = await browse({ category: "SOUND_EFFECT", sort: "best_selling", audioFormat: "mp3,wav", audioMinDuration: "2.5", audioMaxDuration: "90" });
+    assert.deepEqual(calls.assets.where.files.some, {
+        purpose: "ORIGINAL",
+        fileType: { in: ["audio/mpeg", "audio/mp3", "audio/x-mp3", "audio/wav", "audio/wave", "audio/x-wav", "audio/vnd.wave"] },
+        durationSeconds: { gte: 2.5, lte: 90 },
+    });
+    assert.deepEqual(calls.sales.where.asset.files, calls.assets.where.files);
+    assert.deepEqual(calls.count.where.files, calls.assets.where.files);
+});
+
+test("audio duration accepts zero and decimals without requiring a format", async () => {
+    const { calls } = await browse({ category: "SOUND_EFFECT", audioMinDuration: "0", audioMaxDuration: "0.75" });
+    assert.deepEqual(calls.assets.where.files.some, {
+        purpose: "ORIGINAL", fileType: { startsWith: "audio/" }, durationSeconds: { gte: 0, lte: 0.75 },
+    });
+});
+
+test("audio filters leave other categories unaffected and ignore invalid values", async () => {
+    for (const category of [undefined, "IMAGE", "VIDEO", "ANIMATION"]) {
+        const { calls } = await browse({ category, audioFormat: "mp3", audioMinDuration: "5" });
+        assert.equal(calls.assets.where.files, undefined);
+    }
+    for (const value of ["", " ", "-1", "NaN", "Infinity", ["5", "10"]]) {
+        const { calls } = await browse({ category: "SOUND_EFFECT", audioFormat: "__proto__,invalid", audioMinDuration: value, audioMaxDuration: value });
+        assert.equal(calls.assets.where.files, undefined);
+    }
+});
+
+test("font formats match original files before pagination, ranking, and totals", async () => {
+    const { calls } = await browse({ category: "FONT", sort: "best_selling", fontFormat: "ttf,woff2" });
+    const file = calls.assets.where.files.some;
+    assert.equal(file.purpose, "ORIGINAL");
+    assert.deepEqual(file.OR, [
+        { fileType: { in: ["font/ttf", "application/x-font-ttf", "application/x-font-truetype"] } },
+        { fileUrl: { endsWith: ".ttf", mode: "insensitive" } },
+        { fileType: { in: ["font/woff2", "application/font-woff2", "application/x-font-woff2"] } },
+        { fileUrl: { endsWith: ".woff2", mode: "insensitive" } },
+    ]);
+    assert.deepEqual(calls.sales.where.asset.files, calls.assets.where.files);
+    assert.deepEqual(calls.count.where.files, calls.assets.where.files);
+});
+
+test("each supported font format includes an extension fallback for generic MIME uploads", async () => {
+    for (const format of ["ttf", "otf", "woff", "woff2"]) {
+        const { calls } = await browse({ category: "FONT", fontFormat: format });
+        const options = calls.assets.where.files.some.OR;
+        assert.ok(options[0].fileType.in.includes(`font/${format}`));
+        assert.deepEqual(options[1], { fileUrl: { endsWith: `.${format}`, mode: "insensitive" } });
+    }
+});
+
+test("font filters leave other category results unaffected", async () => {
+    for (const category of [undefined, "IMAGE", "VIDEO", "SOUND_EFFECT", "ANIMATION", "THREE_D_MODEL"]) {
+        const { calls } = await browse({ category, fontFormat: "ttf,otf,woff,woff2" });
+        assert.equal(calls.assets.where.files, undefined);
+    }
+});
+
+test("font filtering ignores unsupported values and deduplicates valid choices", async () => {
+    const invalid = await browse({ category: "FONT", fontFormat: "__proto__,constructor,eot,invalid" });
+    assert.equal(invalid.calls.assets.where.files, undefined);
+    const mixed = await browse({ category: "FONT", fontFormat: "woff,woff,invalid" });
+    assert.equal(mixed.calls.assets.where.files.some.OR.length, 2);
+});
+
+test("3D formats match original download extensions before ranking and totals", async () => {
+    const { calls } = await browse({ category: "THREE_D_MODEL", sort: "best_selling", modelFormat: "glb,fbx,blend" });
+    assert.deepEqual(calls.assets.where.files.some, {
+        purpose: "ORIGINAL",
+        OR: ["glb", "fbx", "blend"].map((format) => ({ fileUrl: { endsWith: `.${format}`, mode: "insensitive" } })),
+    });
+    assert.deepEqual(calls.sales.where.asset.files, calls.assets.where.files);
+    assert.deepEqual(calls.count.where.files, calls.assets.where.files);
+});
+
+test("all six 3D formats use exact extensions and exclude preview files", async () => {
+    for (const format of ["glb", "gltf", "fbx", "obj", "blend", "stl"]) {
+        const { calls } = await browse({ category: "THREE_D_MODEL", modelFormat: format });
+        assert.deepEqual(calls.assets.where.files.some, {
+            purpose: "ORIGINAL",
+            OR: [{ fileUrl: { endsWith: `.${format}`, mode: "insensitive" } }],
+        });
+    }
+});
+
+test("3D format filters leave other categories unaffected", async () => {
+    for (const category of [undefined, "IMAGE", "VIDEO", "SOUND_EFFECT", "FONT", "ANIMATION"]) {
+        const { calls } = await browse({ category, modelFormat: "glb,fbx" });
+        assert.equal(calls.assets.where.files, undefined);
+    }
+});
+
+test("3D format filtering ignores unsupported values and deduplicates choices", async () => {
+    const invalid = await browse({ category: "THREE_D_MODEL", modelFormat: "__proto__,constructor,zip,invalid" });
+    assert.equal(invalid.calls.assets.where.files, undefined);
+    const mixed = await browse({ category: "THREE_D_MODEL", modelFormat: "obj,obj,invalid" });
+    assert.deepEqual(mixed.calls.assets.where.files.some.OR, [{ fileUrl: { endsWith: ".obj", mode: "insensitive" } }]);
+});
+
+test("animation formats match original downloads before ranking and totals", async () => {
+    const { calls } = await browse({ category: "ANIMATION", sort: "best_selling", animationFormat: "glb,fbx,blend" });
+    assert.deepEqual(calls.assets.where.files.some, {
+        purpose: "ORIGINAL",
+        OR: ["glb", "fbx", "blend"].map((format) => ({ fileUrl: { endsWith: `.${format}`, mode: "insensitive" } })),
+    });
+    assert.deepEqual(calls.sales.where.asset.files, calls.assets.where.files);
+    assert.deepEqual(calls.count.where.files, calls.assets.where.files);
+});
+
+test("animation formats exclude preview files and ignore unsupported formats", async () => {
+    for (const format of ["glb", "fbx", "blend"]) {
+        const { calls } = await browse({ category: "ANIMATION", animationFormat: `${format},${format},mp4,obj,__proto__` });
+        assert.deepEqual(calls.assets.where.files.some, {
+            purpose: "ORIGINAL",
+            OR: [{ fileUrl: { endsWith: `.${format}`, mode: "insensitive" } }],
+        });
+    }
+    const { calls } = await browse({ category: "ANIMATION", animationFormat: "mp4,obj,gltf,stl,__proto__,constructor" });
+    assert.equal(calls.assets.where.files, undefined);
+});
+
+test("animation format filters leave other categories unaffected", async () => {
+    for (const category of [undefined, "IMAGE", "VIDEO", "SOUND_EFFECT", "FONT", "THREE_D_MODEL"]) {
+        const { calls } = await browse({ category, animationFormat: "glb,fbx,blend" });
+        assert.equal(calls.assets.where.files, undefined);
+    }
+});

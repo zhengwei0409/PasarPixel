@@ -142,6 +142,8 @@ export interface Review {
     assetId: number;
     rating: number;
     comment: string | null;
+    sellerReply: string | null;
+    sellerReplyUpdatedAt: string | null;
     createdAt: string;
     user: { userId: number; name: string; avatarUrl: string | null };
 }
@@ -178,6 +180,12 @@ export interface BrowseAssetsParams {
     videoMinDuration?: number;
     videoMaxDuration?: number;
     videoMinFrameRate?: number;
+    animationFormat?: string;
+    modelFormat?: string;
+    fontFormat?: string;
+    audioFormat?: string;
+    audioMinDuration?: number;
+    audioMaxDuration?: number;
 }
 
 export interface BrowseAssetsResponse {

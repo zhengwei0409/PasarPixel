@@ -159,3 +159,13 @@ export async function submitReview(
 export async function deleteReview(assetId: number): Promise<void> {
     await apiClient.delete(`/assets/${assetId}/reviews`);
 }
+
+export async function getReviewEligibility(assetId: number): Promise<{ canReview: boolean }> {
+    const res = await apiClient.get<{ canReview: boolean }>(`/assets/${assetId}/reviews/eligibility`);
+    return res.data;
+}
+
+export async function submitSellerReply(assetId: number, reviewId: number, reply: string): Promise<Review> {
+    const res = await apiClient.put<Review>(`/assets/${assetId}/reviews/${reviewId}/reply`, { reply });
+    return res.data;
+}

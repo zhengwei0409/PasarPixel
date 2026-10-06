@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
 import { createAsset, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getAssetForReview, getAssetFileDownloadUrl, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, reopenRejected, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
-import { getAssetReviews, upsertReview, deleteReview } from "../controllers/review.controller";
+import { getAssetReviews, upsertReview, deleteReview, getReviewEligibility, upsertSellerReply } from "../controllers/review.controller";
 
 const router = Router();
 
@@ -9,6 +9,8 @@ router.get("/browse", browseAssets);
 router.get("/browse/:id", getPublicAssetById);
 router.get("/browse/:id/related", getRelatedAssets);
 router.get("/:id/reviews", getAssetReviews);
+router.get("/:id/reviews/eligibility", authenticate, getReviewEligibility);
+router.put("/:id/reviews/:reviewId/reply", authenticate, requireRole("SELLER"), upsertSellerReply);
 router.post("/:id/reviews", authenticate, upsertReview);
 router.delete("/:id/reviews", authenticate, deleteReview);
 router.post("/", authenticate, requireRole("SELLER"), createAsset);

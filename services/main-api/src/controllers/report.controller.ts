@@ -26,16 +26,18 @@ export async function createReport(req: Request, res: Response) {
         res.status(404).json({ error: "Asset not found" });
         return;
     }
-    if (asset.sellerId === userId) {
-        res.status(403).json({ error: "You cannot report your own asset" });
-        return;
+    try {
+        const report = await prisma.report.create({
+            data: { userId, assetId, reason: reason.trim() },
+        });
+        res.status(201).json(report);
+    } catch (error) {
+        if ((error as { code?: string }).code === "P2002") {
+            res.status(409).json({ error: "You have already reported this asset." });
+            return;
+        }
+        throw error;
     }
-
-    const report = await prisma.report.create({
-        data: { userId, assetId, reason: reason.trim() },
-    });
-
-    res.status(201).json(report);
 }
 
 // GET /reports — admin-only list of all reports, newest first. Each report

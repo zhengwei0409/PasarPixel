@@ -138,3 +138,55 @@ export async function deleteReview(req: Request, res: Response) {
     await prisma.review.delete({ where: { userId_assetId: { userId, assetId } } });
     res.status(204).send();
 }
+
+// Authenticated eligibility keeps the review form limited to verified buyers.
+export async function getReviewEligibility(req: Request, res: Response) {
+    const assetId = Number(req.params.id);
+    if (!Number.isSafeInteger(assetId) || assetId < 1) {
+        res.status(400).json({ error: "Invalid asset id" });
+        return;
+    }
+    const asset = await prisma.asset.findFirst({
+        where: { id: assetId, status: "PUBLISHED", isDeleted: false },
+        select: { sellerId: true },
+    });
+    if (!asset) {
+        res.status(404).json({ error: "Asset not found" });
+        return;
+    }
+    res.json({ canReview: asset.sellerId !== req.user!.userId &&
+        await hasPurchasedAsset(req.user!.userId, assetId) });
+}
+
+// One reply lives on each review. Only this asset's seller may write it.
+export async function upsertSellerReply(req: Request, res: Response) {
+    const assetId = Number(req.params.id);
+    const reviewId = Number(req.params.reviewId);
+    const reply = req.body.reply;
+    if (!Number.isSafeInteger(assetId) || assetId < 1 || !Number.isSafeInteger(reviewId) || reviewId < 1) {
+        res.status(400).json({ error: "Invalid asset or review id" });
+        return;
+    }
+    if (typeof reply !== "string" || !reply.trim() || reply.trim().length > 2000) {
+        res.status(400).json({ error: "Reply must contain between 1 and 2000 characters" });
+        return;
+    }
+    const review = await prisma.review.findFirst({
+        where: { id: reviewId, assetId },
+        include: { asset: { select: { sellerId: true } } },
+    });
+    if (!review) {
+        res.status(404).json({ error: "Review not found" });
+        return;
+    }
+    if (review.asset.sellerId !== req.user!.userId) {
+        res.status(403).json({ error: "Only the asset seller can reply to this review" });
+        return;
+    }
+    const updated = await prisma.review.update({
+        where: { id: reviewId },
+        data: { sellerReply: reply.trim(), sellerReplyUpdatedAt: new Date() },
+        include: { user: { select: { userId: true, name: true, avatarUrl: true } } },
+    });
+    res.json(updated);
+}

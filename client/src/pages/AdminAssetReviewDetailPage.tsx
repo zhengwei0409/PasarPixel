@@ -16,7 +16,7 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
     THREE_D_MODEL: "3D Model",
     IMAGE: "Image",
     VIDEO: "Video",
-    SOUND_EFFECT: "Sound Effect",
+    SOUND_EFFECT: "Audio",
     FONT: "Font",
     ANIMATION: "Animation",
 };

@@ -14,6 +14,7 @@ import { imageDimensions } from "../lib/imageDimensions";
 import { watermarkImage } from "../lib/watermark";
 import { videoMetadata, type VideoMetadata } from "../lib/videoMetadata";
 import { generateVideoPreview } from "../lib/videoPreview";
+import { audioMetadata } from "../lib/audioMetadata";
 import { generateAudioPreview } from "../lib/audioPreview";
 import { generateFontPreview } from "../lib/fontPreview";
 import { publishAssetApproved, publishAssetRejected, publishAssetRemoved } from "../lib/publisher";
@@ -272,7 +273,7 @@ export async function registerFile(req: Request, res: Response) {
 
     const fileUrl = buildPublicFileUrl(key);
     let previewUrl: string | null = null;
-    let dimensions: { width: number; height: number } | VideoMetadata | undefined;
+    let dimensions: { width: number; height: number } | VideoMetadata | { durationSeconds: number } | undefined;
 
     // Auto-generated previews (watermark, clip, etc.) must be publicly readable,
     // so derive their key under previews/ — the original may now live under the
@@ -331,6 +332,11 @@ export async function registerFile(req: Request, res: Response) {
     } else if (fileType.startsWith("audio/")) {
         try {
             const original = await getObjectBuffer(key);
+            try {
+                dimensions = await audioMetadata(original);
+            } catch {
+                console.error("Audio metadata could not be read", { assetId });
+            }
             const preview = await generateAudioPreview(original);
             previewUrl = await putObjectBuffer({
                 key: previewBaseKey + ".preview.m4a",
@@ -465,6 +471,85 @@ export async function browseAssets(req: Request, res: Response) {
         if (conditions.length || allowedTypes.length) {
             videoFile.AND = conditions;
             where.files = { some: videoFile };
+        }
+    }
+
+    if (category === "SOUND_EFFECT") {
+        const formats = String(req.query.audioFormat ?? "").split(",");
+        const mimeTypes: Record<string, string[]> = {
+            mp3: ["audio/mpeg", "audio/mp3", "audio/x-mp3"],
+            wav: ["audio/wav", "audio/wave", "audio/x-wav", "audio/vnd.wave"],
+            flac: ["audio/flac", "audio/x-flac"],
+            aac: ["audio/aac", "audio/x-aac", "audio/mp4", "audio/m4a", "audio/x-m4a"],
+            ogg: ["audio/ogg", "audio/opus", "audio/vorbis"],
+        };
+        const allowedTypes = formats.flatMap((format) => Object.prototype.hasOwnProperty.call(mimeTypes, format) ? mimeTypes[format] : []);
+        const duration: Prisma.FloatNullableFilter = {};
+        for (const [key, operator] of [["audioMinDuration", "gte"], ["audioMaxDuration", "lte"]] as const) {
+            const raw = req.query[key];
+            const value = Number(raw);
+            if (typeof raw === "string" && raw.trim() !== "" && Number.isFinite(value) && value >= 0) duration[operator] = value;
+        }
+        // Match format and full duration on the same original, never the preview.
+        if (allowedTypes.length || Object.keys(duration).length) {
+            where.files = { some: {
+                purpose: "ORIGINAL",
+                fileType: allowedTypes.length ? { in: allowedTypes } : { startsWith: "audio/" },
+                ...(Object.keys(duration).length ? { durationSeconds: duration } : {}),
+            } };
+        }
+    }
+
+    if (category === "FONT") {
+        const formats = String(req.query.fontFormat ?? "").split(",");
+        const mimeTypes: Record<string, string[]> = {
+            ttf: ["font/ttf", "application/x-font-ttf", "application/x-font-truetype"],
+            otf: ["font/otf", "application/x-font-otf", "application/x-font-opentype", "application/vnd.ms-opentype"],
+            woff: ["font/woff", "application/font-woff", "application/x-font-woff"],
+            woff2: ["font/woff2", "application/font-woff2", "application/x-font-woff2"],
+        };
+        const selectedFormats = [...new Set(formats)].filter((format) => Object.prototype.hasOwnProperty.call(mimeTypes, format));
+        if (selectedFormats.length) {
+            // Original URLs preserve file extensions even when the browser
+            // uploads a font using a generic or shared MIME type.
+            where.files = { some: {
+                purpose: "ORIGINAL",
+                OR: selectedFormats.flatMap((format): Prisma.AssetFileWhereInput[] => [
+                    { fileType: { in: mimeTypes[format] } },
+                    { fileUrl: { endsWith: `.${format}`, mode: "insensitive" } },
+                ]),
+            } };
+        }
+    }
+
+    if (category === "THREE_D_MODEL") {
+        const supportedFormats = ["glb", "gltf", "fbx", "obj", "blend", "stl"];
+        const formats = String(req.query.modelFormat ?? "").split(",");
+        const selectedFormats = [...new Set(formats)].filter((format) => supportedFormats.includes(format));
+        if (selectedFormats.length) {
+            // Original URLs preserve extensions. Model MIME types are often
+            // generic, and the required preview GLB is not a download format.
+            where.files = { some: {
+                purpose: "ORIGINAL",
+                OR: selectedFormats.map((format) => ({
+                    fileUrl: { endsWith: `.${format}`, mode: "insensitive" },
+                })),
+            } };
+        }
+    }
+
+    if (category === "ANIMATION") {
+        const supportedFormats = ["glb", "fbx", "blend"];
+        const formats = String(req.query.animationFormat ?? "").split(",");
+        const selectedFormats = [...new Set(formats)].filter((format) => supportedFormats.includes(format));
+        if (selectedFormats.length) {
+            // Filter the animated model download, excluding the MP4 preview.
+            where.files = { some: {
+                purpose: "ORIGINAL",
+                OR: selectedFormats.map((format) => ({
+                    fileUrl: { endsWith: `.${format}`, mode: "insensitive" },
+                })),
+            } };
         }
     }
 

@@ -30,7 +30,7 @@ const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
     { value: "THREE_D_MODEL", label: "3D Model" },
     { value: "IMAGE", label: "Image" },
     { value: "VIDEO", label: "Video" },
-    { value: "SOUND_EFFECT", label: "Sound Effect" },
+    { value: "SOUND_EFFECT", label: "Audio" },
     { value: "FONT", label: "Font" },
     { value: "ANIMATION", label: "Animation" },
 ];
