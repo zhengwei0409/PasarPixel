@@ -6,8 +6,7 @@ import { getPendingCartItem, clearPendingCartItem } from "../lib/cartIntent";
 /**
  * Consumes a pending "add to cart" intent saved by a guest before logging in.
  * Runs once after the app loads: if the user is now a logged-in buyer and an
- * intent exists, it adds the item to the cart. The login flow already lands the
- * user on /cart (see useLogin / AuthCallback), so this only does the add.
+ * intent exists, it adds the item to the cart after the login redirect.
  */
 export function useCartIntent() {
     const { user } = useAuth();

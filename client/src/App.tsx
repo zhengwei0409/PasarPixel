@@ -55,9 +55,12 @@ function App() {
       <Route path="/verify" element={<VerifyPage />} />
 
       <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={["SELLER", "ADMIN"]} />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={["BUYER"]} />}>

@@ -7,10 +7,11 @@ import {
 } from "../services/cartService";
 import type { AddToCartPayload, CartItem, LicenseType } from "../types/cart";
 
-export function useCart() {
+export function useCart(enabled: boolean = true) {
     return useQuery({
         queryKey: ["cart"],
         queryFn: () => getCart(),
+        enabled,
     });
 }
 

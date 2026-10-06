@@ -129,9 +129,11 @@
     }
 }
 
-/* Homepage palette for asset and order pages, including portaled controls. */
+/* Homepage palette for asset, order, profile and settings pages. */
 .asset-detail-theme,
-.orders-theme {
+.orders-theme,
+.profile-theme,
+.settings-theme {
     --background: #f7f7f2;
     --foreground: #252823;
     --card: #ffffff;

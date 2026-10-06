@@ -4,6 +4,7 @@ import { Collapsible } from 'radix-ui';
 import { Menu, ShoppingBag, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useCart } from '@/hooks/useCart';
 import { cn } from '@/lib/utils';
 import AccountMenu from './AccountMenu';
 import NotificationBell from './NotificationBell';
@@ -17,9 +18,14 @@ export default function Navbar() {
     const menuTriggerRef = useRef<HTMLButtonElement>(null);
     const menuOpen = menuLocation === location.key;
     const isBuyer = user?.roles.includes('BUYER');
+    const canViewDashboard = user?.roles.some((role) => role === 'SELLER' || role === 'ADMIN');
+    const { data: cart } = useCart(!!isBuyer);
+    const cartCount = isBuyer ? (cart?.items.length ?? 0) : 0;
+    const cartLabel = cartCount > 0 ? `Shopping cart, ${cartCount} ${cartCount === 1 ? 'item' : 'items'}` : 'Shopping cart';
+    const cartBadge = cartCount > 9 ? '9+' : String(cartCount);
     const links = [
         { to: '/marketplace', label: 'Marketplace' },
-        ...(user ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
+        ...(canViewDashboard ? [{ to: '/dashboard', label: 'Dashboard' }] : []),
         { to: '/verify', label: 'Verify a license' },
     ];
 
@@ -77,8 +83,15 @@ export default function Navbar() {
                         {user ? (
                             <>
                                 {isBuyer && (
-                                    <Button asChild variant="ghost" size="icon" className="hidden size-10 rounded-full text-[#657152] hover:bg-[#eef0e7] hover:text-[#30392b] motion-reduce:transition-none sm:inline-flex">
-                                        <NavLink to="/cart" aria-label="Shopping cart"><ShoppingBag className="size-[18px]" aria-hidden="true" /></NavLink>
+                                    <Button asChild variant="ghost" size="icon" className="relative hidden size-10 rounded-full text-[#657152] hover:bg-[#eef0e7] hover:text-[#30392b] motion-reduce:transition-none sm:inline-flex">
+                                        <NavLink to="/cart" aria-label={cartLabel}>
+                                            <ShoppingBag className="size-[18px]" aria-hidden="true" />
+                                            {cartCount > 0 && (
+                                                <span aria-hidden="true" className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#657152] px-1 text-[9px] font-medium text-white ring-2 ring-[#fcfcfa]">
+                                                    {cartBadge}
+                                                </span>
+                                            )}
+                                        </NavLink>
                                     </Button>
                                 )}
                                 <NotificationBell />
@@ -113,11 +126,16 @@ export default function Navbar() {
                 >
                     <nav aria-label="Mobile navigation" className="mx-auto max-w-[1296px] space-y-1 px-4 py-4 sm:px-8">
                         {[...links, ...(isBuyer ? [{ to: '/cart', label: 'Shopping cart' }] : [])].map(({ to, label }) => (
-                            <NavLink key={to} to={to} onClick={() => setMenuLocation(null)} className={({ isActive }) => cn(
-                                'block rounded-lg px-3 py-3 text-sm transition-colors hover:bg-[#eef0e7] focus-visible:outline-2 focus-visible:outline-[#7a8568] motion-reduce:transition-none',
+                            <NavLink key={to} to={to} aria-label={to === '/cart' ? cartLabel : undefined} onClick={() => setMenuLocation(null)} className={({ isActive }) => cn(
+                                'flex items-center justify-between rounded-lg px-3 py-3 text-sm transition-colors hover:bg-[#eef0e7] focus-visible:outline-2 focus-visible:outline-[#7a8568] motion-reduce:transition-none',
                                 isActive ? 'bg-[#eef0e7] font-medium text-[#30392b]' : 'text-[#73776e]',
                             )}>
                                 {label}
+                                {to === '/cart' && cartCount > 0 && (
+                                    <span aria-hidden="true" className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#657152] px-1 text-[9px] font-medium text-white">
+                                        {cartBadge}
+                                    </span>
+                                )}
                             </NavLink>
                         ))}
                         <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#e7e9e1] px-3 pt-4 sm:hidden">

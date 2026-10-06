@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { DropdownMenu } from 'radix-ui';
-import { ChevronDown, LogOut, Package, Settings, UserRound } from 'lucide-react';
+import { ChevronDown, LogOut, Package, Settings, Store, UserRound } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -39,9 +39,14 @@ export default function AccountMenu({ email, isBuyer, logout }: AccountMenuProps
                         <Link to="/profile"><UserRound className="size-4" aria-hidden="true" />Your profile</Link>
                     </DropdownMenu.Item>
                     {isBuyer && (
-                        <DropdownMenu.Item asChild className={itemClass}>
-                            <Link to="/orders"><Package className="size-4" aria-hidden="true" />Purchase history</Link>
-                        </DropdownMenu.Item>
+                        <>
+                            <DropdownMenu.Item asChild className={itemClass}>
+                                <Link to="/orders"><Package className="size-4" aria-hidden="true" />Purchase history</Link>
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item asChild className={itemClass}>
+                                <Link to="/seller-application"><Store className="size-4" aria-hidden="true" />Seller application</Link>
+                            </DropdownMenu.Item>
+                        </>
                     )}
                     <DropdownMenu.Item asChild className={itemClass}>
                         <Link to="/settings"><Settings className="size-4" aria-hidden="true" />Settings</Link>

@@ -1,3 +1,4 @@
+import FloatingShapes from "@/components/home/FloatingShapes";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useSearchParams } from "react-router-dom";
@@ -140,74 +141,77 @@ export default function CheckoutSuccessPage() {
 
     return (
         <main className="relative isolate min-h-[calc(100dvh-73px)] bg-[#f7f7f2] text-[#252823]">
-            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(ellipse_at_50%_0%,#e3e8d8_0%,transparent_70%)]" />
-            <div className="mx-auto max-w-[1040px] px-5 pt-10 pb-16 sm:px-8 sm:pt-14 sm:pb-20">
-                <header className="mx-auto max-w-lg text-center" aria-live="polite">
-                    <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-xl bg-[#e3e8d8] text-[#657152]">
-                        {completed ? <CircleCheck className="size-6" aria-hidden="true" /> : hasError || failed ? <Info className="size-6" aria-hidden="true" /> : <LoaderCircle className="size-6 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-                    </div>
-                    <h1 className="text-3xl leading-tight font-semibold tracking-[-0.055em] sm:text-5xl">{title}</h1>
-                    <p className="mt-3 text-sm leading-6 text-[#73776e]">{description}</p>
-                    {validOrderId && completed && (
-                        <div className="mt-6 inline-flex flex-col gap-1 rounded-md border border-[#dfe4d6] bg-[#eceee7] px-5 py-3">
-                            <span className="text-[9px] tracking-[0.15em] text-[#73776e]">ORDER CONFIRMATION</span>
-                            <span className="text-sm font-semibold tracking-wide text-[#555e49]">#{String(orderId).padStart(6, "0")}</span>
+            <FloatingShapes />
+            <div className="relative z-10">
+                <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(ellipse_at_50%_0%,#e3e8d8_0%,transparent_70%)]" />
+                <div className="mx-auto max-w-[1040px] px-5 pt-10 pb-16 sm:px-8 sm:pt-14 sm:pb-20">
+                    <header className="mx-auto max-w-lg text-center" aria-live="polite">
+                        <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-xl bg-[#e3e8d8] text-[#657152]">
+                            {completed ? <CircleCheck className="size-6" aria-hidden="true" /> : hasError || failed ? <Info className="size-6" aria-hidden="true" /> : <LoaderCircle className="size-6 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                        </div>
+                        <h1 className="text-3xl leading-tight font-semibold tracking-[-0.055em] sm:text-5xl">{title}</h1>
+                        <p className="mt-3 text-sm leading-6 text-[#73776e]">{description}</p>
+                        {validOrderId && completed && (
+                            <div className="mt-6 inline-flex flex-col gap-1 rounded-md border border-[#dfe4d6] bg-[#eceee7] px-5 py-3">
+                                <span className="text-[9px] tracking-[0.15em] text-[#73776e]">ORDER CONFIRMATION</span>
+                                <span className="text-sm font-semibold tracking-wide text-[#555e49]">#{String(orderId).padStart(6, "0")}</span>
+                            </div>
+                        )}
+                        {hasError || failed ? (
+                            <div className="mt-6 flex flex-wrap justify-center gap-3">
+                                {validOrderId && verification.isError && <Button onClick={() => void verification.refetch()} className={`h-10 px-5 ${primaryButton}`}>Try Again</Button>}
+                                <Button asChild variant="outline" className={`h-10 px-5 ${secondaryButton}`}><Link to="/orders">Purchase History</Link></Button>
+                            </div>
+                        ) : null}
+                    </header>
+
+                    {completed && orderQuery.isPending && (
+                        <div className="mt-12 grid gap-6 md:grid-cols-[minmax(0,1fr)_300px]" aria-busy="true" aria-label="Loading your purchased assets">
+                            <div className="space-y-5">{[0, 1].map((index) => <div key={index} className="h-64 animate-pulse rounded-xl bg-[#e9ecdf] motion-reduce:animate-none" />)}</div>
+                            <div className="h-96 animate-pulse rounded-xl bg-[#e9ecdf] motion-reduce:animate-none" />
                         </div>
                     )}
-                    {hasError || failed ? (
-                        <div className="mt-6 flex flex-wrap justify-center gap-3">
-                            {validOrderId && verification.isError && <Button onClick={() => void verification.refetch()} className={`h-10 px-5 ${primaryButton}`}>Try Again</Button>}
-                            <Button asChild variant="outline" className={`h-10 px-5 ${secondaryButton}`}><Link to="/orders">Purchase History</Link></Button>
+                    {completed && orderQuery.isError && (
+                        <div className="mt-12 rounded-xl border border-[#dfe4d6] bg-white p-6 text-center">
+                            <p role="alert" className="text-sm text-[#73776e]">Your payment is confirmed, but we couldn’t load your order details.</p>
+                            <Button onClick={() => void orderQuery.refetch()} className={`mt-4 h-10 px-5 ${primaryButton}`}>Reload Order</Button>
                         </div>
-                    ) : null}
-                </header>
-
-                {completed && orderQuery.isPending && (
-                    <div className="mt-12 grid gap-6 md:grid-cols-[minmax(0,1fr)_300px]" aria-busy="true" aria-label="Loading your purchased assets">
-                        <div className="space-y-5">{[0, 1].map((index) => <div key={index} className="h-64 animate-pulse rounded-xl bg-[#e9ecdf] motion-reduce:animate-none" />)}</div>
-                        <div className="h-96 animate-pulse rounded-xl bg-[#e9ecdf] motion-reduce:animate-none" />
-                    </div>
-                )}
-                {completed && orderQuery.isError && (
-                    <div className="mt-12 rounded-xl border border-[#dfe4d6] bg-white p-6 text-center">
-                        <p role="alert" className="text-sm text-[#73776e]">Your payment is confirmed, but we couldn’t load your order details.</p>
-                        <Button onClick={() => void orderQuery.refetch()} className={`mt-4 h-10 px-5 ${primaryButton}`}>Reload Order</Button>
-                    </div>
-                )}
-                {completed && order && order.paymentStatus === "COMPLETED" && (
-                    <div className="mt-10 grid items-start gap-7 md:mt-12 md:grid-cols-[minmax(0,1fr)_300px] md:gap-8 lg:gap-10">
-                        <section aria-labelledby="purchased-heading" className="min-w-0">
-                            <div className="mb-5 flex items-center justify-between gap-3">
-                                <h2 id="purchased-heading" className="text-lg font-semibold tracking-tight">Your Purchased Assets</h2>
-                                <span className="text-xs text-[#85897f]">{order.orderItems.length} {order.orderItems.length === 1 ? "Item" : "Items"}</span>
-                            </div>
-                            <ul className="space-y-5">{order.orderItems.map((item) => <PurchasedAssetCard key={item.id} item={item} orderId={orderId} buyerId={order.buyerId} />)}</ul>
-                            <Link to="/marketplace" className={`mt-6 inline-flex items-center gap-2 rounded-sm py-2 text-xs font-medium text-[#657152] hover:text-[#30392b] ${focusClass}`}><ArrowLeft className="size-4" aria-hidden="true" />Continue Shopping</Link>
-                        </section>
-                        <aside aria-labelledby="receipt-heading" className="rounded-xl border border-[#dfe4d6] bg-[#eceee7]/70 p-6 md:sticky md:top-8">
-                            <h2 id="receipt-heading" className="text-lg font-semibold tracking-tight">Order Receipt</h2>
-                            <dl className="mt-5 space-y-4 text-xs">
-                                <div className="flex justify-between gap-4"><dt className="text-[#73776e]">Date</dt><dd className="text-right">{new Date(order.createdAt).toLocaleDateString("en-MY", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "long", day: "numeric" })}</dd></div>
-                                <div className="flex justify-between gap-4"><dt className="text-[#73776e]">Payment Status</dt><dd className="flex items-center gap-1 text-[#657152]"><Check className="size-3" aria-hidden="true" />Paid</dd></div>
-                                <div className="flex justify-between gap-4 border-t border-[#dfe4d6] pt-4"><dt className="text-[#73776e]">Subtotal</dt><dd className="font-medium tabular-nums">{formatPrice(order.totalAmount, order.currency, order.currency, { zeroAsFree: false })}</dd></div>
-                                <div className="flex justify-between gap-4"><dt className="text-[#73776e]">Delivery</dt><dd className="text-[#657152]">Digital download</dd></div>
-                                <div className="flex items-center justify-between gap-4 border-t border-[#dfe4d6] pt-5"><dt className="text-sm font-semibold">Total Amount</dt><dd className="text-xl font-semibold tabular-nums text-[#555e49]">{formatPrice(order.totalAmount, order.currency, order.currency, { zeroAsFree: false })}</dd></div>
-                            </dl>
-                            <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-white/85 p-3.5">
-                                <Info className="mt-0.5 size-4 shrink-0 text-[#657152]" aria-hidden="true" />
-                                <p className="text-[11px] leading-5 text-[#73776e]">Your assets, receipt, and license certificates are ready here. You can download your assets again from your purchase history.</p>
-                            </div>
-                            <Button onClick={() => receipt.mutate(orderId)} disabled={receipt.isPending} className="mt-5 h-11 w-full gap-2 border border-[#c5cfb5] bg-[#e3e8d8] text-xs text-[#30392b] hover:bg-[#d6dec9] focus-visible:ring-[#7a8568]/40"><FileText className="size-4" aria-hidden="true" />{receipt.isPending ? "Preparing Receipt…" : "Download Receipt (PDF)"}</Button>
-                            {receipt.isError && <p role="alert" className="mt-2 text-xs text-destructive">Could not download the receipt. Please try again.</p>}
-                            <Button onClick={() => downloadAll.mutate(orderId)} disabled={downloadAll.isPending} className={`mt-3 h-11 w-full gap-2 text-xs ${primaryButton}`}><Download className="size-4" aria-hidden="true" />{downloadAll.isPending ? "Preparing Downloads…" : "Download All Assets (.zip)"}</Button>
-                            {downloadAll.isError && <p role="alert" className="mt-2 text-xs text-destructive">Download failed. Please try again.</p>}
-                            <Link to={`/orders/${orderId}`} className={`mt-5 flex items-center justify-center gap-1.5 rounded-sm text-xs text-[#73776e] underline underline-offset-4 hover:text-[#30392b] ${focusClass}`}>View Order Details<ArrowUpRight className="size-3" aria-hidden="true" /></Link>
-                            <p className="mt-5 flex items-center justify-center gap-1.5 text-[10px] text-[#85897f]"><ShieldCheck className="size-3.5" aria-hidden="true" />Secure payment through Stripe</p>
-                        </aside>
-                    </div>
-                )}
+                    )}
+                    {completed && order && order.paymentStatus === "COMPLETED" && (
+                        <div className="mt-10 grid items-start gap-7 md:mt-12 md:grid-cols-[minmax(0,1fr)_300px] md:gap-8 lg:gap-10">
+                            <section aria-labelledby="purchased-heading" className="min-w-0">
+                                <div className="mb-5 flex items-center justify-between gap-3">
+                                    <h2 id="purchased-heading" className="text-lg font-semibold tracking-tight">Your Purchased Assets</h2>
+                                    <span className="text-xs text-[#85897f]">{order.orderItems.length} {order.orderItems.length === 1 ? "Item" : "Items"}</span>
+                                </div>
+                                <ul className="space-y-5">{order.orderItems.map((item) => <PurchasedAssetCard key={item.id} item={item} orderId={orderId} buyerId={order.buyerId} />)}</ul>
+                                <Link to="/marketplace" className={`mt-6 inline-flex items-center gap-2 rounded-sm py-2 text-xs font-medium text-[#657152] hover:text-[#30392b] ${focusClass}`}><ArrowLeft className="size-4" aria-hidden="true" />Continue Shopping</Link>
+                            </section>
+                            <aside aria-labelledby="receipt-heading" className="rounded-xl border border-[#dfe4d6] bg-[#eceee7]/70 p-6 md:sticky md:top-8">
+                                <h2 id="receipt-heading" className="text-lg font-semibold tracking-tight">Order Receipt</h2>
+                                <dl className="mt-5 space-y-4 text-xs">
+                                    <div className="flex justify-between gap-4"><dt className="text-[#73776e]">Date</dt><dd className="text-right">{new Date(order.createdAt).toLocaleDateString("en-MY", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "long", day: "numeric" })}</dd></div>
+                                    <div className="flex justify-between gap-4"><dt className="text-[#73776e]">Payment Status</dt><dd className="flex items-center gap-1 text-[#657152]"><Check className="size-3" aria-hidden="true" />Paid</dd></div>
+                                    <div className="flex justify-between gap-4 border-t border-[#dfe4d6] pt-4"><dt className="text-[#73776e]">Subtotal</dt><dd className="font-medium tabular-nums">{formatPrice(order.totalAmount, order.currency, order.currency, { zeroAsFree: false })}</dd></div>
+                                    <div className="flex justify-between gap-4"><dt className="text-[#73776e]">Delivery</dt><dd className="text-[#657152]">Digital download</dd></div>
+                                    <div className="flex items-center justify-between gap-4 border-t border-[#dfe4d6] pt-5"><dt className="text-sm font-semibold">Total Amount</dt><dd className="text-xl font-semibold tabular-nums text-[#555e49]">{formatPrice(order.totalAmount, order.currency, order.currency, { zeroAsFree: false })}</dd></div>
+                                </dl>
+                                <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-white/85 p-3.5">
+                                    <Info className="mt-0.5 size-4 shrink-0 text-[#657152]" aria-hidden="true" />
+                                    <p className="text-[11px] leading-5 text-[#73776e]">Your assets, receipt, and license certificates are ready here. You can download your assets again from your purchase history.</p>
+                                </div>
+                                <Button onClick={() => receipt.mutate(orderId)} disabled={receipt.isPending} className="mt-5 h-11 w-full gap-2 border border-[#c5cfb5] bg-[#e3e8d8] text-xs text-[#30392b] hover:bg-[#d6dec9] focus-visible:ring-[#7a8568]/40"><FileText className="size-4" aria-hidden="true" />{receipt.isPending ? "Preparing Receipt…" : "Download Receipt (PDF)"}</Button>
+                                {receipt.isError && <p role="alert" className="mt-2 text-xs text-destructive">Could not download the receipt. Please try again.</p>}
+                                <Button onClick={() => downloadAll.mutate(orderId)} disabled={downloadAll.isPending} className={`mt-3 h-11 w-full gap-2 text-xs ${primaryButton}`}><Download className="size-4" aria-hidden="true" />{downloadAll.isPending ? "Preparing Downloads…" : "Download All Assets (.zip)"}</Button>
+                                {downloadAll.isError && <p role="alert" className="mt-2 text-xs text-destructive">Download failed. Please try again.</p>}
+                                <Link to={`/orders/${orderId}`} className={`mt-5 flex items-center justify-center gap-1.5 rounded-sm text-xs text-[#73776e] underline underline-offset-4 hover:text-[#30392b] ${focusClass}`}>View Order Details<ArrowUpRight className="size-3" aria-hidden="true" /></Link>
+                                <p className="mt-5 flex items-center justify-center gap-1.5 text-[10px] text-[#85897f]"><ShieldCheck className="size-3.5" aria-hidden="true" />Secure payment through Stripe</p>
+                            </aside>
+                        </div>
+                    )}
+                </div>
+                <footer className="border-t border-[#e7e9e1] px-5 py-6 text-center text-xs text-[#85897f]">PasarPixel <span className="mx-2 text-[#c5cfb5]">/</span> Creative assets. New possibilities.</footer>
             </div>
-            <footer className="border-t border-[#e7e9e1] px-5 py-6 text-center text-xs text-[#85897f]">PasarPixel <span className="mx-2 text-[#c5cfb5]">/</span> Creative assets. New possibilities.</footer>
         </main>
     );
 }

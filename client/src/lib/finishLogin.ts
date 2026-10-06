@@ -1,10 +1,19 @@
 import type { AuthTokens } from "../types/auth";
-import { getPendingCartItem } from "./cartIntent";
 
-// Persist tokens and send the user on. If they came from "Add to cart",
-// land them on the cart so the pending item is added (see useCartIntent).
+// Persist tokens, then send sellers/admins to the dashboard and buyers home.
 export function finishLogin(tokens: AuthTokens) {
     localStorage.setItem("accessToken", tokens.accessToken);
     localStorage.setItem("refreshToken", tokens.refreshToken);
-    window.location.href = getPendingCartItem() ? "/cart" : "/dashboard";
+
+    let destination = "/";
+    try {
+        const { roles } = JSON.parse(atob(tokens.accessToken.split(".")[1]));
+        if (Array.isArray(roles) && roles.some((role) => role === "SELLER" || role === "ADMIN")) {
+            destination = "/dashboard";
+        }
+    } catch {
+        // Fall back to the public homepage if the token cannot be decoded.
+    }
+
+    window.location.href = destination;
 }
