@@ -294,3 +294,24 @@ test("animation format filters leave other categories unaffected", async () => {
         assert.equal(calls.assets.where.files, undefined);
     }
 });
+
+test("music and sound effect filters apply before pagination, sales ranking, and totals", async () => {
+    for (const audioType of ["MUSIC", "SOUND_EFFECT", "MUSIC,SOUND_EFFECT"]) {
+        const { calls } = await browse({ category: "SOUND_EFFECT", audioType, sort: "best_selling" });
+        const expected = { in: audioType.split(",") };
+        assert.deepEqual(calls.assets.where.audioType, expected);
+        assert.deepEqual(calls.sales.where.asset.audioType, expected);
+        assert.deepEqual(calls.count.where.audioType, expected);
+    }
+});
+
+test("audio type combines with format and duration; invalid values and other categories are ignored", async () => {
+    const { calls } = await browse({ category: "SOUND_EFFECT", audioType: "MUSIC", audioFormat: "mp3", audioMinDuration: "30" });
+    assert.deepEqual(calls.assets.where.audioType, { in: ["MUSIC"] });
+    assert.equal(calls.assets.where.files.some.purpose, "ORIGINAL");
+    assert.deepEqual(calls.assets.where.files.some.durationSeconds, { gte: 30 });
+    for (const query of [{ category: "SOUND_EFFECT", audioType: "invalid" }, { category: "IMAGE", audioType: "MUSIC" }, { category: "SOUND_EFFECT" }]) {
+        const result = await browse(query);
+        assert.equal(result.calls.assets.where.audioType, undefined);
+    }
+});

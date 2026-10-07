@@ -87,6 +87,8 @@ model Asset {
   sellerId       Int
   title          String
   description    String?
+  technicalSpecifications Json?
+  audioType      AudioType?
   category       AssetCategory
   listingType    ListingType
   status         AssetStatus @default(DRAFT)
@@ -119,6 +121,11 @@ enum AssetCategory {
   SOUND_EFFECT
   FONT
   ANIMATION
+}
+
+enum AudioType {
+  MUSIC
+  SOUND_EFFECT
 }
 
 enum ListingType {

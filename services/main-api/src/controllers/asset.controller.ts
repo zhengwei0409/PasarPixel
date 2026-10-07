@@ -1,7 +1,8 @@
+import { specificationsError } from "../lib/assetSpecifications";
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { AssetCategory, ListingType, Currency, AssetFilePurpose } from "@prisma/client";
+import { AssetCategory, ListingType, Currency, AssetFilePurpose, type AudioType } from "@prisma/client";
 import {
     getPresignedUploadUrl,
     getPresignedDownloadUrl,
@@ -32,6 +33,15 @@ const VALID_CATEGORIES: AssetCategory[] = [
 ];
 
 const VALID_LISTING_TYPES: ListingType[] = ["TRADITIONAL", "BLOCKCHAIN"];
+
+function audioTypeError(category: string, audioType: unknown): string | null {
+    if (audioType === undefined || audioType === null) {
+        return category === "SOUND_EFFECT" ? "Choose MUSIC or SOUND_EFFECT for audio assets" : null;
+    }
+    if (category !== "SOUND_EFFECT") return "audioType is only available for audio assets";
+    if (audioType !== "MUSIC" && audioType !== "SOUND_EFFECT") return "audioType must be MUSIC or SOUND_EFFECT";
+    return null;
+}
 
 const VALID_CURRENCIES: Currency[] = ["USD", "MYR"];
 
@@ -98,7 +108,7 @@ function validatePricing(
 
 export async function createAsset(req: Request, res: Response) {
     const userId = req.user!.userId;
-    const { title, description, category, listingType, isAiGenerated } = req.body;
+    const { title, description, category, listingType, isAiGenerated, audioType } = req.body;
 
     if (!title || !category || !listingType) {
         res.status(400).json({ error: "title, category, and listingType are required" });
@@ -115,6 +125,11 @@ export async function createAsset(req: Request, res: Response) {
         return;
     }
 
+    const typeError = audioTypeError(category, audioType);
+    if (typeError) {
+        res.status(400).json({ error: typeError });
+        return;
+    }
     const pricing = validatePricing(req.body, listingType);
     if (!pricing.ok) {
         res.status(400).json({ error: pricing.error });
@@ -133,6 +148,7 @@ export async function createAsset(req: Request, res: Response) {
             title,
             description,
             category,
+            audioType: category === "SOUND_EFFECT" ? audioType ?? null : null,
             listingType,
             isAiGenerated: Boolean(isAiGenerated),
             pricePersonal: pricing.data.pricePersonal,
@@ -475,6 +491,8 @@ export async function browseAssets(req: Request, res: Response) {
     }
 
     if (category === "SOUND_EFFECT") {
+        const audioTypes = String(req.query.audioType ?? "").split(",").filter((value): value is AudioType => value === "MUSIC" || value === "SOUND_EFFECT");
+        if (audioTypes.length) where.audioType = { in: audioTypes };
         const formats = String(req.query.audioFormat ?? "").split(",");
         const mimeTypes: Record<string, string[]> = {
             mp3: ["audio/mpeg", "audio/mp3", "audio/x-mp3"],
@@ -766,7 +784,7 @@ export async function deleteOrTakeDownAsset(req: Request, res: Response) {
 export async function updateAsset(req: Request, res: Response) {
     const userId = req.user!.userId;
     const assetId = parseInt(req.params.id as string);
-    const { title, description, category, listingType, isAiGenerated } = req.body;
+    const { title, description, category, listingType, isAiGenerated, audioType } = req.body;
 
     const asset = await prisma.asset.findUnique({ where: { id: assetId } });
     if (!asset || asset.isDeleted) {
@@ -795,7 +813,21 @@ export async function updateAsset(req: Request, res: Response) {
         return;
     }
 
+    const effectiveCategory = category ?? asset.category;
+    if (req.body.technicalSpecifications !== undefined) {
+        const error = specificationsError(effectiveCategory, req.body.technicalSpecifications);
+        if (error) { res.status(400).json({ error }); return; }
+    }
+    const effectiveAudioType = audioType !== undefined ? audioType : asset.category === "SOUND_EFFECT" ? asset.audioType : null;
+    const typeError = audioTypeError(effectiveCategory, effectiveCategory === "SOUND_EFFECT" ? effectiveAudioType : audioType);
+    if (typeError) {
+        res.status(400).json({ error: typeError });
+        return;
+    }
+
     const data: {
+        technicalSpecifications?: Prisma.InputJsonObject;
+        audioType?: AudioType | null;
         title?: string;
         description?: string | null;
         category?: AssetCategory;
@@ -809,6 +841,10 @@ export async function updateAsset(req: Request, res: Response) {
     if (title !== undefined) data.title = title.trim();
     if (description !== undefined) data.description = description || null;
     if (category !== undefined) data.category = category;
+    if (req.body.technicalSpecifications !== undefined) data.technicalSpecifications = req.body.technicalSpecifications;
+    else if (category !== undefined && category !== asset.category) data.technicalSpecifications = {};
+    if ((category ?? asset.category) !== "SOUND_EFFECT") data.audioType = null;
+    else if (audioType !== undefined) data.audioType = audioType;
     if (listingType !== undefined) data.listingType = listingType;
     if (isAiGenerated !== undefined) data.isAiGenerated = Boolean(isAiGenerated);
 

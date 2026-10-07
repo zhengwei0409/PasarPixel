@@ -1,7 +1,7 @@
 import FloatingShapes from "@/components/home/FloatingShapes";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Box, CreditCard, Download, Info, LockKeyhole, ShieldCheck, ShoppingBag, Trash2 } from "lucide-react";
+import { ArrowLeft, Box, CreditCard, Download, Info, LockKeyhole, Music, ShieldCheck, ShoppingBag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart, useUpdateCartItemLicense, useRemoveFromCart } from "@/hooks/useCart";
 import { useCheckout } from "@/hooks/useCheckout";
@@ -149,7 +149,8 @@ export default function CartPage() {
                             <ul className="mt-3 space-y-4">
                                 {items.map((item) => {
                                     const asset = item.asset;
-                                    const thumbnail = asset.files.find((f) => f.purpose === "PREVIEW" && f.fileType.startsWith("image/"))
+                                    const isAudio = asset.category === "SOUND_EFFECT";
+                                    const thumbnail = isAudio ? undefined : asset.files.find((f) => f.purpose === "PREVIEW" && f.fileType.startsWith("image/"))
                                         ?? asset.files.find((f) => f.fileType.startsWith("image/"));
 
                                     return (
@@ -168,7 +169,11 @@ export default function CartPage() {
                                                 className={`size-4 cursor-pointer rounded accent-[#657152] disabled:cursor-wait ${focusClass}`}
                                             />
                                             <Link to={`/assets/${asset.id}`} className={`aspect-square overflow-hidden rounded-lg bg-[#e9ecdf] ${focusClass}`} aria-label={`View ${asset.title}`}>
-                                                {thumbnail ? (
+                                                {isAudio ? (
+                                                    <div className="flex h-full items-center justify-center text-[#657152]">
+                                                        <Music className="size-8 sm:size-12" aria-hidden="true" />
+                                                    </div>
+                                                ) : thumbnail ? (
                                                     <img src={thumbnail.previewUrl ?? thumbnail.fileUrl} alt={asset.title} className="h-full w-full object-cover" loading="lazy" />
                                                 ) : (
                                                     <div className="flex h-full flex-col items-center justify-center gap-2 text-[#85897f]">

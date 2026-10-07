@@ -14,8 +14,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from "../components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from "../components/ui/card";
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from "../components/ui/tabs";
 import {
     useAsset,
     useCreateAsset,
@@ -23,8 +33,15 @@ import {
     useUpdateAsset,
 } from "../hooks/useAsset";
 import AssetUploader from "../components/marketplace/AssetUploader";
+import UploadDetailsStep from "../components/marketplace/UploadDetailsStep";
+import UploadSpecificationsStep from "../components/marketplace/UploadSpecificationsStep";
 import { getErrorMessage } from "../lib/errors";
-import type { AssetCategory, Currency, ListingType } from "../types/asset";
+import type {
+    AssetCategory,
+    AudioType,
+    Currency,
+    ListingType,
+} from "../types/asset";
 
 const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
     { value: "THREE_D_MODEL", label: "3D Model" },
@@ -54,7 +71,10 @@ const priceString = z
 
 const schema = z
     .object({
-        title: z.string().min(1, "Title is required").max(120, "Title too long"),
+        title: z
+            .string()
+            .min(1, "Title is required")
+            .max(120, "Title too long"),
         description: z.string().max(2000).optional(),
         category: z.enum([
             "THREE_D_MODEL",
@@ -64,6 +84,7 @@ const schema = z
             "FONT",
             "ANIMATION",
         ]),
+        audioType: z.enum(["MUSIC", "SOUND_EFFECT"]).optional(),
         listingType: z.enum(["TRADITIONAL", "BLOCKCHAIN"]),
         isAiGenerated: z.boolean().optional(),
         pricePersonal: priceString,
@@ -72,6 +93,13 @@ const schema = z
         currency: z.enum(["USD", "MYR"]),
     })
     .superRefine((data, ctx) => {
+        if (data.category === "SOUND_EFFECT" && !data.audioType) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Choose music or sound effect",
+                path: ["audioType"],
+            });
+        }
         if (data.listingType === "BLOCKCHAIN") {
             if (data.pricePersonal || data.priceCommercial) {
                 ctx.addIssue({
@@ -98,7 +126,7 @@ function parsePriceOrNull(v: string | undefined): number | null {
 }
 
 type WizardForm = z.infer<typeof schema>;
-type TabValue = "details" | "files" | "submit";
+type TabValue = "details" | "specifications" | "files" | "submit";
 
 interface DetailsFormProps {
     initialValues?: Partial<WizardForm>;
@@ -108,7 +136,13 @@ interface DetailsFormProps {
     onSave: (data: WizardForm) => void;
 }
 
-function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: DetailsFormProps) {
+function DetailsForm({
+    initialValues,
+    isEdit,
+    isSaving,
+    saveError,
+    onSave,
+}: DetailsFormProps) {
     const {
         register,
         handleSubmit,
@@ -121,6 +155,7 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
             title: initialValues?.title ?? "",
             description: initialValues?.description ?? "",
             category: initialValues?.category,
+            audioType: initialValues?.audioType,
             listingType: initialValues?.listingType,
             isAiGenerated: initialValues?.isAiGenerated ?? false,
             pricePersonal: initialValues?.pricePersonal ?? "",
@@ -138,9 +173,14 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
         <form onSubmit={handleSubmit(onSave)} className="space-y-4">
             <div className="space-y-1">
                 <Label>Title</Label>
-                <Input {...register("title")} placeholder="My awesome 3D dragon" />
+                <Input
+                    {...register("title")}
+                    placeholder="My awesome 3D dragon"
+                />
                 {errors.title && (
-                    <p className="text-sm text-red-500">{errors.title.message}</p>
+                    <p className="text-sm text-red-500">
+                        {errors.title.message}
+                    </p>
                 )}
             </div>
 
@@ -152,7 +192,9 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                     placeholder="Describe your asset, intended use, etc."
                 />
                 {errors.description && (
-                    <p className="text-sm text-red-500">{errors.description.message}</p>
+                    <p className="text-sm text-red-500">
+                        {errors.description.message}
+                    </p>
                 )}
             </div>
 
@@ -161,7 +203,9 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                 <Select
                     value={category}
                     onValueChange={(v) =>
-                        setValue("category", v as AssetCategory, { shouldValidate: true })
+                        setValue("category", v as AssetCategory, {
+                            shouldValidate: true,
+                        })
                     }
                 >
                     <SelectTrigger>
@@ -176,16 +220,49 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                     </SelectContent>
                 </Select>
                 {errors.category && (
-                    <p className="text-sm text-red-500">{errors.category.message}</p>
+                    <p className="text-sm text-red-500">
+                        {errors.category.message}
+                    </p>
                 )}
             </div>
+
+            {category === "SOUND_EFFECT" && (
+                <div className="space-y-1">
+                    <Label htmlFor="seller-audio-type">Audio type</Label>
+                    <Select
+                        value={watch("audioType") ?? ""}
+                        onValueChange={(value) =>
+                            setValue("audioType", value as AudioType, {
+                                shouldValidate: true,
+                            })
+                        }
+                    >
+                        <SelectTrigger id="seller-audio-type">
+                            <SelectValue placeholder="Choose audio type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="MUSIC">Music</SelectItem>
+                            <SelectItem value="SOUND_EFFECT">
+                                Sound effect
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {errors.audioType && (
+                        <p className="text-sm text-red-500">
+                            {errors.audioType.message}
+                        </p>
+                    )}
+                </div>
+            )}
 
             <div className="space-y-1">
                 <Label>Listing Type</Label>
                 <Select
                     value={listingType}
                     onValueChange={(v) =>
-                        setValue("listingType", v as ListingType, { shouldValidate: true })
+                        setValue("listingType", v as ListingType, {
+                            shouldValidate: true,
+                        })
                     }
                 >
                     <SelectTrigger>
@@ -200,7 +277,9 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                     </SelectContent>
                 </Select>
                 {errors.listingType && (
-                    <p className="text-sm text-red-500">{errors.listingType.message}</p>
+                    <p className="text-sm text-red-500">
+                        {errors.listingType.message}
+                    </p>
                 )}
             </div>
 
@@ -227,7 +306,9 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                             {...register("priceSol")}
                         />
                         {errors.priceSol && (
-                            <p className="text-sm text-red-500">{errors.priceSol.message}</p>
+                            <p className="text-sm text-red-500">
+                                {errors.priceSol.message}
+                            </p>
                         )}
                     </div>
                 ) : (
@@ -269,7 +350,9 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                             <Select
                                 value={currency}
                                 onValueChange={(v) =>
-                                    setValue("currency", v as Currency, { shouldValidate: true })
+                                    setValue("currency", v as Currency, {
+                                        shouldValidate: true,
+                                    })
                                 }
                             >
                                 <SelectTrigger>
@@ -282,19 +365,26 @@ function DetailsForm({ initialValues, isEdit, isSaving, saveError, onSave }: Det
                             </Select>
                         </div>
                         <p className="text-xs text-gray-500">
-                            Leave a tier blank to disable it, or set it to 0 for free. At
-                            least one tier must be set before submission.
+                            Leave a tier blank to disable it, or set it to 0 for
+                            free. At least one tier must be set before
+                            submission.
                         </p>
                     </>
                 )}
             </div>
 
             {saveError != null && (
-                <p className="text-sm text-red-500">{getErrorMessage(saveError)}</p>
+                <p className="text-sm text-red-500">
+                    {getErrorMessage(saveError)}
+                </p>
             )}
 
             <Button type="submit" className="w-full" disabled={isSaving}>
-                {isSaving ? "Saving..." : isEdit ? "Save Changes" : "Create Draft"}
+                {isSaving
+                    ? "Saving..."
+                    : isEdit
+                      ? "Save Changes"
+                      : "Create Draft"}
             </Button>
         </form>
     );
@@ -305,9 +395,21 @@ export default function SellerUploadPage() {
     const navigate = useNavigate();
     const urlAssetId = params.assetId ? parseInt(params.assetId) : null;
 
-    const { data: asset, isLoading: assetLoading, error: assetError } = useAsset(urlAssetId);
-    const { mutate: create, isPending: isCreating, error: createError } = useCreateAsset();
-    const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateAsset();
+    const {
+        data: asset,
+        isLoading: assetLoading,
+        error: assetError,
+    } = useAsset(urlAssetId);
+    const {
+        mutate: create,
+        isPending: isCreating,
+        error: createError,
+    } = useCreateAsset();
+    const {
+        mutate: update,
+        isPending: isUpdating,
+        error: updateError,
+    } = useUpdateAsset();
     const {
         mutate: submit,
         isPending: isSubmitting,
@@ -315,6 +417,7 @@ export default function SellerUploadPage() {
     } = useSubmitForReview();
 
     const [tab, setTab] = useState<TabValue>("details");
+    const [draftSaved, setDraftSaved] = useState(false);
 
     if (urlAssetId && assetLoading) {
         return <p className="p-8">Loading draft...</p>;
@@ -324,7 +427,9 @@ export default function SellerUploadPage() {
         return (
             <div className="p-8 max-w-2xl mx-auto space-y-4">
                 <p className="text-red-500">
-                    {assetError ? getErrorMessage(assetError) : "Draft not found."}
+                    {assetError
+                        ? getErrorMessage(assetError)
+                        : "Draft not found."}
                 </p>
                 <Link to="/seller/listings" className="text-blue-600 underline">
                     Back to My Listings
@@ -337,8 +442,8 @@ export default function SellerUploadPage() {
         return (
             <div className="p-8 max-w-2xl mx-auto space-y-4">
                 <p className="text-red-500">
-                    This asset is no longer a draft (current status: {asset.status}) and
-                    cannot be edited.
+                    This asset is no longer a draft (current status:{" "}
+                    {asset.status}) and cannot be edited.
                 </p>
                 <Link to="/seller/listings" className="text-blue-600 underline">
                     Back to My Listings
@@ -350,8 +455,12 @@ export default function SellerUploadPage() {
     const onSaveDetails = (data: WizardForm) => {
         const isBlockchain = data.listingType === "BLOCKCHAIN";
         const pricingPayload = {
-            pricePersonal: isBlockchain ? null : parsePriceOrNull(data.pricePersonal),
-            priceCommercial: isBlockchain ? null : parsePriceOrNull(data.priceCommercial),
+            pricePersonal: isBlockchain
+                ? null
+                : parsePriceOrNull(data.pricePersonal),
+            priceCommercial: isBlockchain
+                ? null
+                : parsePriceOrNull(data.priceCommercial),
             priceSol: isBlockchain ? parsePriceOrNull(data.priceSol) : null,
             currency: data.currency,
         };
@@ -364,6 +473,10 @@ export default function SellerUploadPage() {
                         title: data.title,
                         description: data.description || undefined,
                         category: data.category,
+                        audioType:
+                            data.category === "SOUND_EFFECT"
+                                ? data.audioType
+                                : null,
                         listingType: data.listingType,
                         isAiGenerated: data.isAiGenerated,
                         ...pricingPayload,
@@ -377,13 +490,19 @@ export default function SellerUploadPage() {
                     title: data.title,
                     description: data.description || undefined,
                     category: data.category,
+                    audioType:
+                        data.category === "SOUND_EFFECT"
+                            ? data.audioType
+                            : null,
                     listingType: data.listingType,
                     isAiGenerated: data.isAiGenerated,
                     ...pricingPayload,
                 },
                 {
                     onSuccess: (newAsset) => {
-                        navigate(`/seller/upload/${newAsset.id}`, { replace: true });
+                        navigate(`/seller/upload/${newAsset.id}`, {
+                            replace: true,
+                        });
                         setTab("files");
                     },
                 },
@@ -401,6 +520,7 @@ export default function SellerUploadPage() {
               title: asset.title,
               description: asset.description ?? "",
               category: asset.category,
+              audioType: asset.audioType ?? undefined,
               listingType: asset.listingType,
               isAiGenerated: asset.isAiGenerated,
               pricePersonal: asset.pricePersonal ?? "",
@@ -411,63 +531,142 @@ export default function SellerUploadPage() {
         : undefined;
 
     return (
-        <div className="min-h-screen p-8">
-            <div className="max-w-2xl mx-auto space-y-6">
+        <div className="seller-upload-theme min-h-screen bg-background px-4 py-8 text-foreground sm:px-8 sm:py-12">
+            <div className="max-w-[880px] mx-auto space-y-8">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">
-                        {urlAssetId ? "Edit Draft" : "Upload New Asset"}
-                    </h1>
-                    <Link to="/seller/listings" className="text-sm text-blue-600 underline">
+                    <div>
+                        <p className="mb-2 text-[10px] font-medium tracking-[0.2em] text-[#74796c]">
+                            YOUR NEXT CREATIVE RELEASE
+                        </p>
+                        <h1 className="text-3xl font-semibold tracking-tight">
+                            {urlAssetId ? "Edit your asset" : "Upload an asset"}
+                        </h1>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            Give your creation a home in the marketplace.
+                        </p>
+                    </div>
+                    <Link
+                        to="/seller/listings"
+                        className="shrink-0 text-sm text-[#657152] hover:underline"
+                    >
                         My Listings
                     </Link>
                 </div>
 
                 <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
-                    <TabsList className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 gap-1 group-data-horizontal/tabs:h-auto sm:grid-cols-4">
                         <TabsTrigger value="details" className="flex-1">
-                            1. Details
+                            1. Details & files
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="specifications"
+                            disabled={!hasAsset}
+                            className="flex-1"
+                        >
+                            2. Specifications
                         </TabsTrigger>
                         <TabsTrigger
                             value="files"
                             disabled={!hasAsset}
                             className="flex-1"
                         >
-                            2. Files {hasAsset && `(${fileCount})`}
+                            3. Pricing
                         </TabsTrigger>
                         <TabsTrigger
                             value="submit"
                             disabled={!hasAsset}
                             className="flex-1"
                         >
-                            3. Submit
+                            Preview
                         </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="details">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Asset Details</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <DetailsForm
-                                    key={asset?.id ?? "new"}
-                                    initialValues={initialValues}
-                                    isEdit={!!urlAssetId}
-                                    isSaving={isSavingDetails}
-                                    saveError={detailsError}
-                                    onSave={onSaveDetails}
-                                />
-                            </CardContent>
-                        </Card>
+                        <section className="pt-6">
+                            <div className="mb-8 space-y-4">
+                                <div className="flex items-center justify-between gap-4">
+                                    <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                                        Step 1 of 3: Asset details
+                                    </h2>
+                                    <span className="text-xs text-muted-foreground">
+                                        33% complete
+                                    </span>
+                                </div>
+                                <div
+                                    role="progressbar"
+                                    aria-label="Upload steps"
+                                    aria-valuenow={1}
+                                    aria-valuemin={0}
+                                    aria-valuemax={3}
+                                    className="h-1.5 overflow-hidden rounded-full bg-[#e7e9e1]"
+                                >
+                                    <div className="h-full w-1/3 rounded-full bg-[#657152]" />
+                                </div>
+                            </div>
+                            {draftSaved && (
+                                <p
+                                    role="status"
+                                    className="mb-6 rounded-xl border border-[#d4dbc9] bg-[#e3e8d8] p-3 text-sm text-[#555e49]"
+                                >
+                                    Draft saved. You can return to it from My
+                                    Listings.
+                                </p>
+                            )}
+                            <UploadDetailsStep
+                                key={asset?.id ?? "new"}
+                                asset={asset}
+                                onSaved={(assetId, next) => {
+                                    setDraftSaved(!next);
+                                    if (!urlAssetId)
+                                        navigate(`/seller/upload/${assetId}`, {
+                                            replace: true,
+                                        });
+                                    if (next) setTab("specifications");
+                                }}
+                            />
+                        </section>
                     </TabsContent>
 
+                    <TabsContent
+                        value="specifications"
+                        forceMount
+                        className="data-[state=inactive]:hidden"
+                    >
+                        {asset && (
+                            <UploadSpecificationsStep
+                                key={`${asset.id}-${asset.category}`}
+                                asset={asset}
+                                onBack={() => setTab("details")}
+                                onNext={() => setTab("files")}
+                            />
+                        )}
+                    </TabsContent>
                     <TabsContent value="files">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Upload Files</CardTitle>
+                                <CardTitle>License & pricing</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {hasAsset && <AssetUploader assetId={urlAssetId!} category={asset?.category} />}
+                                <div className="mt-8 border-t pt-6">
+                                    <h3 className="mb-4 font-medium">
+                                        Existing listing settings
+                                    </h3>
+                                    <DetailsForm
+                                        key={asset?.id ?? "new"}
+                                        initialValues={initialValues}
+                                        isEdit={!!urlAssetId}
+                                        isSaving={isSavingDetails}
+                                        saveError={detailsError}
+                                        onSave={onSaveDetails}
+                                    />
+                                </div>
+                                <Button
+                                    type="button"
+                                    className="mt-6 w-full"
+                                    onClick={() => setTab("submit")}
+                                >
+                                    Continue to review ({fileCount} files)
+                                </Button>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -475,12 +674,20 @@ export default function SellerUploadPage() {
                     <TabsContent value="submit">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Submit for Review</CardTitle>
+                                <CardTitle>Preview & review</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
+                                {hasAsset && (
+                                    <AssetUploader
+                                        assetId={urlAssetId!}
+                                        category={asset?.category}
+                                    />
+                                )}
+
                                 <p className="text-sm text-gray-600">
-                                    Once submitted, an admin will review your asset. You
-                                    won't be able to edit it during review.
+                                    Once submitted, an admin will review your
+                                    asset. You won't be able to edit it during
+                                    review.
                                 </p>
                                 {submitError && (
                                     <p className="text-sm text-red-500">
@@ -490,12 +697,15 @@ export default function SellerUploadPage() {
                                 <Button
                                     className="w-full"
                                     disabled={
-                                        isSubmitting || !asset || asset.files.length === 0
+                                        isSubmitting ||
+                                        !asset ||
+                                        asset.files.length === 0
                                     }
                                     onClick={() =>
                                         urlAssetId &&
                                         submit(urlAssetId, {
-                                            onSuccess: () => navigate("/seller/listings"),
+                                            onSuccess: () =>
+                                                navigate("/seller/listings"),
                                         })
                                     }
                                 >
@@ -513,4 +723,3 @@ export default function SellerUploadPage() {
         </div>
     );
 }
-

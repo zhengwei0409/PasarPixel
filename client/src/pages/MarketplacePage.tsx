@@ -1,3 +1,4 @@
+import { ORIENTATION_OPTIONS, IMAGE_FORMATS, VIDEO_FORMATS, ANIMATION_FORMATS, MODEL_FORMATS, FONT_FORMATS, AUDIO_FORMATS } from "../lib/assetSpecifications";
 import { useState, useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
@@ -5,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { useBrowseAssets } from "@/hooks/useAsset";
 import { useDebounce } from "@/hooks/useDebounce";
 import AssetCard from "@/components/marketplace/AssetCard";
+import AudioAssetRow from "@/components/marketplace/AudioAssetRow";
+import FontAssetRow from "@/components/marketplace/FontAssetRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,49 +36,17 @@ const SORT_OPTIONS: { value: BrowseSort; label: string }[] = [
     { value: "price_desc", label: "Price: High to Low" },
 ];
 
-const ORIENTATION_OPTIONS = [
-    { value: "landscape", label: "Landscape" },
-    { value: "portrait", label: "Portrait" },
-    { value: "square", label: "Square" },
+
+
+
+
+
+
+const AUDIO_TYPES = [
+    { value: "MUSIC", label: "Music" },
+    { value: "SOUND_EFFECT", label: "Sound effect" },
 ];
-const IMAGE_FORMATS = [
-    { value: "jpeg", label: "JPG / JPEG" },
-    { value: "png", label: "PNG" },
-    { value: "webp", label: "WebP" },
-    { value: "gif", label: "GIF" },
-];
-const VIDEO_FORMATS = [
-    { value: "mp4", label: "MP4" },
-    { value: "mov", label: "MOV" },
-    { value: "webm", label: "WebM" },
-    { value: "avi", label: "AVI" },
-];
-const ANIMATION_FORMATS = [
-    { value: "glb", label: "GLB" },
-    { value: "fbx", label: "FBX" },
-    { value: "blend", label: "BLEND" },
-];
-const MODEL_FORMATS = [
-    { value: "glb", label: "GLB" },
-    { value: "gltf", label: "GLTF" },
-    { value: "fbx", label: "FBX" },
-    { value: "obj", label: "OBJ" },
-    { value: "blend", label: "BLEND" },
-    { value: "stl", label: "STL" },
-];
-const FONT_FORMATS = [
-    { value: "ttf", label: "TTF" },
-    { value: "otf", label: "OTF" },
-    { value: "woff", label: "WOFF" },
-    { value: "woff2", label: "WOFF2" },
-];
-const AUDIO_FORMATS = [
-    { value: "mp3", label: "MP3" },
-    { value: "wav", label: "WAV" },
-    { value: "flac", label: "FLAC" },
-    { value: "aac", label: "AAC / M4A" },
-    { value: "ogg", label: "OGG" },
-];
+
 const VIDEO_RESOLUTIONS = [
     { value: "720", label: "HD — 720p+" },
     { value: "1080", label: "Full HD — 1080p+" },
@@ -172,6 +143,7 @@ export default function MarketplacePage() {
     };
     const videoFilterKey = JSON.stringify(videoParams);
     const audioSelected = selectedCategories.some((option) => option.value === "SOUND_EFFECT");
+    const audioTypes = AUDIO_TYPES.filter((option) => searchParams.getAll("audioType").includes(option.value));
     const audioFormats = AUDIO_FORMATS.filter((option) => searchParams.getAll("audioFormat").includes(option.value));
     const audioMinDuration = searchParams.get("audioMinDuration") ?? "";
     const audioMaxDuration = searchParams.get("audioMaxDuration") ?? "";
@@ -180,6 +152,7 @@ export default function MarketplacePage() {
     const validAudioMinDuration = debouncedAudioMinDuration.trim() !== "" && Number.isFinite(Number(debouncedAudioMinDuration)) && Number(debouncedAudioMinDuration) >= 0;
     const validAudioMaxDuration = debouncedAudioMaxDuration.trim() !== "" && Number.isFinite(Number(debouncedAudioMaxDuration)) && Number(debouncedAudioMaxDuration) >= 0;
     const audioParams: BrowseAssetsParams = {
+        ...(audioTypes.length ? { audioType: audioTypes.map((option) => option.value).join(",") } : {}),
         ...(audioFormats.length ? { audioFormat: audioFormats.map((option) => option.value).join(",") } : {}),
         ...(validAudioMinDuration ? { audioMinDuration: Number(debouncedAudioMinDuration) } : {}),
         ...(validAudioMaxDuration ? { audioMaxDuration: Number(debouncedAudioMaxDuration) } : {}),
@@ -257,7 +230,7 @@ export default function MarketplacePage() {
             next.delete("fontFormat");
             next.delete("modelFormat");
             next.delete("animationFormat");
-            ["audioFormat", "audioMinDuration", "audioMaxDuration"].forEach((key) => next.delete(key));
+            ["audioType", "audioFormat", "audioMinDuration", "audioMaxDuration"].forEach((key) => next.delete(key));
             ["videoOrientation", "videoFormat", "videoMinResolution", "videoMinFrameRate", "videoMinDuration", "videoMaxDuration"].forEach((key) => next.delete(key));
             return next;
         }, { replace: true });
@@ -286,6 +259,7 @@ export default function MarketplacePage() {
         ...(modelsSelected ? modelFormats.map((option) => ({ key: `model-format-${option.value}`, label: `3D models: ${option.label}`, remove: () => toggleMultiParam("modelFormat", option.value) })) : []),
         ...(fontsSelected ? fontFormats.map((option) => ({ key: `font-format-${option.value}`, label: `Fonts: ${option.label}`, remove: () => toggleMultiParam("fontFormat", option.value) })) : []),
         ...(audioSelected ? [
+            ...audioTypes.map((option) => ({ key: `audio-type-${option.value}`, label: `Audio: ${option.label}`, remove: () => toggleMultiParam("audioType", option.value) })),
             ...audioFormats.map((option) => ({ key: `audio-format-${option.value}`, label: `Audio: ${option.label}`, remove: () => toggleMultiParam("audioFormat", option.value) })),
             ...(audioMinDuration ? [{ key: "audio-min-duration", label: `Audio: ${audioMinDuration}s minimum`, remove: () => setBrowseParam("audioMinDuration", "") }] : []),
             ...(audioMaxDuration ? [{ key: "audio-max-duration", label: `Audio: ${audioMaxDuration}s maximum`, remove: () => setBrowseParam("audioMaxDuration", "") }] : []),
@@ -378,6 +352,10 @@ export default function MarketplacePage() {
                         </AdvancedFilters>}
                         {audioSelected && <AdvancedFilters category="Audio">
                             <fieldset>
+                                <legend className="mb-2 text-xs font-medium text-[#555e49]">Audio type</legend>
+                                {AUDIO_TYPES.map((option) => <FilterOption key={option.value} label={option.label} checked={audioTypes.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("audioType", option.value)} />)}
+                            </fieldset>
+                            <fieldset>
                                 <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
                                 {AUDIO_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={audioFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("audioFormat", option.value)} />)}
                             </fieldset>
@@ -462,9 +440,9 @@ export default function MarketplacePage() {
                             <span aria-current="page">Marketplace</span>
                         </nav>
                         <div className="mb-7 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                            <div role="search" aria-label="Search marketplace" className="flex w-full items-center gap-2 rounded-xl border border-[#dfe4d6] bg-white px-3 xl:max-w-[420px]">
+                            <div role="search" aria-label="Search marketplace" className="flex w-full items-center gap-2 rounded-xl border border-[#dfe4d6] bg-white px-3 focus-within:border-[#7a8568] focus-within:ring-3 focus-within:ring-[#7a8568]/20 xl:max-w-[420px]">
                                 <Search className="size-4 shrink-0 text-[#85897f]" aria-hidden="true" />
-                                <Input type="search" placeholder="Search creative assets…" value={keyword} onChange={(event) => setBrowseParam("keyword", event.target.value)} aria-label="Search marketplace assets" className="h-11 min-w-0 border-0 bg-transparent px-1 shadow-none focus-visible:ring-[#7a8568]/20" />
+                                <Input type="search" placeholder="Search creative assets…" value={keyword} onChange={(event) => setBrowseParam("keyword", event.target.value)} aria-label="Search marketplace assets" className="h-11 min-w-0 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0" />
                             </div>
                             <div className="flex shrink-0 items-center gap-3">
                                 <span id="sort-label" className="text-[10px] font-semibold tracking-[0.12em] text-[#73776e]">SORT BY</span>
@@ -529,7 +507,7 @@ function CategoryResults({ params, title, onClearFilters, hasFilters }: {
                 {hasFilters && <Button onClick={onClearFilters} className="mt-5 bg-[#30392b] text-white hover:bg-[#444f3a]">Clear filters</Button>}
             </div>}
             {data && !error && data.items.length > 0 && <>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">{data.items.map((asset) => <AssetCard key={asset.id} asset={asset} variant="compact" />)}</div>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">{data.items.map((asset) => asset.category === "SOUND_EFFECT" ? <AudioAssetRow key={asset.id} asset={asset} /> : asset.category === "FONT" ? <FontAssetRow key={asset.id} asset={asset} /> : <AssetCard key={asset.id} asset={asset} variant="compact" />)}</div>
                 <div className="mt-12 border-t border-[#e7e9e1] pt-8">
                     {totalPages > 1 && <nav aria-label={title ? `${title} pagination` : "Marketplace pagination"} className="flex items-center justify-center gap-2">
                         <button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className={cn("flex size-10 items-center justify-center rounded-lg bg-[#eceee7] text-[#555e49] hover:bg-[#e3e8d8] disabled:cursor-not-allowed disabled:opacity-40", FOCUS)}><ChevronLeft className="size-4" aria-hidden="true" /></button>

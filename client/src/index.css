@@ -133,7 +133,8 @@
 .asset-detail-theme,
 .orders-theme,
 .profile-theme,
-.settings-theme {
+.settings-theme,
+.seller-upload-theme {
     --background: #f7f7f2;
     --foreground: #252823;
     --card: #ffffff;

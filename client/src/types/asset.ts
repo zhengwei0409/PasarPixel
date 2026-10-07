@@ -1,3 +1,5 @@
+import type { AssetSpecifications } from "../lib/assetSpecifications";
+
 export type AssetCategory =
     | "THREE_D_MODEL"
     | "IMAGE"
@@ -5,6 +7,8 @@ export type AssetCategory =
     | "SOUND_EFFECT"
     | "FONT"
     | "ANIMATION";
+
+export type AudioType = "MUSIC" | "SOUND_EFFECT";
 
 export type ListingType = "TRADITIONAL" | "BLOCKCHAIN";
 
@@ -23,6 +27,8 @@ export interface Asset {
     title: string;
     description: string | null;
     category: AssetCategory;
+    audioType?: AudioType | null;
+    technicalSpecifications?: AssetSpecifications | null;
     listingType: ListingType;
     status: AssetStatus;
     pricePersonal: string | null;
@@ -45,6 +51,10 @@ export interface AssetFile {
     fileUrl: string;
     previewUrl: string | null;
     fileSize: number;
+    width?: number | null;
+    height?: number | null;
+    durationSeconds?: number | null;
+    frameRate?: number | null;
     purpose: AssetFilePurpose;
     createdAt: string;
 }
@@ -81,6 +91,7 @@ export interface CreateAssetPayload {
     title: string;
     description?: string;
     category: AssetCategory;
+    audioType?: AudioType | null;
     listingType: ListingType;
     isAiGenerated?: boolean;
     pricePersonal?: number | null;
@@ -90,9 +101,11 @@ export interface CreateAssetPayload {
 }
 
 export interface UpdateAssetPayload {
+    technicalSpecifications?: AssetSpecifications;
     title?: string;
     description?: string;
     category?: AssetCategory;
+    audioType?: AudioType | null;
     listingType?: ListingType;
     isAiGenerated?: boolean;
     pricePersonal?: number | null;
@@ -183,6 +196,7 @@ export interface BrowseAssetsParams {
     animationFormat?: string;
     modelFormat?: string;
     fontFormat?: string;
+    audioType?: string;
     audioFormat?: string;
     audioMinDuration?: number;
     audioMaxDuration?: number;
