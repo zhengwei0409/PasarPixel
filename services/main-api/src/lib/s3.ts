@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
@@ -80,4 +81,15 @@ export async function deleteObject(key: string): Promise<void> {
 export function extractKeyFromUrl(fileUrl: string): string {
   const url = new URL(fileUrl);
   return url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname;
+}
+
+export async function copyObjectForPreview(sourceKey: string, key: string): Promise<string> {
+  await s3.send(new CopyObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    CopySource: encodeURIComponent(`${BUCKET}/${sourceKey}`),
+    MetadataDirective: "REPLACE",
+    ContentType: "model/gltf-binary",
+  }));
+  return `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 }

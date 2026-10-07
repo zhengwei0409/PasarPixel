@@ -5,6 +5,7 @@ const MIME_FORMATS: Record<string, string> = {
     "image/jpeg": "jpeg",
     "image/png": "png",
     "image/webp": "webp",
+    "image/avif": "avif",
     "image/gif": "gif",
     "video/mp4": "mp4",
     "video/quicktime": "mov",

@@ -118,6 +118,14 @@ test("HD includes portrait images by their longest side", async () => {
     ]);
 });
 
+test("AVIF filtering matches original images before ranking, pagination and totals", async () => {
+    const { calls } = await browse({ category: "IMAGE", sort: "best_selling", imageFormat: "avif" });
+    assert.equal(calls.assets.where.files.some.purpose, "ORIGINAL");
+    assert.deepEqual(calls.assets.where.files.some.fileType.in, ["image/avif"]);
+    assert.deepEqual(calls.sales.where.asset.files, calls.assets.where.files);
+    assert.deepEqual(calls.count.where.files, calls.assets.where.files);
+});
+
 test("image filters do not constrain other multimedia categories", async () => {
     for (const category of [undefined, "VIDEO", "THREE_D_MODEL"]) {
         const { calls } = await browse({ category, imageOrientation: "landscape", imageMinResolution: "3840", imageFormat: "png" });

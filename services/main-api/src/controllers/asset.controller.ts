@@ -1,4 +1,4 @@
-import { specificationsError } from "../lib/assetSpecifications";
+import { assetFileError, specificationsError } from "../lib/assetSpecifications";
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
@@ -10,6 +10,7 @@ import {
     extractKeyFromUrl,
     getObjectBuffer,
     putObjectBuffer,
+    copyObjectForPreview,
 } from "../lib/s3";
 import { imageDimensions } from "../lib/imageDimensions";
 import { watermarkImage } from "../lib/watermark";
@@ -170,7 +171,7 @@ export async function getUploadUrl(req: Request, res: Response) {
     const assetId = parseInt(req.params.id as string);
     const { fileName, fileType, fileSize, purpose } = req.body;
 
-    if (!fileName || !fileType || typeof fileSize !== "number") {
+    if (typeof fileName !== "string" || !fileName || typeof fileType !== "string" || !fileType || typeof fileSize !== "number") {
         res.status(400).json({ error: "fileName, fileType, and fileSize are required" });
         return;
     }
@@ -201,6 +202,9 @@ export async function getUploadUrl(req: Request, res: Response) {
         res.status(409).json({ error: "Files can only be added to draft assets" });
         return;
     }
+
+    const formatError = assetFileError(asset.category, fileName, fileType, purpose === "PREVIEW" ? "PREVIEW" : "ORIGINAL");
+    if (formatError) { res.status(400).json({ error: formatError }); return; }
 
     const currentTotal = asset.files.reduce((sum, f) => sum + f.fileSize, 0);
     if (currentTotal + fileSize > MAX_TOTAL_SIZE) {
@@ -237,7 +241,7 @@ export async function registerFile(req: Request, res: Response) {
     const assetId = parseInt(req.params.id as string);
     const { key, fileType, fileSize, purpose } = req.body;
 
-    if (!key || !fileType || typeof fileSize !== "number") {
+    if (typeof key !== "string" || !key || typeof fileType !== "string" || !fileType || typeof fileSize !== "number") {
         res.status(400).json({ error: "key, fileType, and fileSize are required" });
         return;
     }
@@ -278,6 +282,9 @@ export async function registerFile(req: Request, res: Response) {
         res.status(409).json({ error: "Files can only be added to draft assets" });
         return;
     }
+
+    const formatError = assetFileError(asset.category, key, fileType, purpose === "PREVIEW" ? "PREVIEW" : "ORIGINAL");
+    if (formatError) { res.status(400).json({ error: formatError }); return; }
 
     const currentTotal = asset.files.reduce((sum, f) => sum + f.fileSize, 0);
     if (currentTotal + fileSize > MAX_TOTAL_SIZE) {
@@ -380,7 +387,7 @@ export async function registerFile(req: Request, res: Response) {
         }
     }
 
-    const file = await prisma.assetFile.create({
+    let file = await prisma.assetFile.create({
         data: {
             assetId,
             fileType,
@@ -392,7 +399,40 @@ export async function registerFile(req: Request, res: Response) {
         },
     });
 
+    if (asset.category === "THREE_D_MODEL" && filePurpose === "ORIGINAL" && /\.glb$/i.test(key)) {
+        try { file = await createGlbPreview(file, userId); }
+        catch (err) { console.error("GLB preview copy failed", { assetId, fileId: file.id, err }); }
+    }
+
     res.status(201).json(file);
+}
+
+async function createGlbPreview(file: { id: number; assetId: number; fileUrl: string; previewUrl: string | null }, sellerId: number) {
+    const previewUrl = await copyObjectForPreview(
+        extractKeyFromUrl(file.fileUrl),
+        `previews/${sellerId}/${file.assetId}/source-${file.id}.glb`,
+    );
+    return prisma.assetFile.update({ where: { id: file.id }, data: { previewUrl } });
+}
+
+// Existing drafts can reuse an already uploaded GLB without another browser upload.
+export async function reuseGlbPreview(req: Request, res: Response) {
+    const assetId = Number(req.params.id);
+    const fileId = Number(req.params.fileId);
+    if (!Number.isSafeInteger(assetId) || !Number.isSafeInteger(fileId)) {
+        res.status(400).json({ error: "Invalid asset or file ID" }); return;
+    }
+    const asset = await prisma.asset.findUnique({ where: { id: assetId }, include: { files: true } });
+    if (!asset || asset.isDeleted) { res.status(404).json({ error: "Asset not found" }); return; }
+    if (asset.sellerId !== req.user!.userId) { res.status(403).json({ error: "You do not own this asset" }); return; }
+    if (asset.status !== "DRAFT") { res.status(409).json({ error: "Previews can only be prepared for drafts" }); return; }
+    const file = asset.files.find(file => file.id === fileId);
+    if (asset.category !== "THREE_D_MODEL" || !file || file.purpose !== "ORIGINAL" || !/\.glb$/i.test(file.fileUrl)) {
+        res.status(400).json({ error: "Choose an original GLB from this 3D asset" }); return;
+    }
+    if (file.previewUrl) { res.json(file); return; }
+    try { res.json(await createGlbPreview(file, asset.sellerId)); }
+    catch { res.status(502).json({ error: "Could not prepare the GLB preview. Please retry." }); }
 }
 
 const VALID_SORTS = ["newest", "best_selling", "price_asc", "price_desc"] as const;
@@ -437,6 +477,7 @@ export async function browseAssets(req: Request, res: Response) {
         const mimeTypes: Record<string, string[]> = {
             jpeg: ["image/jpeg", "image/jpg"], png: ["image/png"],
             webp: ["image/webp"], gif: ["image/gif"],
+            avif: ["image/avif"],
         };
         const imageFile: Prisma.AssetFileWhereInput = { purpose: "ORIGINAL" };
         const conditions: Prisma.AssetFileWhereInput[] = [];
@@ -753,6 +794,7 @@ export async function deleteOrTakeDownAsset(req: Request, res: Response) {
         for (const file of asset.files) {
             const key = extractKeyFromUrl(file.fileUrl);
             await deleteObject(key);
+            if (file.previewUrl) await deleteObject(extractKeyFromUrl(file.previewUrl));
         }
         await prisma.assetFile.deleteMany({ where: { assetId } });
         await prisma.asset.delete({ where: { id: assetId } });
@@ -786,7 +828,7 @@ export async function updateAsset(req: Request, res: Response) {
     const assetId = parseInt(req.params.id as string);
     const { title, description, category, listingType, isAiGenerated, audioType } = req.body;
 
-    const asset = await prisma.asset.findUnique({ where: { id: assetId } });
+    const asset = await prisma.asset.findUnique({ where: { id: assetId }, include: { files: true } });
     if (!asset || asset.isDeleted) {
         res.status(404).json({ error: "Asset not found" });
         return;
@@ -814,6 +856,11 @@ export async function updateAsset(req: Request, res: Response) {
     }
 
     const effectiveCategory = category ?? asset.category;
+    if (category !== undefined && category !== asset.category) {
+        const files = asset.files ?? [];
+        const invalid = files.map(file => assetFileError(effectiveCategory, file.fileUrl, file.fileType, file.purpose)).find(Boolean);
+        if (invalid) { res.status(400).json({ error: `${invalid} Remove incompatible files before changing category.` }); return; }
+    }
     if (req.body.technicalSpecifications !== undefined) {
         const error = specificationsError(effectiveCategory, req.body.technicalSpecifications);
         if (error) { res.status(400).json({ error }); return; }
@@ -1037,11 +1084,17 @@ export async function submitForReview(req: Request, res: Response) {
         return;
     }
 
+    const invalid = asset.files.map(file => assetFileError(asset.category, file.fileUrl, file.fileType, file.purpose)).find(Boolean);
+    if (invalid) { res.status(400).json({ error: invalid }); return; }
+    if (!asset.files.some(file => file.purpose === "ORIGINAL")) {
+        res.status(400).json({ error: "Upload at least one original source file before submission" }); return;
+    }
+
     if (asset.category === "ANIMATION") {
         const has3d = asset.files.some(
-            (f) => f.fileType.startsWith("model/") || /\.(glb|fbx|blend)$/i.test(f.fileUrl),
+            (f) => f.purpose === "ORIGINAL" && /\.(glb|fbx|blend)$/i.test(f.fileUrl),
         );
-        const hasVideo = asset.files.some((f) => f.fileType.startsWith("video/"));
+        const hasVideo = asset.files.some((f) => f.purpose === "PREVIEW" && /\.mp4$/i.test(f.fileUrl));
         if (!has3d) {
             res.status(400).json({ error: "Animation assets must include a 3D file (.glb, .fbx, or .blend)" });
             return;
@@ -1054,7 +1107,7 @@ export async function submitForReview(req: Request, res: Response) {
 
     if (asset.category === "THREE_D_MODEL") {
         const hasPreviewGlb = asset.files.some(
-            (f) => f.purpose === "PREVIEW" && /\.glb$/i.test(f.fileUrl),
+            (f) => /\.glb$/i.test(f.fileUrl) && (f.purpose === "PREVIEW" || !!f.previewUrl),
         );
         const hasOriginal = asset.files.some((f) => f.purpose === "ORIGINAL");
         if (!hasPreviewGlb) {
@@ -1071,16 +1124,14 @@ export async function submitForReview(req: Request, res: Response) {
         }
     }
 
-    // Categories with no static image of their own need a seller-uploaded
-    // cover image so the marketplace card has a thumbnail.
+    // These categories require a public cover uploaded during review.
     const COVER_REQUIRED: AssetCategory[] = [
         "THREE_D_MODEL",
-        "SOUND_EFFECT",
         "VIDEO",
         "ANIMATION",
     ];
     if (COVER_REQUIRED.includes(asset.category)) {
-        const hasImage = asset.files.some((f) => f.fileType.startsWith("image/"));
+        const hasImage = asset.files.some((f) => f.purpose === "PREVIEW" && f.fileType.startsWith("image/"));
         if (!hasImage) {
             res.status(400).json({
                 error: "This asset must include a cover image (shown as the marketplace thumbnail)",
@@ -1216,6 +1267,7 @@ export async function deleteFile(req: Request, res: Response) {
 
     const key = extractKeyFromUrl(file.fileUrl);
     await deleteObject(key);
+    if (file.previewUrl) await deleteObject(extractKeyFromUrl(file.previewUrl));
     await prisma.assetFile.delete({ where: { id: fileId } });
 
     res.status(204).send();

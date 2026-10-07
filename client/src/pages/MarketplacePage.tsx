@@ -1,10 +1,11 @@
 import { ORIENTATION_OPTIONS, IMAGE_FORMATS, VIDEO_FORMATS, ANIMATION_FORMATS, MODEL_FORMATS, FONT_FORMATS, AUDIO_FORMATS } from "../lib/assetSpecifications";
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBrowseAssets } from "@/hooks/useAsset";
 import { useDebounce } from "@/hooks/useDebounce";
+import AdvancedFilterDropdown from "@/components/marketplace/AdvancedFilterDropdown";
 import AssetCard from "@/components/marketplace/AssetCard";
 import AudioAssetRow from "@/components/marketplace/AudioAssetRow";
 import FontAssetRow from "@/components/marketplace/FontAssetRow";
@@ -21,12 +22,12 @@ import {
 import type { AssetCategory, BrowseAssetsParams, BrowseSort, ListingType } from "@/types/asset";
 
 const CATEGORY_OPTIONS: { value: AssetCategory; label: string }[] = [
-    { value: "THREE_D_MODEL", label: "3D models" },
     { value: "IMAGE", label: "Images" },
     { value: "VIDEO", label: "Videos" },
+    { value: "THREE_D_MODEL", label: "3D models" },
+    { value: "ANIMATION", label: "Animations" },
     { value: "SOUND_EFFECT", label: "Audio" },
     { value: "FONT", label: "Fonts" },
-    { value: "ANIMATION", label: "Animations" },
 ];
 
 const SORT_OPTIONS: { value: BrowseSort; label: string }[] = [
@@ -54,6 +55,7 @@ const VIDEO_RESOLUTIONS = [
 ];
 const ALL = "ALL";
 const PAGE_SIZE = 18;
+const CATEGORY_PREVIEW_SIZE = 3;
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7a8568]";
 
 function FilterOption({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) {
@@ -65,39 +67,19 @@ function FilterOption({ label, checked, onChange }: { label: string; checked: bo
     );
 }
 
-function AdvancedFilters({ category, children }: { category: string; children: ReactNode }) {
-    return (
-        <details className="group border-t border-[#e7e9e1] pt-6">
-            <summary className={cn("flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-[#252823] hover:text-[#657152] [&::-webkit-details-marker]:hidden", FOCUS)}>
-                <span>
-                    <span className="text-sm font-semibold">Advanced filters</span>
-                    <span className="mt-1 block text-xs text-[#85897f]">{category}</span>
-                </span>
-                <ChevronDown className="size-4 shrink-0 text-[#657152] transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
-            </summary>
-            <div className="space-y-5 pt-5">{children}</div>
-        </details>
-    );
-}
-
 export default function MarketplacePage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const keyword = searchParams.get("keyword") ?? "";
-    const selectedCategories = CATEGORY_OPTIONS.filter((option) =>
-        searchParams.getAll("category").includes(option.value),
-    );
-    const toggleCategory = (value: AssetCategory) => {
-        setSearchParams((previous) => {
-            const next = new URLSearchParams(previous);
-            const categories = new Set(next.getAll("category"));
-            if (categories.has(value)) categories.delete(value);
-            else categories.add(value);
-            next.delete("category");
-            CATEGORY_OPTIONS.forEach((option) => {
-                if (categories.has(option.value)) next.append("category", option.value);
-            });
-            return next;
-        }, { replace: true });
+    const selectedCategory = searchParams.getAll("category")
+        .map((value) => CATEGORY_OPTIONS.find((option) => option.value === value))
+        .find((option) => option !== undefined);
+    const selectedCategories = selectedCategory ? [selectedCategory] : [];
+    const displayedCategories = selectedCategories.length > 0 ? selectedCategories : CATEGORY_OPTIONS;
+    const isCategoryPreview = selectedCategories.length === 0;
+    const categoryLink = (category: AssetCategory) => {
+        const next = new URLSearchParams(searchParams);
+        next.set("category", category);
+        return `/marketplace?${next.toString()}`;
     };
     const imagesSelected = selectedCategories.some((option) => option.value === "IMAGE");
     const orientations = ORIENTATION_OPTIONS.filter((option) => searchParams.getAll("imageOrientation").includes(option.value));
@@ -241,7 +223,7 @@ export default function MarketplacePage() {
     };
     const activeFilters = [
         ...(keyword.trim() ? [{ key: "keyword", label: keyword.trim(), remove: () => setBrowseParam("keyword", "") }] : []),
-        ...selectedCategories.map((option) => ({ key: option.value, label: option.label, remove: () => toggleCategory(option.value) })),
+        ...selectedCategories.map((option) => ({ key: option.value, label: option.label, remove: () => setBrowseParam("category", ALL) })),
         ...(imagesSelected ? [
             ...orientations.map((option) => ({ key: `orientation-${option.value}`, label: `Images: ${option.label}`, remove: () => toggleMultiParam("imageOrientation", option.value) })),
             ...imageFormats.map((option) => ({ key: `format-${option.value}`, label: `Images: ${option.label}`, remove: () => toggleMultiParam("imageFormat", option.value) })),
@@ -283,11 +265,6 @@ export default function MarketplacePage() {
                     </div>
                     <div id="marketplace-filters" className={cn("space-y-8 px-5 pb-8 sm:px-8 lg:block lg:pt-4", !filtersOpen && "hidden")}>
                         <fieldset>
-                            <legend className="mb-3 text-sm font-semibold">Category</legend>
-                            <p className="mb-2 text-xs text-[#85897f]">Select one or more categories</p>
-                            {CATEGORY_OPTIONS.map((option) => <FilterOption key={option.value} label={option.label} checked={selectedCategories.some((selected) => selected.value === option.value)} onChange={() => toggleCategory(option.value)} />)}
-                        </fieldset>
-                        <fieldset>
                             <legend className="mb-4 text-sm font-semibold">Price range</legend>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
@@ -310,161 +287,75 @@ export default function MarketplacePage() {
                             <FilterOption label="AI-generated" checked={aiFilter === "AI"} onChange={() => setAiFilter(aiFilter === "AI" ? ALL : "AI")} />
                             <FilterOption label="Human-made" checked={aiFilter === "HUMAN"} onChange={() => setAiFilter(aiFilter === "HUMAN" ? ALL : "HUMAN")} />
                         </fieldset>
-                        {imagesSelected && <AdvancedFilters category="Images">
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">Orientation</legend>
-                                {ORIENTATION_OPTIONS.map((option) => <FilterOption key={option.value} label={option.label} checked={orientations.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("imageOrientation", option.value)} />)}
-                            </fieldset>
-                            <div>
-                                <Label htmlFor="image-resolution" className="mb-2 text-xs font-medium text-[#555e49]">Minimum resolution</Label>
-                                <Select value={resolution} onValueChange={(value) => setBrowseParam("imageMinResolution", value)}>
-                                    <SelectTrigger id="image-resolution" className="h-10 w-full border-[#dfe4d6] bg-white text-xs focus-visible:ring-[#7a8568]/20"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="bg-[#fcfcfa] text-[#252823]">
-                                        <SelectItem value={ALL}>Any resolution</SelectItem>
-                                        <SelectItem value="1920">HD — 1920px+</SelectItem>
-                                        <SelectItem value="3840">4K — 3840px+</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p className="mt-2 text-[11px] leading-4 text-[#85897f]">Measured by the longest side.</p>
-                            </div>
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
-                                {IMAGE_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={imageFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("imageFormat", option.value)} />)}
-                            </fieldset>
-                        </AdvancedFilters>}
-                        {animationsSelected && <AdvancedFilters category="Animations">
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">Download file format</legend>
-                                {ANIMATION_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={animationFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("animationFormat", option.value)} />)}
-                            </fieldset>
-                        </AdvancedFilters>}
-                        {modelsSelected && <AdvancedFilters category="3D models">
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
-                                {MODEL_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={modelFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("modelFormat", option.value)} />)}
-                            </fieldset>
-                        </AdvancedFilters>}
-                        {fontsSelected && <AdvancedFilters category="Fonts">
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
-                                {FONT_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={fontFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("fontFormat", option.value)} />)}
-                            </fieldset>
-                        </AdvancedFilters>}
-                        {audioSelected && <AdvancedFilters category="Audio">
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">Audio type</legend>
-                                {AUDIO_TYPES.map((option) => <FilterOption key={option.value} label={option.label} checked={audioTypes.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("audioType", option.value)} />)}
-                            </fieldset>
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
-                                {AUDIO_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={audioFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("audioFormat", option.value)} />)}
-                            </fieldset>
-                            <fieldset>
-                                <legend className="mb-3 text-xs font-medium text-[#555e49]">Duration (seconds)</legend>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <Label htmlFor="audio-min-duration" className="mb-2 text-xs text-[#73776e]">Minimum</Label>
-                                        <Input id="audio-min-duration" type="number" min="0" step="any" placeholder="0" value={audioMinDuration} onChange={(event) => setBrowseParam("audioMinDuration", event.target.value)} className="h-10 border-[#dfe4d6] bg-white shadow-none focus-visible:ring-[#7a8568]/20" />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="audio-max-duration" className="mb-2 text-xs text-[#73776e]">Maximum</Label>
-                                        <Input id="audio-max-duration" type="number" min="0" step="any" placeholder="Any" value={audioMaxDuration} onChange={(event) => setBrowseParam("audioMaxDuration", event.target.value)} className="h-10 border-[#dfe4d6] bg-white shadow-none focus-visible:ring-[#7a8568]/20" />
-                                    </div>
-                                </div>
-                                {audioMinDuration !== "" && audioMaxDuration !== "" && Number(audioMinDuration) > Number(audioMaxDuration) && <p className="mt-2 text-xs text-destructive">Maximum must be at least the minimum.</p>}
-                            </fieldset>
-                        </AdvancedFilters>}
-                        {videosSelected && <AdvancedFilters category="Videos">
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">Orientation</legend>
-                                {ORIENTATION_OPTIONS.map((option) => <FilterOption key={option.value} label={option.label} checked={videoOrientations.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("videoOrientation", option.value)} />)}
-                            </fieldset>
-                            <div>
-                                <Label htmlFor="video-resolution" className="mb-2 text-xs font-medium text-[#555e49]">Minimum resolution</Label>
-                                <Select value={videoResolution} onValueChange={(value) => setBrowseParam("videoMinResolution", value)}>
-                                    <SelectTrigger id="video-resolution" className="h-10 w-full border-[#dfe4d6] bg-white text-xs focus-visible:ring-[#7a8568]/20"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="bg-[#fcfcfa] text-[#252823]">
-                                        <SelectItem value={ALL}>Any resolution</SelectItem>
-                                        {VIDEO_RESOLUTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <p className="mt-2 text-[11px] leading-4 text-[#85897f]">Measured by the shorter side.</p>
-                            </div>
-                            <fieldset>
-                                <legend className="mb-2 text-xs font-medium text-[#555e49]">File format</legend>
-                                {VIDEO_FORMATS.map((option) => <FilterOption key={option.value} label={option.label} checked={videoFormats.some((selected) => selected.value === option.value)} onChange={() => toggleMultiParam("videoFormat", option.value)} />)}
-                            </fieldset>
-                            <fieldset>
-                                <legend className="mb-3 text-xs font-medium text-[#555e49]">Duration (seconds)</legend>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <Label htmlFor="video-min-duration" className="mb-2 text-xs text-[#73776e]">Minimum</Label>
-                                        <Input id="video-min-duration" type="number" min="0" step="any" placeholder="0" value={minDuration} onChange={(event) => setBrowseParam("videoMinDuration", event.target.value)} className="h-10 border-[#dfe4d6] bg-white shadow-none focus-visible:ring-[#7a8568]/20" />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="video-max-duration" className="mb-2 text-xs text-[#73776e]">Maximum</Label>
-                                        <Input id="video-max-duration" type="number" min="0" step="any" placeholder="Any" value={maxDuration} onChange={(event) => setBrowseParam("videoMaxDuration", event.target.value)} className="h-10 border-[#dfe4d6] bg-white shadow-none focus-visible:ring-[#7a8568]/20" />
-                                    </div>
-                                </div>
-                                {minDuration !== "" && maxDuration !== "" && Number(minDuration) > Number(maxDuration) && <p className="mt-2 text-xs text-destructive">Maximum must be at least the minimum.</p>}
-                            </fieldset>
-                            <div>
-                                <Label htmlFor="video-frame-rate" className="mb-2 text-xs font-medium text-[#555e49]">Minimum frame rate</Label>
-                                <Select value={frameRate} onValueChange={(value) => setBrowseParam("videoMinFrameRate", value)}>
-                                    <SelectTrigger id="video-frame-rate" className="h-10 w-full border-[#dfe4d6] bg-white text-xs focus-visible:ring-[#7a8568]/20"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="bg-[#fcfcfa] text-[#252823]">
-                                        <SelectItem value={ALL}>Any frame rate</SelectItem>
-                                        {["24", "30", "60"].map((value) => <SelectItem key={value} value={value}>{value} fps+</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </AdvancedFilters>}
                     </div>
                 </aside>
 
                 <div className="min-w-0">
-                    <div aria-label="Active filters" className="flex min-h-[77px] flex-wrap items-center gap-2 border-b border-[#e7e9e1] px-5 py-4 sm:px-8 lg:px-10">
-                        <span className="mr-2 text-[10px] font-semibold tracking-[0.12em] text-[#73776e]">ACTIVE FILTERS</span>
-                        {activeFilters.length ? activeFilters.map((filter) => (
-                            <button key={filter.key} type="button" onClick={filter.remove} aria-label={`Remove filter: ${filter.label}`} className={cn("inline-flex max-w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors motion-reduce:transition-none", filter.key === "keyword" ? "bg-[#657152] text-white hover:bg-[#555e49]" : "bg-[#e3e8d8] text-[#555e49] hover:bg-[#d8dfcc]", FOCUS)}>
-                                <span className="truncate">{filter.label}</span><X className="size-3.5 shrink-0" aria-hidden="true" />
-                            </button>
-                        )) : <span className="text-xs text-[#85897f]">All creative assets</span>}
-                        {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className={cn("ml-2 rounded-sm border-l border-[#dfe4d6] pl-4 text-xs font-medium text-[#657152] hover:underline", FOCUS)}>Clear all</button>}
-                    </div>
-
                     <section aria-label="Marketplace assets" className="px-5 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
                         <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-xs text-[#73776e]">
                             <Link to="/" className={cn("rounded-sm hover:text-[#30392b]", FOCUS)}>Home</Link>
                             <ChevronRight className="size-3" aria-hidden="true" />
                             <span aria-current="page">Marketplace</span>
                         </nav>
-                        <div className="mb-7 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                            <div role="search" aria-label="Search marketplace" className="flex w-full items-center gap-2 rounded-xl border border-[#dfe4d6] bg-white px-3 focus-within:border-[#7a8568] focus-within:ring-3 focus-within:ring-[#7a8568]/20 xl:max-w-[420px]">
-                                <Search className="size-4 shrink-0 text-[#85897f]" aria-hidden="true" />
-                                <Input type="search" placeholder="Search creative assets…" value={keyword} onChange={(event) => setBrowseParam("keyword", event.target.value)} aria-label="Search marketplace assets" className="h-11 min-w-0 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0" />
-                            </div>
-                            <div className="flex shrink-0 items-center gap-3">
-                                <span id="sort-label" className="text-[10px] font-semibold tracking-[0.12em] text-[#73776e]">SORT BY</span>
-                                <Select value={sort} onValueChange={(value) => setBrowseParam("sort", value)}>
-                                    <SelectTrigger aria-labelledby="sort-label" className="h-11 w-[190px] border-[#dfe4d6] bg-[#fcfcfa] px-4 text-xs text-[#555e49] focus-visible:ring-[#7a8568]/20"><SelectValue /></SelectTrigger>
-                                    <SelectContent className="bg-[#fcfcfa] text-[#252823]">{SORT_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                        <div className="mb-7 flex flex-col gap-4">
+                            <form role="search" aria-label="Search marketplace" onSubmit={(event) => { event.preventDefault(); setBrowseParam("keyword", keyword.trim()); }} className="flex w-full max-w-[600px] min-w-0 items-center gap-2 rounded-xl border border-[#dfe4d6] bg-white p-2 shadow-[0_8px_24px_-16px_rgba(37,40,35,0.2)]">
+                                <Select value={selectedCategory?.value ?? ALL} onValueChange={(value) => setBrowseParam("category", value)}>
+                                    <SelectTrigger aria-label="Marketplace category" className="h-10 w-[115px] shrink-0 border-0 bg-transparent px-2 text-xs text-[#30392b] shadow-none focus-visible:ring-[#7a8568]/20 sm:w-[145px] sm:text-sm"><SelectValue /></SelectTrigger>
+                                    <SelectContent className="bg-[#fcfcfa] text-[#252823]">
+                                        <SelectItem value={ALL}>All categories</SelectItem>
+                                        {CATEGORY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                    </SelectContent>
                                 </Select>
+                                <span aria-hidden="true" className="h-7 w-px shrink-0 bg-[#dfe4d6]" />
+                                <Search className="size-[18px] shrink-0 text-[#85897f]" aria-hidden="true" />
+                                <Input type="search" placeholder="Search for models, images, sounds…" value={keyword} onChange={(event) => setBrowseParam("keyword", event.target.value)} aria-label="Search marketplace assets" className="h-10 min-w-0 flex-1 rounded-md border-0 bg-transparent px-1 shadow-none placeholder:text-[#a0a499] focus-visible:ring-[#7a8568]/20" />
+                                <Button type="submit" className="h-10 rounded-lg bg-[#30392b] px-4 text-xs font-medium text-white hover:bg-[#444f3a] motion-reduce:transition-none sm:px-6 sm:text-sm">Search</Button>
+                            </form>
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                {selectedCategory && <AdvancedFilterDropdown
+                                    key={selectedCategory.value}
+                                    category={selectedCategory.value}
+                                    categoryLabel={selectedCategory.label}
+                                    searchParams={searchParams}
+                                    onApply={(draft, keys) => setSearchParams((previous) => {
+                                        const next = new URLSearchParams(previous);
+                                        keys.forEach((key) => {
+                                            next.delete(key);
+                                            draft.getAll(key).forEach((value) => next.append(key, value));
+                                        });
+                                        return next;
+                                    }, { replace: true })}
+                                />}
+                                <div aria-label="Active filters" className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                                    {activeFilters.length ? activeFilters.map((filter) => (
+                                        <button key={filter.key} type="button" onClick={filter.remove} aria-label={`Remove filter: ${filter.label}`} className={cn("inline-flex h-11 max-w-full items-center gap-2 rounded-lg border border-[#dfe4d6] bg-[#fcfcfa] px-4 text-xs font-normal text-[#555e49] transition-colors hover:bg-[#eceee7] motion-reduce:transition-none", FOCUS)}>
+                                            <span className="truncate">{filter.label}</span><X className="size-3.5 shrink-0" aria-hidden="true" />
+                                        </button>
+                                    )) : <span className="text-xs text-[#85897f]">All creative assets</span>}
+                                    {activeFilters.length > 0 && <button type="button" onClick={clearFilters} className={cn("ml-2 rounded-sm border-l border-[#dfe4d6] pl-4 text-xs font-medium text-[#657152] hover:underline", FOCUS)}>Clear all</button>}
+                                </div>
+                                <div className="ml-auto flex shrink-0 items-center gap-3">
+                                    <span id="sort-label" className="text-[10px] font-semibold tracking-[0.12em] text-[#73776e]">SORT BY</span>
+                                    <Select value={sort} onValueChange={(value) => setBrowseParam("sort", value)}>
+                                        <SelectTrigger aria-labelledby="sort-label" className="h-11 w-[190px] border-[#dfe4d6] bg-[#fcfcfa] px-4 text-xs text-[#555e49] focus-visible:ring-[#7a8568]/20 data-[size=default]:h-11"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="bg-[#fcfcfa] text-[#252823]">{SORT_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </div>
 
                         <div className="space-y-10">
-                            {selectedCategories.length > 0 ? selectedCategories.map((option) => (
+                            {displayedCategories.map((option) => (
                                 <CategoryResults
-                                    key={`${option.value}:${filterKey}:${option.value === "IMAGE" ? imageFilterKey : option.value === "VIDEO" ? videoFilterKey : option.value === "SOUND_EFFECT" ? audioFilterKey : option.value === "FONT" ? fontFilterKey : option.value === "THREE_D_MODEL" ? modelFilterKey : option.value === "ANIMATION" ? animationFilterKey : ""}`}
+                                    key={`${option.value}:${isCategoryPreview}:${filterKey}:${option.value === "IMAGE" ? imageFilterKey : option.value === "VIDEO" ? videoFilterKey : option.value === "SOUND_EFFECT" ? audioFilterKey : option.value === "FONT" ? fontFilterKey : option.value === "THREE_D_MODEL" ? modelFilterKey : option.value === "ANIMATION" ? animationFilterKey : ""}`}
                                     title={option.label}
+                                    preview={isCategoryPreview}
+                                    showMoreHref={categoryLink(option.value)}
                                     params={{ ...params, category: option.value, ...(option.value === "IMAGE" ? imageParams : option.value === "VIDEO" ? videoParams : option.value === "SOUND_EFFECT" ? audioParams : option.value === "FONT" ? fontParams : option.value === "THREE_D_MODEL" ? modelParams : option.value === "ANIMATION" ? animationParams : {}) }}
                                     onClearFilters={clearFilters}
                                     hasFilters={activeFilters.length > 0}
                                 />
-                            )) : (
-                                <CategoryResults key={filterKey} params={params} onClearFilters={clearFilters} hasFilters={activeFilters.length > 0} />
-                            )}
+                            ))}
                         </div>
                     </section>
                 </div>
@@ -473,17 +364,21 @@ export default function MarketplacePage() {
     );
 }
 
-function CategoryResults({ params, title, onClearFilters, hasFilters }: {
+function CategoryResults({ params, title, preview, showMoreHref, onClearFilters, hasFilters }: {
     params: BrowseAssetsParams;
     title?: string;
+    preview: boolean;
+    showMoreHref: string;
     onClearFilters: () => void;
     hasFilters: boolean;
 }) {
     const [page, setPage] = useState(1);
-    const { data, isLoading, error, refetch } = useBrowseAssets({ ...params, page });
+    const { data, isLoading, error, refetch } = useBrowseAssets({ ...params, page, ...(preview ? { pageSize: CATEGORY_PREVIEW_SIZE } : {}) });
     const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
     const pageNumbers = Array.from(new Set([1, page - 1, page, page + 1, totalPages]))
         .filter((number) => number >= 1 && number <= totalPages).sort((a, b) => a - b);
+
+    if (preview && data && !error && data.total === 0) return null;
 
     return (
         <section aria-label={title ?? "All marketplace results"}>
@@ -491,7 +386,7 @@ function CategoryResults({ params, title, onClearFilters, hasFilters }: {
             <div aria-live="polite" aria-atomic="true" className="mb-4 text-xs text-[#85897f]">
                 {isLoading ? "Finding creative assets…" : error ? "Assets are currently unavailable" : data ? `${data.total.toLocaleString()} ${data.total === 1 ? "asset" : "assets"} to explore` : ""}
             </div>
-            {isLoading && <div aria-hidden="true" className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => (
+            {isLoading && <div aria-hidden="true" className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: preview ? CATEGORY_PREVIEW_SIZE : 6 }).map((_, index) => (
                 <div key={index} className="overflow-hidden rounded-xl border border-[#e7e9e1] bg-white">
                     <div className="aspect-[4/3] animate-pulse bg-[#e9ecdf] motion-reduce:animate-none" />
                     <div className="space-y-3 p-4"><div className="h-3 w-3/4 animate-pulse rounded bg-[#e9ecdf] motion-reduce:animate-none" /><div className="h-3 w-1/2 animate-pulse rounded bg-[#e9ecdf] motion-reduce:animate-none" /></div>
@@ -508,7 +403,13 @@ function CategoryResults({ params, title, onClearFilters, hasFilters }: {
             </div>}
             {data && !error && data.items.length > 0 && <>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">{data.items.map((asset) => asset.category === "SOUND_EFFECT" ? <AudioAssetRow key={asset.id} asset={asset} /> : asset.category === "FONT" ? <FontAssetRow key={asset.id} asset={asset} /> : <AssetCard key={asset.id} asset={asset} variant="compact" />)}</div>
-                <div className="mt-12 border-t border-[#e7e9e1] pt-8">
+                {preview ? data.total > CATEGORY_PREVIEW_SIZE && (
+                    <div className="mt-5 flex justify-center">
+                        <Button asChild variant="outline" className="border-[#dfe4d6] bg-[#fcfcfa] text-[#555e49] hover:bg-[#e3e8d8]">
+                            <Link to={showMoreHref} aria-label={`Show more ${title ?? "assets"}`}>Show more<ChevronRight className="size-4" aria-hidden="true" /></Link>
+                        </Button>
+                    </div>
+                ) : <div className="mt-12 border-t border-[#e7e9e1] pt-8">
                     {totalPages > 1 && <nav aria-label={title ? `${title} pagination` : "Marketplace pagination"} className="flex items-center justify-center gap-2">
                         <button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)} className={cn("flex size-10 items-center justify-center rounded-lg bg-[#eceee7] text-[#555e49] hover:bg-[#e3e8d8] disabled:cursor-not-allowed disabled:opacity-40", FOCUS)}><ChevronLeft className="size-4" aria-hidden="true" /></button>
                         {pageNumbers.map((number, index) => <span key={number} className="flex items-center gap-2">
@@ -518,7 +419,7 @@ function CategoryResults({ params, title, onClearFilters, hasFilters }: {
                         <button type="button" aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className={cn("flex size-10 items-center justify-center rounded-lg bg-[#eceee7] text-[#555e49] hover:bg-[#e3e8d8] disabled:cursor-not-allowed disabled:opacity-40", FOCUS)}><ChevronRight className="size-4" aria-hidden="true" /></button>
                     </nav>}
                     <p className="mt-5 text-center text-xs text-[#85897f]">Showing {(data.page - 1) * data.pageSize + 1}–{Math.min(data.page * data.pageSize, data.total)} of {data.total.toLocaleString()} results</p>
-                </div>
+                </div>}
             </>}
         </section>
     );

@@ -1,9 +1,19 @@
+import { assetFileError, uploadAccept } from "../../lib/assetSpecifications";
 import { useRef, useState } from "react";
+import { ImageIcon } from "lucide-react";
 import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
-import { useAsset, useDeleteAssetFile, useUploadAssetFile } from "../../hooks/useAsset";
+import {
+    useAsset,
+    useDeleteAssetFile,
+    useUploadAssetFile,
+} from "../../hooks/useAsset";
 import { getErrorMessage } from "../../lib/errors";
-import type { AssetCategory, AssetFile, AssetFilePurpose } from "../../types/asset";
+import type {
+    AssetCategory,
+    AssetFile,
+    AssetFilePurpose,
+} from "../../types/asset";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
@@ -11,6 +21,8 @@ const MAX_TOTAL_SIZE = 500 * 1024 * 1024;
 interface Props {
     assetId: number;
     category?: string;
+    review?: boolean;
+    section?: "cover" | "media";
 }
 
 interface InFlightUpload {
@@ -39,16 +51,14 @@ interface SlotDef {
 const matchExt = (name: string, exts: string[]) =>
     exts.some((e) => name.toLowerCase().endsWith(e));
 
-// Optional cover image, shown first. Categories that have no static image of
-// their own (3D, sound, video, animation) use this so the marketplace card has
-// a thumbnail instead of "No preview".
+// Video, animation and 3D covers are uploaded as public previews during review.
 const coverSlot: SlotDef = {
     key: "cover",
     title: "Cover Image — required",
     required: true,
     single: true,
     match: (_name, type) => type.startsWith("image/"),
-    accept: "image/*",
+    accept: uploadAccept("IMAGE", "PREVIEW"),
     hint: "Shown as the thumbnail in the marketplace. One image.",
     purpose: "PREVIEW", // public — shown before purchase
 };
@@ -86,7 +96,7 @@ const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
             single: false,
             match: () => true,
             accept: "",
-            hint: "The real files buyers download after paying (.fbx, .blend, .obj, high-poly .glb, textures, etc.).",
+            hint: "The real files buyers download after paying (.fbx, .blend, .obj, high-poly .glb, ZIP bundles).",
             purpose: "ORIGINAL", // private — only delivered after purchase
         },
     ],
@@ -97,7 +107,7 @@ const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
             title: "MP4 Preview — required",
             required: true,
             single: true,
-            match: (_name, type) => type.startsWith("video/"),
+            match: (name, type) => /\.mp4$/i.test(name) && (!type || type === "application/octet-stream" || type === "video/mp4"),
             accept: "video/mp4",
             hint: "A video preview buyers watch before purchase. One MP4.",
             purpose: "PREVIEW", // public — shown before purchase
@@ -112,10 +122,16 @@ const CATEGORY_SLOTS: Partial<Record<AssetCategory, SlotDef[]>> = {
             hint: "The animated 3D model buyers download. One file.",
             purpose: "ORIGINAL", // private — part of the paid download
         },
-        extraSlot("Any other files to bundle in the download."),
+        extraSlot("Supported animation files and ZIP bundles."),
     ],
-    VIDEO: [coverSlot, extraSlot("Your video file, plus anything else to bundle.")],
-    SOUND_EFFECT: [coverSlot, extraSlot("Your audio file, plus anything else to bundle.")],
+    VIDEO: [
+        coverSlot,
+        extraSlot("MP4, MOV, WebM or AVI video files."),
+    ],
+    SOUND_EFFECT: [
+        { ...coverSlot, title: "Cover image (optional)", required: false },
+        extraSlot("MP3, WAV, FLAC, AAC, M4A or OGG audio files."),
+    ],
 };
 
 function formatSize(bytes: number): string {
@@ -136,7 +152,10 @@ function fileNameOf(f: AssetFile): string {
 // (optional + multi-file) collects everything left over. So a second matching
 // file — e.g. a second image, or a second .blend dropped into "Additional
 // Files" — lands in extras instead of being pulled into the single slot.
-function bucketFiles(files: AssetFile[], slots: SlotDef[]): Record<string, AssetFile[]> {
+function bucketFiles(
+    files: AssetFile[],
+    slots: SlotDef[],
+): Record<string, AssetFile[]> {
     const buckets: Record<string, AssetFile[]> = {};
     for (const s of slots) buckets[s.key] = [];
     const claimed = new Set<string>(); // keys of single slots already filled
@@ -148,7 +167,10 @@ function bucketFiles(files: AssetFile[], slots: SlotDef[]): Record<string, Asset
         const candidates = slots.filter((s) => s.purpose === f.purpose);
         const slot =
             candidates.find(
-                (s) => s.single && !claimed.has(s.key) && s.match(name, f.fileType),
+                (s) =>
+                    s.single &&
+                    !claimed.has(s.key) &&
+                    s.match(name, f.fileType),
             ) ?? candidates.find((s) => !s.single); // catch-all: the multi-file slot
         if (slot) {
             buckets[slot.key].push(f);
@@ -160,12 +182,21 @@ function bucketFiles(files: AssetFile[], slots: SlotDef[]): Record<string, Asset
 
 interface SlotProps {
     assetId: number;
+    category: AssetCategory;
     slot: SlotDef;
     files: AssetFile[];
+    showThumbnail?: boolean;
     uploadedTotal: number; // bytes already uploaded across the whole asset
 }
 
-function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
+function UploadSlot({
+    assetId,
+    category,
+    slot,
+    files,
+    uploadedTotal,
+    showThumbnail = false,
+}: SlotProps) {
     const upload = useUploadAssetFile();
     const del = useDeleteAssetFile();
     const [isDragging, setIsDragging] = useState(false);
@@ -182,15 +213,20 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
                 purpose: slot.purpose,
                 onProgress: (p) =>
                     setInFlight((prev) =>
-                        prev.map((u) => (u.id === id ? { ...u, progress: p } : u)),
+                        prev.map((u) =>
+                            u.id === id ? { ...u, progress: p } : u,
+                        ),
                     ),
             },
             {
-                onSuccess: () => setInFlight((prev) => prev.filter((u) => u.id !== id)),
+                onSuccess: () =>
+                    setInFlight((prev) => prev.filter((u) => u.id !== id)),
                 onError: (err) =>
                     setInFlight((prev) =>
                         prev.map((u) =>
-                            u.id === id ? { ...u, error: getErrorMessage(err) } : u,
+                            u.id === id
+                                ? { ...u, error: getErrorMessage(err) }
+                                : u,
                         ),
                     ),
             },
@@ -203,6 +239,8 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
         let runningTotal = uploadedTotal + inFlightTotal;
 
         for (const file of list) {
+            const formatError = assetFileError(category, file.name, file.type, slot.purpose);
+            if (formatError) { alert(formatError); continue; }
             if (file.size > MAX_FILE_SIZE) {
                 alert(`"${file.name}" exceeds 100 MB limit`);
                 continue;
@@ -211,16 +249,17 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
                 alert(`Adding "${file.name}" would exceed 500 MB total`);
                 continue;
             }
-            runningTotal += file.size;
             // Type guard: reject files that don't belong in this slot.
-            if (slot.required && !slot.match(file.name, file.type)) {
-                alert(`"${file.name}" is not the right type for "${slot.title}"`);
+            if (!slot.match(file.name, file.type)) {
+                alert(
+                    `"${file.name}" is not the right type for "${slot.title}"`,
+                );
                 continue;
             }
 
+            runningTotal += file.size;
             doUpload(file);
             if (slot.single) break; // single slot only ever takes one file
-
         }
     };
 
@@ -231,11 +270,13 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
     };
 
     const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) startUpload(e.target.files);
+        if (e.target.files && e.target.files.length > 0)
+            startUpload(e.target.files);
         e.target.value = "";
     };
 
-    const missing = slot.required && files.length === 0 && inFlight.length === 0;
+    const missing =
+        slot.required && files.length === 0 && inFlight.length === 0;
 
     // A single slot only holds one file, so once something is uploaded (or
     // uploading) there's nothing more to add — hide the box until it's deleted.
@@ -245,38 +286,72 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
         <div className="space-y-2">
             <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">{slot.title}</p>
-                {missing && <span className="text-xs text-red-500">Missing</span>}
+                {missing && (
+                    <span className="text-xs text-red-500">Missing</span>
+                )}
             </div>
 
+            {showThumbnail &&
+                files.map((file) => (
+                    <figure
+                        key={file.id}
+                        className="max-w-sm overflow-hidden rounded-2xl border border-[#dfe4d6] bg-white"
+                    >
+                        <img
+                            src={file.fileUrl}
+                            alt="Asset thumbnail"
+                            className="aspect-square w-full object-cover"
+                        />
+                    </figure>
+                ))}
             {!hideBox && (
-            <div
-                onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragging(true);
-                }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={onDrop}
-                onClick={() => inputRef.current?.click()}
-                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                    isDragging
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-gray-400"
-                }`}
-            >
-                <p className="text-sm text-gray-600">
-                    Drag &amp; drop, or{" "}
-                    <span className="text-blue-600 underline">click to browse</span>
-                </p>
-                <p className="text-xs text-gray-400 mt-1">{slot.hint}</p>
-                <input
-                    ref={inputRef}
-                    type="file"
-                    multiple={!slot.single}
-                    accept={slot.accept || undefined}
-                    className="hidden"
-                    onChange={onFilePick}
-                />
-            </div>
+                <div
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={onDrop}
+                    onClick={() => inputRef.current?.click()}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={slot.title}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            inputRef.current?.click();
+                        }
+                    }}
+                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                        isDragging
+                            ? "border-[#657152] bg-[#edf0e5]"
+                            : "border-[#d4dbc9] bg-[#f7f7f2] hover:border-[#9aa68a]"
+                    }`}
+                >
+                    {showThumbnail && (
+                        <ImageIcon
+                            className="mx-auto mb-4 size-8 text-[#657152]"
+                            aria-hidden="true"
+                        />
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                        Drag &amp; drop, or{" "}
+                        <span className="text-[#657152] underline">
+                            click to browse
+                        </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {slot.hint}
+                    </p>
+                    <input
+                        ref={inputRef}
+                        type="file"
+                        multiple={!slot.single}
+                        accept={slot.accept || undefined}
+                        className="hidden"
+                        onChange={onFilePick}
+                    />
+                </div>
             )}
 
             {(files.length > 0 || inFlight.length > 0) && (
@@ -290,14 +365,16 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
                                 <p className="truncate text-sm font-medium">
                                     {fileNameOf(f)}
                                 </p>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-muted-foreground">
                                     {formatSize(f.fileSize)} · {f.fileType}
                                 </p>
                             </div>
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => del.mutate({ assetId, fileId: f.id })}
+                                onClick={() =>
+                                    del.mutate({ assetId, fileId: f.id })
+                                }
                                 disabled={del.isPending}
                             >
                                 Delete
@@ -311,12 +388,14 @@ function UploadSlot({ assetId, slot, files, uploadedTotal }: SlotProps) {
                                 <p className="truncate text-sm font-medium">
                                     {u.file.name}
                                 </p>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                     {u.error ? "Failed" : `${u.progress}%`}
                                 </span>
                             </div>
                             {u.error ? (
-                                <p className="text-xs text-red-500">{u.error}</p>
+                                <p className="text-xs text-red-500">
+                                    {u.error}
+                                </p>
                             ) : (
                                 <Progress value={u.progress} />
                             )}
@@ -337,7 +416,10 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
     const [inFlight, setInFlight] = useState<InFlightUpload[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const uploadedTotal = (asset?.files ?? []).reduce((sum, f) => sum + f.fileSize, 0);
+    const uploadedTotal = (asset?.files ?? []).reduce(
+        (sum, f) => sum + f.fileSize,
+        0,
+    );
     const inFlightTotal = inFlight.reduce((sum, u) => sum + u.file.size, 0);
     const projectedTotal = uploadedTotal + inFlightTotal;
 
@@ -346,6 +428,9 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
         let runningTotal = projectedTotal;
 
         for (const file of list) {
+            if (!asset) return;
+            const formatError = assetFileError(asset.category, file.name, file.type);
+            if (formatError) { alert(formatError); continue; }
             if (file.size > MAX_FILE_SIZE) {
                 alert(`"${file.name}" exceeds 100 MB limit`);
                 continue;
@@ -365,7 +450,9 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
                     file,
                     onProgress: (p) =>
                         setInFlight((prev) =>
-                            prev.map((u) => (u.id === id ? { ...u, progress: p } : u)),
+                            prev.map((u) =>
+                                u.id === id ? { ...u, progress: p } : u,
+                            ),
                         ),
                 },
                 {
@@ -374,7 +461,9 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
                     onError: (err) =>
                         setInFlight((prev) =>
                             prev.map((u) =>
-                                u.id === id ? { ...u, error: getErrorMessage(err) } : u,
+                                u.id === id
+                                    ? { ...u, error: getErrorMessage(err) }
+                                    : u,
                             ),
                         ),
                 },
@@ -389,7 +478,8 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
     };
 
     const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) startUpload(e.target.files);
+        if (e.target.files && e.target.files.length > 0)
+            startUpload(e.target.files);
         e.target.value = "";
     };
 
@@ -405,17 +495,22 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
                 onClick={() => inputRef.current?.click()}
                 className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors ${
                     isDragging
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-gray-400"
+                        ? "border-[#657152] bg-[#edf0e5]"
+                        : "border-[#d4dbc9] bg-[#f7f7f2] hover:border-[#9aa68a]"
                 }`}
             >
-                <p className="text-gray-600">
+                <p className="text-muted-foreground">
                     Drag &amp; drop files here, or{" "}
-                    <span className="text-blue-600 underline">click to browse</span>
+                    <span className="text-[#657152] underline">
+                        click to browse
+                    </span>
                 </p>
-                <p className="text-xs text-gray-400 mt-1">Max 100 MB per file, 500 MB total</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                    Max 100 MB per file, 500 MB total
+                </p>
                 <input
                     ref={inputRef}
+                    accept={asset ? uploadAccept(asset.category) : undefined}
                     type="file"
                     multiple
                     className="hidden"
@@ -423,9 +518,12 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
                 />
             </div>
 
-            <div className="text-sm text-gray-600">
-                Total: <span className="font-medium">{formatSize(projectedTotal)}</span> /{" "}
-                {formatSize(MAX_TOTAL_SIZE)}
+            <div className="text-sm text-muted-foreground">
+                Total:{" "}
+                <span className="font-medium">
+                    {formatSize(projectedTotal)}
+                </span>{" "}
+                / {formatSize(MAX_TOTAL_SIZE)}
             </div>
 
             {((asset?.files.length ?? 0) > 0 || inFlight.length > 0) && (
@@ -439,14 +537,16 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
                                 <p className="truncate text-sm font-medium">
                                     {fileNameOf(f)}
                                 </p>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-muted-foreground">
                                     {formatSize(f.fileSize)} · {f.fileType}
                                 </p>
                             </div>
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => del.mutate({ assetId, fileId: f.id })}
+                                onClick={() =>
+                                    del.mutate({ assetId, fileId: f.id })
+                                }
                                 disabled={del.isPending}
                             >
                                 Delete
@@ -460,12 +560,14 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
                                 <p className="truncate text-sm font-medium">
                                     {u.file.name}
                                 </p>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                     {u.error ? "Failed" : `${u.progress}%`}
                                 </span>
                             </div>
                             {u.error ? (
-                                <p className="text-xs text-red-500">{u.error}</p>
+                                <p className="text-xs text-red-500">
+                                    {u.error}
+                                </p>
                             ) : (
                                 <Progress value={u.progress} />
                             )}
@@ -477,36 +579,95 @@ function SingleBoxUploader({ assetId }: { assetId: number }) {
     );
 }
 
-export default function AssetUploader({ assetId, category }: Props) {
+export default function AssetUploader({
+    assetId,
+    category,
+    review = false,
+    section,
+}: Props) {
     const { data: asset, isLoading } = useAsset(assetId);
 
-    if (isLoading) return <p className="text-sm text-gray-500">Loading files...</p>;
+    if (isLoading)
+        return (
+            <p className="text-sm text-muted-foreground">Loading files...</p>
+        );
     if (!asset) return <p className="text-sm text-red-500">Asset not found</p>;
 
-    const slots = category ? CATEGORY_SLOTS[category as AssetCategory] : undefined;
+    if (
+        review &&
+        !["THREE_D_MODEL", "VIDEO", "ANIMATION"].includes(category ?? "")
+    )
+        return null;
+
+    const hasSourceGlb =
+        category === "THREE_D_MODEL" &&
+        asset.files.some(
+            (file) =>
+                file.purpose === "ORIGINAL" &&
+                /\.glb(\?|$)/i.test(file.fileUrl),
+        );
+    const categorySlots = category
+        ? CATEGORY_SLOTS[category as AssetCategory]
+        : undefined;
+    const slots =
+        review && !categorySlots
+            ? [
+                  {
+                      ...coverSlot,
+                      title: "Thumbnail image (optional)",
+                      required: false,
+                  },
+              ]
+            : categorySlots?.filter(
+                  (slot) => slot.key !== "glb" || !hasSourceGlb,
+              );
 
     // Categories without a slot layout keep the original single-box behaviour.
     if (!slots) return <SingleBoxUploader assetId={assetId} />;
 
+    const visibleSlots = slots.filter(
+        (slot) =>
+            !section ||
+            (section === "cover" ? slot.key === "cover" : slot.key !== "cover"),
+    );
     const buckets = bucketFiles(asset.files, slots);
+    if (
+        section === "media" &&
+        !hasSourceGlb &&
+        !visibleSlots.some((slot) => slot.purpose === "PREVIEW")
+    )
+        return null;
     const total = asset.files.reduce((sum, f) => sum + f.fileSize, 0);
 
     return (
         <div className="space-y-6">
-            {slots.map((slot) => (
-                <UploadSlot
-                    key={slot.key}
-                    assetId={assetId}
-                    slot={slot}
-                    files={buckets[slot.key]}
-                    uploadedTotal={total}
-                />
-            ))}
+            {hasSourceGlb && section !== "cover" && (
+                <p className="rounded-xl bg-[#edf0e5] p-4 text-sm text-[#555e49]">
+                    The GLB uploaded in Step 1 is used for the public
+                    interactive preview. No additional GLB upload is needed.
+                </p>
+            )}
+            {visibleSlots.map((slot) =>
+                slot.purpose === "PREVIEW" || !review ? (
+                    <UploadSlot
+                        key={slot.key}
+                        assetId={assetId}
+                        category={asset.category}
+                        slot={{ ...slot, accept: slot.accept || uploadAccept(asset.category, slot.purpose) }}
+                        files={buckets[slot.key]}
+                        uploadedTotal={total}
+                        showThumbnail={section === "cover"}
+                    />
+                ) : null,
+            )}
 
-            <div className="text-sm text-gray-600">
-                Total: <span className="font-medium">{formatSize(total)}</span> /{" "}
-                {formatSize(MAX_TOTAL_SIZE)}
-            </div>
+            {!section && (
+                <div className="text-sm text-muted-foreground">
+                    Total:{" "}
+                    <span className="font-medium">{formatSize(total)}</span> /{" "}
+                    {formatSize(MAX_TOTAL_SIZE)}
+                </div>
+            )}
         </div>
     );
 }

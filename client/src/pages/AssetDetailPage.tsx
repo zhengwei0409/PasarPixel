@@ -131,12 +131,10 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
     videoFile?.previewUrl ??
     (videoFile?.purpose === "PREVIEW" ? videoFile.fileUrl : null);
   const audioFile = asset.files.find((f) => f.fileType.startsWith("audio/"));
-  // The ModelViewer loads this file's URL directly into the public page, so it
-  // MUST be the PREVIEW glb. The high-poly ORIGINAL glb lives in a private S3
-  // prefix and would 404 — and loading it would leak the paid file for free.
-  const glbFile = asset.files.find(
-    (f) => f.purpose === "PREVIEW" && /\.glb$/i.test(f.fileUrl),
-  );
+  // Reused source GLBs have a public preview copy; originals stay private.
+  const glbFile = asset.files.find(f => f.purpose === "PREVIEW" && /\.glb$/i.test(f.fileUrl))
+    ?? asset.files.find(f => /\.glb$/i.test(f.fileUrl) && !!f.previewUrl);
+  const glbPreviewSrc = glbFile?.purpose === "PREVIEW" ? glbFile.fileUrl : glbFile?.previewUrl;
   const fontFile = asset.files.find(
     (f) =>
       f.fileType.startsWith("font/") ||
@@ -224,7 +222,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
           <div className="mx-auto aspect-square w-full max-w-[440px] overflow-hidden rounded-2xl border border-border bg-muted shadow-[0_2px_8px_rgba(37,40,35,0.04)] lg:mx-0">
             {asset.category === "THREE_D_MODEL" && glbFile ? (
               <ModelViewer
-                src={glbFile.fileUrl}
+                src={glbPreviewSrc!}
                 alt={asset.title}
                 poster={thumbnail?.previewUrl ?? thumbnail?.fileUrl}
               />

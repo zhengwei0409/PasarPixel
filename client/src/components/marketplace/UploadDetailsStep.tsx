@@ -1,3 +1,6 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { getAsset } from "../../services/assetService";
+import { assetFileError, uploadAccept } from "../../lib/assetSpecifications";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -86,6 +89,7 @@ export default function UploadDetailsStep({
     asset?: AssetWithFiles;
     onSaved: (assetId: number, next: boolean) => void;
 }) {
+    const queryClient = useQueryClient();
     const create = useCreateAsset();
     const update = useUpdateAsset();
     const upload = useUploadAssetFile();
@@ -124,11 +128,14 @@ export default function UploadDetailsStep({
 
     const addFiles = (picked: File[]) => {
         setError("");
+        if (!category) { setError("Choose a category before adding files."); return; }
         let total =
             (asset?.files ?? []).reduce((sum, file) => sum + file.fileSize, 0) +
             files.reduce((sum, file) => sum + file.size, 0);
         const accepted: File[] = [];
         for (const file of picked) {
+            const formatError = assetFileError(category, file.name, file.type);
+            if (formatError) { setError(formatError); continue; }
             if (
                 files.some(
                     (existing) =>
@@ -155,6 +162,12 @@ export default function UploadDetailsStep({
     };
 
     const save = async (data: Details, next: boolean) => {
+        const invalidQueued = files.map(file => assetFileError(data.category, file.name, file.type)).find(Boolean);
+        const invalidSaved = (asset?.files ?? []).map(file => assetFileError(data.category, file.fileUrl, file.fileType, file.purpose)).find(Boolean);
+        if (invalidQueued || invalidSaved) {
+            setError(`${invalidQueued || invalidSaved} Remove incompatible files before saving.`);
+            return;
+        }
         setBusy(true);
         setError("");
         try {
@@ -172,6 +185,7 @@ export default function UploadDetailsStep({
                 : await create.mutateAsync({
                       ...payload,
                       listingType: "TRADITIONAL",
+                      currency: "MYR",
                   });
             setSavedId(draft.id);
             for (const file of files) {
@@ -187,6 +201,13 @@ export default function UploadDetailsStep({
                     previous.filter((queued) => queued !== file),
                 );
             }
+            // Await the complete draft, including newly registered source files,
+            // before Step 2 initializes its format and metadata fields.
+            await queryClient.fetchQuery({
+                queryKey: ["asset", draft.id],
+                queryFn: () => getAsset(draft.id),
+                staleTime: 0,
+            });
             setProgress(null);
             onSaved(draft.id, next);
         } catch (err) {
@@ -378,6 +399,7 @@ export default function UploadDetailsStep({
                             Upload the original files buyers will download.
                             <br />
                             You’ll add thumbnails and previews later.
+                            {category && <><br />Allowed: {uploadAccept(category).split(",").join(", ")}</>}
                         </p>
                         <Button
                             type="button"
@@ -393,6 +415,8 @@ export default function UploadDetailsStep({
                             multiple
                             className="hidden"
                             aria-label="Upload source files"
+                            accept={category ? uploadAccept(category) : undefined}
+                            disabled={!category || busy}
                             onChange={(event) => {
                                 addFiles(Array.from(event.target.files ?? []));
                                 event.target.value = "";

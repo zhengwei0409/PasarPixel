@@ -7,6 +7,7 @@ export const IMAGE_FORMATS = [
     { value: "jpeg", label: "JPG / JPEG" },
     { value: "png", label: "PNG" },
     { value: "webp", label: "WebP" },
+    { value: "avif", label: "AVIF" },
     { value: "gif", label: "GIF" },
 ];
 export const VIDEO_FORMATS = [
@@ -124,5 +125,51 @@ export function specificationsError(
         if (values.orientation !== orientation)
             return "Orientation must match the dimensions entered.";
     }
+    return null;
+}
+
+// ZIP bundles supplement model/animation source files; they are not previews.
+export function uploadAccept(
+    category: keyof typeof FORMAT_OPTIONS,
+    purpose: "ORIGINAL" | "PREVIEW" = "ORIGINAL",
+): string {
+    const formats = purpose === "PREVIEW"
+        ? [...IMAGE_FORMATS.map(option => option.value),
+            ...(category === "THREE_D_MODEL" ? ["glb"] : []),
+            ...(category === "ANIMATION" ? ["mp4"] : [])]
+        : [...FORMAT_OPTIONS[category].map(option => option.value),
+            ...(["THREE_D_MODEL", "ANIMATION"].includes(category) ? ["zip"] : [])];
+    return formats.flatMap(format => format === "jpeg" ? [".jpg", ".jpeg"]
+        : format === "aac" ? [".aac", ".m4a"] : [`.${format}`]).join(",");
+}
+
+export function assetFileError(
+    category: keyof typeof FORMAT_OPTIONS,
+    name: string,
+    mimeType: string,
+    purpose: "ORIGINAL" | "PREVIEW" = "ORIGINAL",
+): string | null {
+    let filename = name.split(/[?#]/)[0].split("/").pop() ?? "";
+    try { filename = decodeURIComponent(filename); } catch { /* Use the literal filename. */ }
+    const extension = filename.match(/\.[^.]+$/)?.[0].toLowerCase();
+    const allowed = uploadAccept(category, purpose).split(",");
+    if (!extension || !allowed.includes(extension))
+        return `“${filename}” is not supported for this category. Allowed: ${allowed.join(", ")}.`;
+    const mime = mimeType.split(";")[0].trim().toLowerCase();
+    // Empty/generic MIME is common for local model and font files. Require the
+    // extension and reject explicit MIME families that contradict it.
+    const image = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif"].includes(extension);
+    const video = [".mp4", ".mov", ".webm", ".avi"].includes(extension);
+    const audio = [".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg"].includes(extension);
+    const font = [".ttf", ".otf", ".woff", ".woff2"].includes(extension);
+    const model = [".glb", ".gltf", ".fbx", ".obj", ".blend", ".stl"].includes(extension);
+    if ((mime.startsWith("image/") && !image)
+        || (mime.startsWith("video/") && !video)
+        || (mime.startsWith("audio/") && !audio)
+        || (mime.startsWith("font/") && !font)
+        || (mime.startsWith("model/") && !model)
+        || (["application/zip", "application/x-zip-compressed"].includes(mime) && extension !== ".zip")
+        || (purpose === "PREVIEW" && extension === ".mp4" && mime.startsWith("video/") && mime !== "video/mp4"))
+        return `“${filename}” has a file type that does not match its format.`;
     return null;
 }

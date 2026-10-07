@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
-import { createAsset, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getAssetForReview, getAssetFileDownloadUrl, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, reopenRejected, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
+import { createAsset, reuseGlbPreview, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getAssetForReview, getAssetFileDownloadUrl, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, reopenRejected, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
 import { getAssetReviews, upsertReview, deleteReview, getReviewEligibility, upsertSellerReply } from "../controllers/review.controller";
 
 const router = Router();
@@ -22,6 +22,7 @@ router.get("/:id/files/:fileId/download-url", authenticate, requireRole("ADMIN")
 router.get("/:id", authenticate, getAssetById);
 router.post("/:id/upload-url", authenticate, requireRole("SELLER"), getUploadUrl);
 router.post("/:id/files", authenticate, requireRole("SELLER"), registerFile);
+router.post("/:id/files/:fileId/glb-preview", authenticate, requireRole("SELLER"), reuseGlbPreview);
 router.delete("/:id/files/:fileId", authenticate, requireRole("SELLER"), deleteFile);
 router.post("/:id/submit", authenticate, requireRole("SELLER"), submitForReview);
 router.patch("/:id/approve", authenticate, requireRole("ADMIN"), approveAsset);

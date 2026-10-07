@@ -169,3 +169,8 @@ export async function submitSellerReply(assetId: number, reviewId: number, reply
     const res = await apiClient.put<Review>(`/assets/${assetId}/reviews/${reviewId}/reply`, { reply });
     return res.data;
 }
+
+export async function reuseGlbPreview(assetId: number, fileId: number): Promise<AssetFile> {
+    const res = await apiClient.post<AssetFile>(`/assets/${assetId}/files/${fileId}/glb-preview`);
+    return res.data;
+}

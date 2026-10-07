@@ -29,6 +29,7 @@ test("normalizes uppercase aliases, signed URLs and encoded filenames", () => {
     assert.deepEqual(detect("SOUND_EFFECT", [source("https://example.test/source.M4A")]), ["aac"]);
 });
 test("falls back to MIME type when the URL has no supported extension", () => {
+    assert.deepEqual(detect("IMAGE", [source("https://example.test/source", "image/avif")]), ["avif"]);
     assert.deepEqual(detect("IMAGE", [source("https://example.test/source", "IMAGE/PNG; charset=binary")]), ["png"]);
     assert.deepEqual(detect("FONT", [source("https://example.test/source.bin", "application/x-font-truetype")]), ["ttf"]);
     assert.deepEqual(detect("VIDEO", [source("https://example.test/source", "video/quicktime")]), ["mov"]);

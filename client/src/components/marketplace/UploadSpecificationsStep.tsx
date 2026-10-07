@@ -1,3 +1,4 @@
+import { specificationSourceKey, uploadSpecificationDefaults } from "../../lib/uploadSpecificationsState";
 import { detectAssetFormats } from "../../lib/detectAssetFormat";
 import { useState } from "react";
 import {
@@ -39,51 +40,43 @@ const labels = {
 const fieldClass =
     "h-12 data-[size=default]:h-12 w-full rounded-xl border-[#dfe4d6] bg-white px-4 shadow-none";
 
-export default function UploadSpecificationsStep({
-    asset,
-    onBack,
-    onNext,
-}: {
+interface Props {
     asset: AssetWithFiles;
     onBack: () => void;
     onNext: () => void;
-}) {
+}
+
+export default function UploadSpecificationsStep(props: Props) {
+    const sourceKey = specificationSourceKey(props.asset);
+    const [initialSourceKey] = useState(sourceKey);
+    return (
+        <SpecificationsForm
+            key={sourceKey}
+            {...props}
+            useSavedSpecifications={sourceKey === initialSourceKey}
+        />
+    );
+}
+
+function SpecificationsForm({
+    asset,
+    onBack,
+    onNext,
+    useSavedSpecifications,
+}: Props & { useSavedSpecifications: boolean }) {
     const update = useUpdateAsset();
     const options = FORMAT_OPTIONS[asset.category];
     const originals = asset.files.filter((file) => file.purpose === "ORIGINAL");
     const detected = detectAssetFormats(asset.category, asset.files);
-    const metadata = originals.find((file) =>
-        asset.category === "IMAGE"
-            ? file.fileType.startsWith("image/")
-            : asset.category === "VIDEO"
-              ? file.fileType.startsWith("video/")
-              : file.fileType.startsWith("audio/"),
+    const [initial] = useState(() =>
+        uploadSpecificationDefaults(asset, useSavedSpecifications),
     );
-    const initial = asset.technicalSpecifications;
     const [formatOverride, setFormatOverride] = useState<string | undefined>(
-        initial?.formats?.find((value) =>
-            options.some((option) => option.value === value),
-        ),
+        initial.format || undefined,
     );
     const format = formatOverride ?? detected[0] ?? "";
-    const [orientation, setOrientation] = useState(
-        initial?.orientation ??
-            (metadata?.width && metadata.height
-                ? metadata.width === metadata.height
-                    ? "square"
-                    : metadata.width > metadata.height
-                      ? "landscape"
-                      : "portrait"
-                : ""),
-    );
-    const [measurements, setMeasurements] = useState({
-        width: String(initial?.width ?? metadata?.width ?? ""),
-        height: String(initial?.height ?? metadata?.height ?? ""),
-        durationSeconds: String(
-            initial?.durationSeconds ?? metadata?.durationSeconds ?? "",
-        ),
-        frameRate: String(initial?.frameRate ?? metadata?.frameRate ?? ""),
-    });
+    const [orientation, setOrientation] = useState(initial.orientation);
+    const [measurements, setMeasurements] = useState(initial.measurements);
     const [audioType, setAudioType] = useState<AudioType | "">(
         asset.audioType ?? "",
     );

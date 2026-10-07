@@ -13,6 +13,7 @@ import {
     getUploadUrl,
     uploadToS3,
     registerFile,
+    reuseGlbPreview,
     rejectAsset,
     deleteAsset,
     deleteFile,
@@ -185,8 +186,8 @@ export function useUpdateAsset() {
     return useMutation<Asset, Error, UpdateAssetVars>({
         mutationFn: ({ assetId, payload }) => updateAsset(assetId, payload),
         onSuccess: (_data, vars) => {
-            queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
+            return queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
         },
     });
 }
@@ -217,7 +218,7 @@ export function useUploadAssetFile() {
             });
         },
         onSuccess: (_data, vars) => {
-            queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
+            return queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
         },
     });
 }
@@ -232,7 +233,7 @@ export function useDeleteAssetFile() {
     return useMutation<void, Error, DeleteAssetFileVars>({
         mutationFn: ({ assetId, fileId }) => deleteFile(assetId, fileId),
         onSuccess: (_data, vars) => {
-            queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
+            return queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
         },
     });
 }
@@ -302,5 +303,13 @@ export function useSellerReply() {
         onSuccess: (_data, vars) => {
             queryClient.invalidateQueries({ queryKey: ["assets", "reviews", vars.assetId] });
         },
+    });
+}
+
+export function useReuseGlbPreview() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ assetId, fileId }: { assetId: number; fileId: number }) => reuseGlbPreview(assetId, fileId),
+        onSuccess: (_file, { assetId }) => queryClient.invalidateQueries({ queryKey: ["asset", assetId] }),
     });
 }
