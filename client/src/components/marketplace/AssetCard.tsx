@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ImageIcon, Star } from "lucide-react";
+import { ImageIcon, Music2, Star, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AiBadge } from "@/components/marketplace/AiBadge";
@@ -44,11 +44,15 @@ function cardThumbnailUrl(asset: BrowseAssetItem): string | null {
     return null;
 }
 
-export default function AssetCard({ asset, variant = "default" }: {
+export default function AssetCard({ asset, variant = "default", useCategoryIcon = false }: {
     asset: BrowseAssetItem;
     variant?: "default" | "featured" | "compact";
+    useCategoryIcon?: boolean;
 }) {
-    const thumbnailUrl = cardThumbnailUrl(asset);
+    const CategoryIcon = useCategoryIcon
+        ? asset.category === "FONT" ? Type : asset.category === "SOUND_EFFECT" ? Music2 : null
+        : null;
+    const thumbnailUrl = CategoryIcon ? null : cardThumbnailUrl(asset);
     const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
     const shop = shopDisplay(asset.seller);
     const navigate = useNavigate();
@@ -62,7 +66,12 @@ export default function AssetCard({ asset, variant = "default" }: {
             )}
         >
             <div className={cn("relative w-full overflow-hidden bg-muted", variant === "default" ? "aspect-square" : variant === "featured" ? "aspect-[16/10] bg-[#e9ecdf]" : "aspect-[4/3] bg-[#e9ecdf]")}>
-                {thumbnailUrl ? (
+                {CategoryIcon ? (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-xs text-[#73776e]">
+                        <CategoryIcon className="size-12 text-[#9ca98c]" aria-hidden="true" />
+                        {CATEGORY_LABELS[asset.category]}
+                    </div>
+                ) : thumbnailUrl ? (
                     <img
                         src={thumbnailUrl}
                         alt={asset.title}

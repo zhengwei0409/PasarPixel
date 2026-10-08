@@ -186,8 +186,10 @@ export function useUpdateAsset() {
     return useMutation<Asset, Error, UpdateAssetVars>({
         mutationFn: ({ assetId, payload }) => updateAsset(assetId, payload),
         onSuccess: (_data, vars) => {
-            queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
-            return queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
+            return Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["assets"] }),
+                queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] }),
+            ]);
         },
     });
 }

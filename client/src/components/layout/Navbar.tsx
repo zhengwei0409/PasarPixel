@@ -95,7 +95,7 @@ export default function Navbar() {
                                     </Button>
                                 )}
                                 <NotificationBell />
-                                <AccountMenu email={user.email} isBuyer={!!isBuyer} logout={logout} />
+                                <AccountMenu email={user.email} isBuyer={!!isBuyer} isSeller={user.roles.includes('SELLER')} logout={logout} />
                             </>
                         ) : (
                             <>

@@ -1,6 +1,7 @@
 import apiClient from "../lib/apiClient";
 import type {
     SellerDashboard,
+    SellerRecentOrdersResponse,
     Withdrawal,
     WithdrawalsResponse,
 } from "../types/seller";
@@ -19,5 +20,10 @@ export async function requestWithdrawal(
     amount: number,
 ): Promise<{ withdrawal: Withdrawal; availableBalance: number }> {
     const res = await apiClient.post("/seller/withdrawals", { amount });
+    return res.data;
+}
+
+export async function getSellerRecentOrders(): Promise<SellerRecentOrdersResponse> {
+    const res = await apiClient.get<SellerRecentOrdersResponse>("/seller/orders");
     return res.data;
 }

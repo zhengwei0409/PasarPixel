@@ -837,8 +837,24 @@ export async function updateAsset(req: Request, res: Response) {
         res.status(403).json({ error: "You do not own this asset" });
         return;
     }
+    if (asset.status === "PUBLISHED") {
+        if (Object.keys(req.body).length !== 1 || !Object.prototype.hasOwnProperty.call(req.body, "description")) {
+            res.status(409).json({ error: "Only the description of a published asset can be edited" });
+            return;
+        }
+        if (typeof description !== "string") {
+            res.status(400).json({ error: "description must be a string" });
+            return;
+        }
+        const updated = await prisma.asset.update({
+            where: { id: assetId, sellerId: userId, status: "PUBLISHED", isDeleted: false },
+            data: { description: description.trim() || null },
+        });
+        res.json(updated);
+        return;
+    }
     if (asset.status !== "DRAFT") {
-        res.status(409).json({ error: "Only draft assets can be edited" });
+        res.status(409).json({ error: "Only draft assets or published descriptions can be edited" });
         return;
     }
 

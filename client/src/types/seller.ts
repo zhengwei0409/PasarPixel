@@ -1,3 +1,7 @@
+import type { Currency } from "./asset";
+import type { LicenseType } from "./cart";
+import type { PaymentStatus } from "./order";
+
 export interface RevenuePoint {
     month: string; // "YYYY-MM"
     revenue: number;
@@ -27,4 +31,20 @@ export interface Withdrawal {
 export interface WithdrawalsResponse {
     withdrawals: Withdrawal[];
     availableBalance: number;
+}
+
+export interface SellerRecentOrder {
+    id: number;
+    orderId: number;
+    product: string;
+    buyerName: string;
+    licenseType: LicenseType;
+    amount: string;
+    currency: Currency;
+    paymentStatus: PaymentStatus;
+    createdAt: string;
+}
+
+export interface SellerRecentOrdersResponse {
+    items: SellerRecentOrder[];
 }

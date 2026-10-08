@@ -104,6 +104,39 @@ export async function getDashboard(req: Request, res: Response) {
     });
 }
 
+// GET /seller/orders — latest asset purchases belonging to this seller only.
+export async function getRecentOrders(req: Request, res: Response) {
+    const items = await prisma.orderItem.findMany({
+        where: { asset: { sellerId: req.user!.userId } },
+        orderBy: [{ order: { createdAt: "desc" } }, { id: "desc" }],
+        take: 10,
+        select: {
+            id: true,
+            orderId: true,
+            licenseType: true,
+            price: true,
+            asset: { select: { title: true } },
+            order: { select: {
+                createdAt: true,
+                currency: true,
+                paymentStatus: true,
+                buyer: { select: { name: true } },
+            } },
+        },
+    });
+    res.json({ items: items.map((item) => ({
+        id: item.id,
+        orderId: item.orderId,
+        product: item.asset.title,
+        buyerName: item.order.buyer.name,
+        licenseType: item.licenseType,
+        amount: String(item.price),
+        currency: item.order.currency,
+        paymentStatus: item.order.paymentStatus,
+        createdAt: item.order.createdAt,
+    })) });
+}
+
 // GET /seller/withdrawals — the logged-in seller's withdrawal requests.
 export async function getMyWithdrawals(req: Request, res: Response) {
     const sellerId = req.user!.userId;

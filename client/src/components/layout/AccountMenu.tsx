@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { DropdownMenu } from 'radix-ui';
-import { ChevronDown, LogOut, Package, Settings, Store, UserRound } from 'lucide-react';
+import { ChevronDown, LogOut, Package, Settings, ShoppingBag, Store, UserRound } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useProfile } from '@/hooks/useProfile';
@@ -8,10 +8,11 @@ import { useProfile } from '@/hooks/useProfile';
 interface AccountMenuProps {
     email: string;
     isBuyer: boolean;
+    isSeller: boolean;
     logout: () => Promise<void>;
 }
 
-export default function AccountMenu({ email, isBuyer, logout }: AccountMenuProps) {
+export default function AccountMenu({ email, isBuyer, isSeller, logout }: AccountMenuProps) {
     const { data: profile } = useProfile();
     const name = profile?.name?.trim() || email;
     const itemClass = 'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#555e49] outline-none transition-colors data-[highlighted]:bg-[#eef0e7] data-[highlighted]:text-[#30392b] motion-reduce:transition-none';
@@ -47,6 +48,11 @@ export default function AccountMenu({ email, isBuyer, logout }: AccountMenuProps
                                 <Link to="/seller-application"><Store className="size-4" aria-hidden="true" />Seller application</Link>
                             </DropdownMenu.Item>
                         </>
+                    )}
+                    {isSeller && (
+                        <DropdownMenu.Item asChild className={itemClass}>
+                            <Link to="/seller/store"><ShoppingBag className="size-4" aria-hidden="true" />My Store</Link>
+                        </DropdownMenu.Item>
                     )}
                     <DropdownMenu.Item asChild className={itemClass}>
                         <Link to="/settings"><Settings className="size-4" aria-hidden="true" />Settings</Link>

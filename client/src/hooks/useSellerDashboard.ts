@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     getSellerDashboard,
+    getSellerRecentOrders,
     getWithdrawals,
     requestWithdrawal,
 } from "../services/sellerService";
@@ -28,5 +29,12 @@ export function useRequestWithdrawal() {
             queryClient.invalidateQueries({ queryKey: ["seller", "withdrawals"] });
             queryClient.invalidateQueries({ queryKey: ["seller", "dashboard"] });
         },
+    });
+}
+
+export function useSellerRecentOrders() {
+    return useQuery({
+        queryKey: ["seller", "recent-orders"],
+        queryFn: getSellerRecentOrders,
     });
 }

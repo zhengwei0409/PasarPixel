@@ -21,7 +21,12 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     try {
         const payload = jwt.verify(token, process.env.JWT_SECRET!) as unknown as {
             sub: number;
+            purpose?: string;
         };
+        if (payload.purpose || !Number.isInteger(payload.sub) || payload.sub <= 0) {
+            res.status(401).json({ error: "Invalid access token" });
+            return;
+        }
         req.userId = payload.sub;
         next();
     } catch {

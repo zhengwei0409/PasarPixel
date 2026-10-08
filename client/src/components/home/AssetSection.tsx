@@ -85,7 +85,7 @@ export default function AssetSection({ title, eyebrow, description, sort, layout
                         </div>
                     )) : data?.items.map((asset) => (
                         <div key={asset.id} className={layout === "scroller" ? "w-[240px] shrink-0 snap-start sm:w-[250px]" : "min-w-0"}>
-                            <AssetCard asset={asset} variant={layout === "grid" ? "featured" : "compact"} />
+                            <AssetCard asset={asset} variant={layout === "grid" ? "featured" : "compact"} useCategoryIcon />
                         </div>
                     ))}
                 </div>

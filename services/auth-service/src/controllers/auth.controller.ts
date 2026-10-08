@@ -5,6 +5,63 @@ import crypto from "crypto";
 import { verify as verifyTotp } from "otplib";
 import { prisma } from "../lib/prisma";
 import { publishUserRegistered, publishPasswordReset } from "../lib/publisher";
+import type { AuthedRequest } from "../middleware/requireAuth";
+
+export async function passwordStatus(req: AuthedRequest, res: Response) {
+    const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+    if (!user) {
+        res.status(401).json({ error: "User not found" });
+        return;
+    }
+    res.json({ hasPassword: Boolean(user.passwordHash) });
+}
+
+export async function changePassword(req: AuthedRequest, res: Response) {
+    const { currentPassword, newPassword } = req.body ?? {};
+    if (typeof currentPassword !== "string" || !currentPassword || typeof newPassword !== "string") {
+        res.status(400).json({ error: "Current and new passwords are required" });
+        return;
+    }
+    if (newPassword.length < 8 || Buffer.byteLength(newPassword, "utf8") > 72) {
+        res.status(400).json({ error: "New password must be at least 8 characters and at most 72 bytes" });
+        return;
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+    if (!user) {
+        res.status(401).json({ error: "User not found" });
+        return;
+    }
+    if (!user.passwordHash) {
+        res.status(400).json({ error: "This account uses Google login" });
+        return;
+    }
+    if (!await bcrypt.compare(currentPassword, user.passwordHash)) {
+        res.status(400).json({ error: "Current password is incorrect" });
+        return;
+    }
+    if (await bcrypt.compare(newPassword, user.passwordHash)) {
+        res.status(400).json({ error: "New password must be different from your current password" });
+        return;
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const changed = await prisma.$transaction(async (tx) => {
+        const result = await tx.user.updateMany({
+            where: { id: user.id, passwordHash: user.passwordHash },
+            data: { passwordHash },
+        });
+        if (result.count !== 1) return false;
+        await tx.passwordReset.updateMany({
+            where: { userId: user.id, usedAt: null },
+            data: { usedAt: new Date() },
+        });
+        return true;
+    });
+    if (!changed) {
+        res.status(409).json({ error: "Your password has changed. Please try again with your current password" });
+        return;
+    }
+    res.json({ message: "Password changed successfully" });
+}
 
 async function getUserRoles(userId: number): Promise<string[]> {
     const userRoles = await prisma.userRole.findMany({

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import passport from "../config/passport";
-import { register, login, verifyLogin, refreshToken, logout, googleCallback, forgotPassword, resetPassword, me } from "../controllers/auth.controller";
+import { register, login, verifyLogin, refreshToken, logout, googleCallback, forgotPassword, resetPassword, me, passwordStatus, changePassword } from "../controllers/auth.controller";
 import { twoFactorStatus, setupTwoFactor, enableTwoFactor, disableTwoFactor } from "../controllers/twoFactor.controller";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -15,6 +15,8 @@ router.post("/logout", logout);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/me", me);
+router.get("/password/status", requireAuth, passwordStatus);
+router.post("/change-password", requireAuth, changePassword);
 
 // 2FA management — all require a logged-in user (valid access token)
 router.get("/2fa/status", requireAuth, twoFactorStatus);
