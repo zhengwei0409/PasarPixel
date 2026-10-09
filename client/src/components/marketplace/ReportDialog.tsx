@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Info, CheckCircle2 } from "lucide-react";
+import { Info, CheckCircle2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -94,24 +94,30 @@ export default function ReportDialog({
                 <label htmlFor="report-reason" className="text-xs font-medium">
                   Reason
                 </label>
-                <select
-                  id="report-reason"
-                  required
-                  value={reason}
-                  disabled={createReport.isPending}
-                  onChange={(event) => setReason(event.target.value)}
-                  className="h-10 w-full rounded-md border bg-muted/50 px-3 text-sm"
-                >
-                  <option value="" disabled>
-                    Select a reason
-                  </option>
-                  {ASSET_REPORT_REASONS.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
+                <div className="relative">
+                  <select
+                    id="report-reason"
+                    required
+                    value={reason}
+                    disabled={createReport.isPending}
+                    onChange={(event) => setReason(event.target.value)}
+                    className="h-10 w-full appearance-none rounded-md border bg-muted/50 pl-3 pr-10 text-sm"
+                  >
+                    <option value="" disabled>
+                      Select a reason
                     </option>
-                  ))}
-                  <option value="Other">Other</option>
-                </select>
+                    {ASSET_REPORT_REASONS.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                    <option value="Other">Other</option>
+                  </select>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">

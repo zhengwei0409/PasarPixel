@@ -173,6 +173,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
   };
 
   const handleReportClick = () => {
+    if (isAdmin) return;
     if (isGuest) {
       navigate("/login");
       return;
@@ -399,7 +400,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
               )}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid gap-3 ${isAdmin ? "grid-cols-1" : "grid-cols-2"}`}>
             <Button
               variant="secondary"
               className="h-10 text-xs"
@@ -407,13 +408,15 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
             >
               <Share2 size={14} /> Share
             </Button>
-            <Button
-              variant="secondary"
-              className="h-10 text-xs"
-              onClick={handleReportClick}
-            >
-              <Flag size={14} /> Report asset
-            </Button>
+            {!isAdmin && (
+              <Button
+                variant="secondary"
+                className="h-10 text-xs"
+                onClick={handleReportClick}
+              >
+                <Flag size={14} /> Report asset
+              </Button>
+            )}
           </div>
           {shareMessage && (
             <p role="status" className="text-xs text-muted-foreground">
@@ -440,11 +443,13 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
               Portfolio <ArrowUpRight size={14} />
             </span>
           </Link>
-          <ReportDialog
-            assetId={asset.id}
-            open={reportOpen}
-            onOpenChange={setReportOpen}
-          />
+          {!isAdmin && (
+            <ReportDialog
+              assetId={asset.id}
+              open={reportOpen}
+              onOpenChange={setReportOpen}
+            />
+          )}
         </aside>
       </div>
 

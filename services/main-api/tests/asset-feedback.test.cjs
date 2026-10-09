@@ -16,7 +16,7 @@ function controller(file, prisma) {
     return exports;
 }
 function response() { return { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = plain(body); return this; } }; }
-const request = (body = {}, userId = 7) => ({ user: { userId }, params: { id: '10', reviewId: '25' }, body });
+const request = (body = {}, userId = 7, roles = ['BUYER']) => ({ user: { userId, roles }, params: { id: '10', reviewId: '25' }, body });
 test('unpaid users cannot leave ratings or comments', async () => {
     let written = false;
     const handlers = controller('review', {
@@ -81,12 +81,20 @@ test('reply rejects missing reviews and invalid or oversized text', async () => 
     await controller('review', { review: { findFirst: async () => null } }).upsertSellerReply(request({ reply: 'Thanks' }), res);
     assert.equal(res.statusCode, 404);
 });
-test('any signed-in user can report without a purchase, including the owner', async () => {
-    for (const userId of [7, 3]) {
+test('non-admin buyers and sellers can report without a purchase, including the owner', async () => {
+    for (const [userId, roles] of [[7, ['BUYER']], [3, ['SELLER']]]) {
         const res = response();
-        await controller('report', { asset: { findFirst: async () => ({ sellerId: 3 }) }, report: { create: async args => ({ id: 1, ...args.data }) } }).createReport(request({ assetId: 10, reason: 'Copyright' }, userId), res);
+        await controller('report', { asset: { findFirst: async () => ({ sellerId: 3 }) }, report: { create: async args => ({ id: 1, ...args.data }) } }).createReport(request({ assetId: 10, reason: 'Copyright' }, userId, roles), res);
         assert.equal(res.statusCode, 201);
         assert.equal(res.body.userId, userId);
+    }
+});
+test('admins cannot report assets, even when they also have buyer or seller roles', async () => {
+    for (const roles of [['ADMIN'], ['BUYER', 'ADMIN'], ['SELLER', 'ADMIN']]) {
+        const res = response();
+        await controller('report', {}).createReport(request({ assetId: 10, reason: 'Spam' }, 7, roles), res);
+        assert.equal(res.statusCode, 403);
+        assert.equal(res.body.error, 'Admins cannot report assets.');
     }
 });
 test('duplicate report constraint returns a useful conflict', async () => {

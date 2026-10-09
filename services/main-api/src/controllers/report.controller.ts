@@ -2,9 +2,13 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { publishAssetRemoved } from "../lib/publisher";
 
-// POST /reports — a signed-in user reports a published asset for review by
+// POST /reports — a signed-in non-admin reports a published asset for review by
 // admins. Stored with status PENDING; admins review it in a later step.
 export async function createReport(req: Request, res: Response) {
+    if (req.user!.roles.includes("ADMIN")) {
+        res.status(403).json({ error: "Admins cannot report assets." });
+        return;
+    }
     const userId = req.user!.userId;
 
     const { assetId, reason } = req.body;
