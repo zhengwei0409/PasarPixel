@@ -9,7 +9,7 @@ import {
 } from "../hooks/useAsset";
 import { Textarea } from "../components/ui/textarea";
 import { Button } from "../components/ui/button";
-import { ArrowUpRight, Box, CalendarDays, FileText, Film, ImageIcon, Layers, Music2, Pencil, Plus, Settings2, Sparkles, Type } from "lucide-react";
+import { ArrowUpRight, Box, CalendarDays, FileText, Film, ImageIcon, Layers, Music2, Pencil, Sparkles, Type } from "lucide-react";
 import {
     Dialog,
     DialogContent,
