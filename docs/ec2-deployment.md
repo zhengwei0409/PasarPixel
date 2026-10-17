@@ -91,7 +91,7 @@ settings include:
   `S3_BUCKET_NAME`, `S3_PRESIGNED_URL_EXPIRES_IN`,
   `DOWNLOAD_TOKEN_EXPIRES_IN`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
 - **notification-service:** `RESEND_API_KEY`.
-- **blockchain-service:** no external credentials for wallet binding. Compose supplies its isolated `blockchain` database schema, auth-service URL and HTTPS frontend origin. Minting / RPC credentials are reserved for later implementation.
+- **blockchain-service:** no external credentials for wallet binding. Master minting additionally needs a dedicated Devnet sponsor in `services/blockchain-service/.secrets/devnet-sponsor.json` and `MINT_ENABLED=true` in the service `.env`. Follow the root README setup on the server; do not reuse a wallet containing real funds. Compose mounts the key directory read-only and supplies its isolated schema, internal service URLs and public HTTPS metadata URL. The Devnet RPC endpoint is configurable and checked against the full genesis hash.
 
 Compose supplies the database/broker URLs, frontend URLs and internal service
 URLs. Each service uses its own PostgreSQL schema and migration history in the
@@ -143,7 +143,8 @@ a known password or a demo admin profile. Register your own account, then grant
 its admin role explicitly if needed. Blockchain-service is included through
 Kong's `/blockchain` route (`/api/blockchain` on the public website). Its health
 check verifies database connectivity. Settings supports Phantom wallet binding;
-NFT minting and SOL purchases remain unimplemented.
+Seller Master minting can be enabled after configuring/funding the Devnet sponsor;
+buyer License NFTs and SOL purchases remain unimplemented.
 
 ## Maintenance and limits
 

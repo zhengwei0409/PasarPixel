@@ -128,7 +128,7 @@ test('an unused binding can change; NFT ownership blocks replacement, including 
     const other = wallet();
     const issued = await challenge(userId, other);
     const record = await db.wallet.findUnique({ where: { userId } });
-    await db.masterNft.create({ data: { ownerWalletId: record.id, assetId: userId, mintAddress: wallet().address, metadataUri: 'https://example.com/master.json' } });
+    await db.masterNft.create({ data: { ownerWalletId: record.id, assetId: userId, status: "READY", assetAddress: wallet().address, metadataUri: 'https://example.com/master.json' } });
     assert.equal((await verify(userId, other, issued)).status, 409);
     const status = await request(userId);
     assert.equal(status.data.canChange, false);
@@ -144,7 +144,7 @@ test('buyer license ownership and seller/buyer pending transactions prevent repl
     await bind(buyerId);
     const seller = await db.wallet.findUnique({ where: { userId: sellerId } });
     const buyer = await db.wallet.findUnique({ where: { userId: buyerId } });
-    const master = await db.masterNft.create({ data: { ownerWalletId: seller.id, assetId: sellerId, mintAddress: wallet().address, metadataUri: 'https://example.com/master.json' } });
+    const master = await db.masterNft.create({ data: { ownerWalletId: seller.id, assetId: sellerId, status: "READY", assetAddress: wallet().address, metadataUri: 'https://example.com/master.json' } });
     const license = await db.licenseNft.create({ data: { masterNftId: master.id, holderWalletId: buyer.id, orderItemId: buyerId, mintAddress: wallet().address, metadataUri: 'https://example.com/license.json', licenseType: 'PERSONAL' } });
     assert.equal((await request(buyerId)).data.lockedReason, 'NFT_OWNERSHIP');
     const pendingId = nextUser++;

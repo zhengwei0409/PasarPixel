@@ -37,6 +37,7 @@ async function browse(query, rankedIds = [2, 1]) {
         exports,
         require: (name) => {
             if (name === "../lib/prisma") return { prisma };
+            if (name === "../../../../shared/utils/solPrice") return {};
             if (name === "@prisma/client" || name.startsWith("../lib/")) return {};
             throw new Error(`Unexpected dependency: ${name}`);
         },

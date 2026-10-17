@@ -1,6 +1,6 @@
 # Blockchain v1 Design
 
-状态：Step 1 design baseline。Step 2 已实现 service foundation、wallet binding、初始 migrations 和 Settings UI；NFT minting、SOL checkout、entitlement integration 与 smart contract 尚未实现。运行与验证方式见 [项目 README](../README.md#blockchain)。
+状态：Step 3 已实现 seller Master NFT minting、content snapshots、signature approval、独立 mint 状态与 recovery worker。2026-10-17 真实 Devnet SDK smoke mint 已 finalized，并通过 transfer、burn、metadata update、thaw 被拒绝的 simulation；网页 listing / Phantom 完整流程仍待手动验收。SOL checkout、License NFT、entitlement integration 与购买 smart contract 尚未实现。运行与验证记录见 [项目 README](../README.md#blockchain)。
 
 本文件细化 [Functional Requirements](FunctionalRequirement.md) 的 FR-2.5、FR-3.3–3.5 和 FR-5，供后续实现使用。以下规则以 Solana Devnet 为范围。
 
@@ -21,7 +21,7 @@
 
 每个 listing 只能有一个 Master NFT。Mint retry 必须恢复同一 mint operation；不能因为 timeout 就创建第二个 Master。
 
-Authority 分工：seller / buyer 是 NFT owner；Core update authority 使用 marketplace program PDA，由 program 约束签发。Platform fee payer 只承担费用，不获得用户 wallet 的转账权限。v1 program 不提供修改旧 NFT metadata、添加 bypass delegates 或迁移 NFT 的 instruction；listing active / price revision 由受控指令更新，seller 操作验证其签名，moderation 操作验证平台管理权限。
+Authority 分工：seller / buyer 是 NFT owner。Step 3 的 Master 通过 backend 调用 Core 创建，seller 先签署绑定内容的 approval；同一个 transaction 创建 NFT、添加冻结 plugin 并将 update authority 设为 `None`，锁定 metadata。此流程不添加 `ImmutableMetadata` plugin，因为它会拒绝后续移除 authority 的 Update instruction，已由真实 Devnet simulation 确认。这使 Master 不依赖尚未部署的购买 program。Step 4 再由 marketplace program PDA 约束 License 签发、分账和 Master 关联。Platform fee payer 不获得用户 wallet 的转账权限。未来 program 不提供修改旧 NFT metadata、添加 bypass delegates 或迁移 NFT 的 instruction。
 
 ## 2. License 类型与销售规则
 
@@ -46,7 +46,7 @@ Authority 分工：seller / buyer 是 NFT owner；Core update authority 使用 m
 
 v1 将 Master NFT 和 License NFT 都固定在初始接收 wallet：Master 保持 seller 归属，License 保持 buyer 归属。
 
-计划在每个 NFT 创建时设置 asset-level `PermanentFreezeDelegate`，`frozen = true`、plugin authority 为 `None`。创建时不得加入 Permanent Transfer / Permanent Burn delegates，避免提供绕过冻结的权限。此配置必须在 Devnet 验证后才能开放 mint。
+每个 NFT 使用 asset-level `PermanentFreezeDelegate`，`frozen = true`、plugin authority 为 `None`。Master 的 transaction builder 已实现此配置，且不加入 Permanent Transfer / Permanent Burn delegates。2026-10-17 已在真实 Devnet NFT 上验证 owner transfer / burn 和 sponsor thaw 的 simulation 被拒绝；项目配置示例默认 `MINT_ENABLED=false`。
 
 冻结规则在链上执行；只隐藏 UI 的 Transfer 按钮不足以实现不可转让。v1 不提供 resale、gift、burn、thaw 或 NFT wallet migration。
 
@@ -68,14 +68,16 @@ NFT 创建前先生成 immutable snapshot，再 mint。所有引用的公开内�
 | License | `schemaVersion`、Master asset address、buyer wallet、license type、`termsVersion`、`termsUri`、`termsHash`、`contentManifestHash`、公开 `purchaseRef` |
 | Purchase receipt | Master / License addresses、buyer / seller wallets、tier、terms / content commitments、实际 lamports、commission、唯一 purchase reference |
 
+所有新 NFT 的展示图片统一使用 PasarPixel logo，在 mint 前保存为 immutable PNG snapshot，不使用 listing cover。已生成的 snapshots 和已 mint NFT 保留原图片。
+
 `listingRef` / `purchaseRef` 使用无敏感信息的 opaque identifiers。链上 receipt 是真实性依据；metadata 字段只是可读说明。单独向平台 collection 外 mint 一个相似 NFT 不会获得 entitlement。
 
 Content manifest 使用固定的 schema 和 canonical JSON encoding：original files 按稳定 file reference 排序，记录各文件的 byte size 和 SHA-256 hash，再计算 manifest hash。S3 URL、临时 query string 和 storage key 不作为内容身份。
 
 - Original files 保持 private S3 存储；公开 manifest 只包含无敏感信息的 file references、sizes 和 hashes。
 - Metadata 不包含原始文件 download URL、signed URL、email、真实姓名、内部 user ID、内部 order ID 或现有 license key。
-- 在 NFT 创建 transaction 内配置 `ImmutableMetadata`，锁定 name 和 URI；用于业务验证的 commitments 写入 program accounts，不能只依赖可变 attributes。
-- 锁定 URI 不会锁定远端 JSON bytes。Metadata、preview、manifest 和 terms 使用 content-addressed object keys，并通过存储权限禁止覆盖或删除已引用内容；仅启用 S3 Versioning 不够。
+- 在 NFT 创建 transaction 内移除 update authority（设为 `None`），锁定 name、URI 和 authority-managed plugins；用于业务验证的 commitments 写入 program accounts，不能只依赖可变 attributes。
+- 锁定 URI 不会锁定远端 JSON bytes。Step 3 的 metadata、preview、manifest 使用 content-addressed 数据库记录，数据库 trigger 禁止 UPDATE / DELETE；公开 API 从固定 hash 读取。Original snapshots 使用 private S3 的 hash keys 和 conditional writes，应用拒绝删除该 prefix；AWS/IAM 仍应限制外部覆盖或删除。Terms 的固定存储在 License 流程实现。
 - Mint 后不可替换 original files 或 license terms snapshot。素材或授权范围发生变化时创建新 listing，重新审核及 mint。
 - 可以调整未来销售价格、暂停销售，或修改 marketplace description；这些变化不修改已签发 NFT 或旧订单 snapshot。
 
@@ -104,7 +106,7 @@ Buyer 流程：
 - 重试、并发请求和重复 event 都必须受到链上唯一 receipt 与数据库 uniqueness 约束。
 - Seller 修改价格或 admin 下架后，旧 purchase authorization 必须通过 listing revision / expiry 检查失效。平台暂停操作以链上确认生效为准；已 finalized 的购买仍需正常入账。
 
-以上是实现约束；transaction builder、program accounts 和 worker 在后续步骤实现。
+Master transaction builder 和 recovery worker 已实现；购买 program accounts、License NFT 和分账在后续步骤实现。
 
 ## 6. Entitlement、verification 与 moderation
 
@@ -156,5 +158,5 @@ SOL 已直接进入 seller wallet，不计入现有 fiat withdrawal balance；se
 - [Using Core in Anchor](https://www.metaplex.com/docs/smart-contracts/core/using-core-in-anchor)：后续 program 的 CPI integration。
 - [Soulbound Assets](https://www.metaplex.com/docs/smart-contracts/core/guides/create-soulbound-nft-asset)：永久冻结及 authority `None` 的配置依据。
 - [Permanent Freeze Delegate](https://www.metaplex.com/docs/smart-contracts/core/plugins/permanent-freeze-delegate)：创建时配置及 delegate 行为。
-- [ImmutableMetadata](https://www.metaplex.com/docs/smart-contracts/core/plugins/immutableMetadata)：name / URI 的不可变性边界。
+- [Immutability](https://www.metaplex.com/docs/smart-contracts/core/guides/immutability)：移除 update authority 和 plugin authority 后的不可变性边界。
 - [Solana Transactions](https://solana.com/docs/core/transactions)：transaction atomicity 和失败 fee。

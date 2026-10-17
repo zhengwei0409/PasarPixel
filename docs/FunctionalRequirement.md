@@ -57,7 +57,7 @@
 
 ## FR-5 — Blockchain / NFT
 
-Implementation status: FR-5.1 wallet binding and the blockchain service foundation are implemented. NFT minting and SOL checkout remain planned. Detailed v1 rules and acceptance criteria are defined in [Blockchain v1 Design](BlockchainDesign.md).
+Implementation status: wallet binding and seller Master NFT minting are implemented. Master minting requires a configured, funded Devnet sponsor; real Devnet acceptance is pending. Buyer License NFTs and SOL checkout remain planned. Detailed v1 rules and acceptance criteria are defined in [Blockchain v1 Design](BlockchainDesign.md).
 
 | ID | Requirement Description |
 |---|---|

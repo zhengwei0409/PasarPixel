@@ -41,16 +41,60 @@ model WalletChallenge {
 model MasterNft {
   id            Int      @id @default(autoincrement())
   ownerWalletId Int
-  assetId       Int      // references Main API asset ID (no FK across services)
-  mintAddress   String   @unique
-  metadataUri   String
+  assetId       Int      @unique // references Main API asset ID (no FK across services)
+  assetAddress  String   @unique @map("mintAddress")
+  mintReference String   @unique @default(uuid())
+  ownerAddress  String   @default("")
+  metadataUri   String   @default("")
+  name          String   @default("")
+  manifestHash  String   @default("")
+  status        MasterMintStatus @default(PREPARING)
+  authorizationId String? @unique
+  authorizationMessage String?
+  authorizationExpiresAt DateTime?
+  authorizedAt DateTime?
+  leaseUntil DateTime?
+  leaseToken String?
+  txSignature String?
+  errorMessage String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   ownerWallet Wallet     @relation(fields: [ownerWalletId], references: [id])
   licenseNfts LicenseNft[]
+  attempts MasterMintAttempt[]
 
   @@map("master_nfts")
+}
+
+enum MasterMintStatus {
+  PREPARING
+  AWAITING_SIGNATURE
+  PENDING
+  READY
+  FAILED
+}
+
+model MasterMintAttempt {
+  id Int @id @default(autoincrement())
+  masterNftId Int
+  signature String @unique
+  transaction Bytes
+  lastValidBlockHeight BigInt
+  status TransactionStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  masterNft MasterNft @relation(fields: [masterNftId], references: [id])
+
+  @@map("master_mint_attempts")
+}
+
+model NftMetadata {
+  hash String @id
+  body String
+  createdAt DateTime @default(now())
+
+  @@map("nft_metadata")
 }
 
 model LicenseNft {

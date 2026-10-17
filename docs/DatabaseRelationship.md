@@ -24,18 +24,21 @@
 
 ### Blockchain Service Relationships
 
-The following describes the Prisma models. Wallet binding is implemented; NFT and purchase models remain a scaffold:
+The following describes the Prisma models. Wallet binding and Master mint operations are implemented; License NFT and purchase models remain a scaffold:
 
 - WALLET owns many MASTER_NFTs (one-to-many).
 - Each account has at most one current WALLET_CHALLENGE, with a unique nonce, expiry, and consumption timestamp. Issuing a new challenge replaces the previous one.
 - WALLET receives many LICENSE_NFTs (one-to-many).
 - MASTER_NFT issues many LICENSE_NFTs (one-to-many).
+- Each listing has at most one MASTER_NFT record, including preparation, approval and mint state; a record can exist before the on-chain NFT.
+- A MASTER_NFT has many MASTER_MINT_ATTEMPTs, storing signed bytes and signatures before broadcast. Pending operations block wallet replacement.
+- Immutable NFT_METADATA records are addressed by SHA-256. Main API separately stores ASSET_MINT_SNAPSHOT and NFT_PUBLIC_OBJECT records; database triggers protect all three immutable tables from updates/deletes.
 - BLOCKCHAIN_TRANSACTION creates exactly one LICENSE_NFT (one-to-one).
 - BLOCKCHAIN_TRANSACTION references both a seller WALLET and a buyer WALLET.
 
 ### Blockchain v1 Target Relationships (Planned)
 
-See [Blockchain v1 Design](BlockchainDesign.md). These changes require future migrations; the Prisma scaffold above has not yet been updated.
+See [Blockchain v1 Design](BlockchainDesign.md). Master operation tracking and snapshot migrations are implemented; the purchase / License changes below still require future migrations.
 
 - A USER account has at most one verified WALLET binding; a WALLET address belongs to at most one account.
 - A Main API ASSET references at most one MASTER_NFT; a ready blockchain listing must reference exactly one.

@@ -15,6 +15,7 @@ build/
 # Prisma generated client
 services/main-api/node_modules/.prisma/
 services/blockchain-service/generated/
+services/blockchain-service/.secrets/
 
 # Logs
 logs/

@@ -4,10 +4,12 @@ import type { PrismaClient } from "../generated/client";
 import { authenticate } from "./middleware/auth.middleware";
 import { HttpError } from "./lib/errors";
 import { walletService } from "./services/wallet.service";
+import { masterMintService, type MintOptions } from "./services/masterMint.service";
 
-export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin: string) {
+export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin: string, mintOptions?: MintOptions) {
     const app = express();
     const wallets = walletService(db, clientOrigin);
+    const mints = masterMintService(db, mintOptions ?? { mainApiUrl: "http://main-api:3002", publicApiUrl: "http://localhost:8000", clientOrigin });
     app.disable("x-powered-by");
     app.use(express.json({ limit: "8kb" }));
     const health = async (_req: express.Request, res: express.Response) => {
@@ -20,6 +22,13 @@ export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin
     };
     app.get("/health", health);
     app.get("/blockchain/health", health);
+    app.get("/blockchain/metadata/:hash", async (req, res) => {
+        if (!/^[a-f0-9]{64}$/.test(req.params.hash)) { res.status(404).end(); return; }
+        const metadata = await db.nftMetadata.findUnique({ where: { hash: req.params.hash } });
+        if (!metadata) { res.status(404).end(); return; }
+        res.set({ "Content-Type": "application/json", "Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" });
+        res.send(metadata.body);
+    });
     app.use("/blockchain", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); }, authenticate(authServiceUrl));
     const limit = rateLimit({
         windowMs: 60_000, limit: 10,
@@ -35,6 +44,24 @@ export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin
     });
     app.post("/blockchain/wallet/verify", limit, async (req, res) => {
         res.json(await wallets.bind(req.user!.userId, req.body?.challengeId, req.body?.signature));
+    });
+    const masterId = (req: express.Request) => {
+        const id = Number(req.params.assetId);
+        if (!Number.isSafeInteger(id) || id <= 0) throw new HttpError(400, "Invalid asset id");
+        return id;
+    };
+    const seller: express.RequestHandler = (req, _res, next) => {
+        if (!req.user!.roles.includes("SELLER")) throw new HttpError(403, "Seller access is required");
+        next();
+    };
+    app.get("/blockchain/masters/:assetId", seller, async (req, res) => {
+        res.json(await mints.status(req.user!.userId, masterId(req)));
+    });
+    app.post("/blockchain/masters/:assetId/prepare", seller, limit, async (req, res) => {
+        res.json(await mints.prepare(req.user!.userId, masterId(req), req.headers.authorization!));
+    });
+    app.post("/blockchain/masters/:assetId/authorize", seller, limit, async (req, res) => {
+        res.status(202).json(await mints.authorize(req.user!.userId, masterId(req), req.body?.authorizationId, req.body?.signature, req.headers.authorization!));
     });
     app.use((_req, res) => { res.status(404).json({ error: "Not found" }); });
     const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {

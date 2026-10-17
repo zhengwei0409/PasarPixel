@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { createApp } from "./app";
 import { prisma } from "./lib/prisma";
+import { configuredCoreGateway } from "./lib/coreMint";
+import { masterMintService } from "./services/masterMint.service";
 
 const clientUrl = new URL(process.env.CLIENT_URL || "http://localhost:5173");
 if (!["http:", "https:"].includes(clientUrl.protocol) || clientUrl.username || clientUrl.password ||
@@ -14,11 +16,24 @@ const authServiceUrl = process.env.AUTH_SERVICE_URL || "http://localhost:3001";
 
 async function start() {
     await prisma.$connect();
-    const server = createApp(prisma, authServiceUrl, clientUrl.origin).listen(port, () => {
+    const options = { gateway: configuredCoreGateway(), clientOrigin: clientUrl.origin,
+        mainApiUrl: process.env.MAIN_API_URL || "http://localhost:3002",
+        publicApiUrl: (process.env.PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? `${clientUrl.origin}/api` : "http://localhost:8000")).replace(/\/$/, "") };
+    const mints = masterMintService(prisma, options);
+    let stopping = false;
+    const work = async () => {
+        try { await mints.tick(); } catch { console.error("Mint reconciliation will retry"); }
+        if (!stopping) timer = setTimeout(() => void work(), 5000);
+    };
+    let timer: ReturnType<typeof setTimeout>;
+    void work();
+    const server = createApp(prisma, authServiceUrl, clientUrl.origin, options).listen(port, () => {
         console.log(`Blockchain service running on port ${port} (Solana Devnet)`);
     });
     for (const signal of ["SIGINT", "SIGTERM"] as const) {
         process.once(signal, () => {
+            stopping = true;
+            clearTimeout(timer);
             server.close(() => { void prisma.$disconnect().then(() => process.exit(0)); });
             setTimeout(() => process.exit(1), 10_000).unref();
         });

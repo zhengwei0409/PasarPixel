@@ -35,6 +35,8 @@ export interface Asset {
     priceCommercial: string | null;
     currency: Currency;
     priceSol: string | null;
+    priceSolPersonal: string | null;
+    priceSolCommercial: string | null;
     isAiGenerated: boolean;
     isDeleted: boolean;
     rejectionReason: string | null;
@@ -97,6 +99,8 @@ export interface CreateAssetPayload {
     pricePersonal?: number | null;
     priceCommercial?: number | null;
     priceSol?: number | null;
+    priceSolPersonal?: string | null;
+    priceSolCommercial?: string | null;
     currency?: Currency;
 }
 
@@ -111,6 +115,8 @@ export interface UpdateAssetPayload {
     pricePersonal?: number | null;
     priceCommercial?: number | null;
     priceSol?: number | null;
+    priceSolPersonal?: string | null;
+    priceSolCommercial?: string | null;
     currency?: Currency;
 }
 

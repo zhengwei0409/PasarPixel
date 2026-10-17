@@ -2,8 +2,13 @@ import { Router } from "express";
 import { authenticate, requireRole } from "../middleware/auth.middleware";
 import { createAsset, reuseGlbPreview, updateAsset, getUploadUrl, registerFile, deleteFile, getAssetById, getAssetForReview, getAssetFileDownloadUrl, getMyAssets, getPendingReviewAssets, submitForReview, approveAsset, rejectAsset, deleteOrTakeDownAsset, cancelSubmission, reopenRejected, browseAssets, getPublicAssetById, getRelatedAssets } from "../controllers/asset.controller";
 import { getAssetReviews, upsertReview, deleteReview, getReviewEligibility, upsertSellerReply } from "../controllers/review.controller";
+import { getNftContent, getMintEligibility, getMintSnapshot } from "../controllers/nftSnapshot.controller";
 
 const router = Router();
+
+router.get("/nft-content/:hash", getNftContent);
+router.get("/:id/mint-eligibility", getMintEligibility);
+router.post("/:id/mint-snapshot", authenticate, requireRole("SELLER"), getMintSnapshot);
 
 router.get("/browse", browseAssets);
 router.get("/browse/:id", getPublicAssetById);

@@ -8,14 +8,15 @@ async function readWallet(db: WalletDb, userId: number) {
     const wallet = await db.wallet.findUnique({
         where: { userId },
         include: {
-            _count: { select: { masterNfts: true, licenseNfts: true } },
+            _count: { select: { masterNfts: { where: { status: "READY" } }, licenseNfts: true } },
+            masterNfts: { where: { status: { in: ["PREPARING", "AWAITING_SIGNATURE", "PENDING"] } }, take: 1, select: { id: true } },
             sellerTransactions: { where: { status: "PENDING" }, take: 1, select: { id: true } },
             buyerTransactions: { where: { status: "PENDING" }, take: 1, select: { id: true } },
         },
     });
     const lockedReason = wallet && (wallet._count.masterNfts || wallet._count.licenseNfts)
         ? "NFT_OWNERSHIP"
-        : wallet && (wallet.sellerTransactions.length || wallet.buyerTransactions.length)
+        : wallet && (wallet.masterNfts.length || wallet.sellerTransactions.length || wallet.buyerTransactions.length)
             ? "PENDING_TRANSACTION" : null;
     return {
         network: "solana:devnet" as const,

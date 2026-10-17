@@ -1,4 +1,5 @@
 import { assetFileError, specificationsError } from "../lib/assetSpecifications";
+import { parseSolLamports } from "../../../../shared/utils/solPrice";
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
@@ -50,6 +51,8 @@ type PricingInput = {
     pricePersonal?: unknown;
     priceCommercial?: unknown;
     priceSol?: unknown;
+    priceSolPersonal?: unknown;
+    priceSolCommercial?: unknown;
     currency?: unknown;
 };
 
@@ -57,6 +60,8 @@ type PricingFields = {
     pricePersonal: Prisma.Decimal | null;
     priceCommercial: Prisma.Decimal | null;
     priceSol: Prisma.Decimal | null;
+    priceSolPersonal: Prisma.Decimal | null;
+    priceSolCommercial: Prisma.Decimal | null;
     currency: Currency;
 };
 
@@ -75,8 +80,19 @@ function validatePricing(
     if (typeof personal === "string") return { ok: false, error: personal };
     const commercial = parsePrice(input.priceCommercial, "priceCommercial");
     if (typeof commercial === "string") return { ok: false, error: commercial };
-    const sol = parsePrice(input.priceSol, "priceSol");
+    let sol = parsePrice(input.priceSol, "priceSol");
     if (typeof sol === "string") return { ok: false, error: sol };
+    let solPersonal: Prisma.Decimal | null = null;
+    let solCommercial: Prisma.Decimal | null = null;
+    if (input.priceSolPersonal !== undefined || input.priceSolCommercial !== undefined) {
+        try {
+            const p = parseSolLamports(input.priceSolPersonal);
+            const c = parseSolLamports(input.priceSolCommercial);
+            solPersonal = p === null ? null : new Prisma.Decimal(p.toString()).div(1_000_000_000);
+            solCommercial = c === null ? null : new Prisma.Decimal(c.toString()).div(1_000_000_000);
+            sol = solPersonal === null ? solCommercial : solCommercial === null ? solPersonal : Prisma.Decimal.min(solPersonal, solCommercial);
+        } catch (error) { return { ok: false, error: (error as Error).message }; }
+    }
 
     let currency: Currency = "USD";
     if (input.currency !== undefined && input.currency !== null) {
@@ -91,7 +107,7 @@ function validatePricing(
             return { ok: false, error: "Blockchain listings cannot set fiat prices" };
         }
     } else {
-        if (sol !== null) {
+        if (sol !== null || solPersonal !== null || solCommercial !== null) {
             return { ok: false, error: "Traditional listings cannot set SOL price" };
         }
     }
@@ -102,6 +118,8 @@ function validatePricing(
             pricePersonal: personal,
             priceCommercial: commercial,
             priceSol: sol,
+            priceSolPersonal: solPersonal,
+            priceSolCommercial: solCommercial,
             currency,
         },
     };
@@ -155,6 +173,8 @@ export async function createAsset(req: Request, res: Response) {
             pricePersonal: pricing.data.pricePersonal,
             priceCommercial: pricing.data.priceCommercial,
             priceSol: pricing.data.priceSol,
+            priceSolPersonal: pricing.data.priceSolPersonal,
+            priceSolCommercial: pricing.data.priceSolCommercial,
             currency: pricing.data.currency,
         },
     });
@@ -899,6 +919,8 @@ export async function updateAsset(req: Request, res: Response) {
         pricePersonal?: Prisma.Decimal | null;
         priceCommercial?: Prisma.Decimal | null;
         priceSol?: Prisma.Decimal | null;
+        priceSolPersonal?: Prisma.Decimal | null;
+        priceSolCommercial?: Prisma.Decimal | null;
         currency?: Currency;
     } = {};
     if (title !== undefined) data.title = title.trim();
@@ -915,18 +937,23 @@ export async function updateAsset(req: Request, res: Response) {
         req.body.pricePersonal !== undefined ||
         req.body.priceCommercial !== undefined ||
         req.body.priceSol !== undefined ||
+        req.body.priceSolPersonal !== undefined ||
+        req.body.priceSolCommercial !== undefined ||
         req.body.currency !== undefined;
 
     if (pricingTouched) {
         const effectiveListingType = (listingType ?? asset.listingType) as ListingType;
-        const pricing = validatePricing(req.body, effectiveListingType);
+        const pricing = validatePricing({ ...asset, priceSolPersonal: asset.priceSolPersonal?.toFixed(9),
+            priceSolCommercial: asset.priceSolCommercial?.toFixed(9), ...req.body }, effectiveListingType);
         if (!pricing.ok) {
             res.status(400).json({ error: pricing.error });
             return;
         }
         if (req.body.pricePersonal !== undefined) data.pricePersonal = pricing.data.pricePersonal;
         if (req.body.priceCommercial !== undefined) data.priceCommercial = pricing.data.priceCommercial;
-        if (req.body.priceSol !== undefined) data.priceSol = pricing.data.priceSol;
+        if (req.body.priceSol !== undefined || req.body.priceSolPersonal !== undefined || req.body.priceSolCommercial !== undefined) data.priceSol = pricing.data.priceSol;
+        if (req.body.priceSolPersonal !== undefined) data.priceSolPersonal = pricing.data.priceSolPersonal;
+        if (req.body.priceSolCommercial !== undefined) data.priceSolCommercial = pricing.data.priceSolCommercial;
         if (req.body.currency !== undefined) data.currency = pricing.data.currency;
     }
 
@@ -1157,8 +1184,8 @@ export async function submitForReview(req: Request, res: Response) {
     }
 
     if (asset.listingType === "BLOCKCHAIN") {
-        if (asset.priceSol === null) {
-            res.status(400).json({ error: "Blockchain listings must set a SOL price before submission" });
+        if (asset.priceSolPersonal == null && asset.priceSolCommercial == null) {
+            res.status(400).json({ error: "Set a Personal or Commercial SOL price before submission" });
             return;
         }
     } else {

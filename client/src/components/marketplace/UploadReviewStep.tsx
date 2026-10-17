@@ -16,6 +16,7 @@ import {
     specificationsError,
 } from "../../lib/assetSpecifications";
 import { getErrorMessage } from "../../lib/errors";
+import { formatSol } from "../../lib/price";
 import type { AssetFile, AssetWithFiles } from "../../types/asset";
 import { Button } from "../ui/button";
 import AssetUploader from "./AssetUploader";
@@ -157,10 +158,9 @@ export default function UploadReviewStep({
         if (!asset.files.some((file) => file.purpose === "PREVIEW" && /\.mp4(\?|$)/i.test(file.fileUrl)))
             missing.push("Upload an MP4 preview below.");
     }
-    if (asset.listingType === "BLOCKCHAIN")
-        missing.push(
-            "Blockchain setup is on hold. Choose Traditional in Step 3 to submit.",
-        );
+    if (asset.listingType === "BLOCKCHAIN") {
+        if (asset.priceSolPersonal == null && asset.priceSolCommercial == null) missing.push("Set a Personal or Commercial SOL price in Step 3.");
+    }
     else if (asset.pricePersonal == null && asset.priceCommercial == null)
         missing.push("Set at least one license price in Step 3.");
     const price = (value: string | null) =>
@@ -498,9 +498,8 @@ export default function UploadReviewStep({
                         </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">
-                            Blockchain setup is on hold.
-                            {asset.priceSol != null &&
-                                ` Previously saved price: ${asset.priceSol} SOL.`}
+                            Personal: {asset.priceSolPersonal ? formatSol(asset.priceSolPersonal) : "Unavailable"}. Commercial: {asset.priceSolCommercial ? formatSol(asset.priceSolCommercial) : "Unavailable"}.
+                            After approval, mint your Master NFT from My Listings.
                         </p>
                     )}
                 </div>

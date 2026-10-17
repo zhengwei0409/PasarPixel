@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 import { useUpdateAsset } from "../../hooks/useAsset";
 import { getErrorMessage } from "../../lib/errors";
+import { solPriceInput } from "../../lib/price";
 import type { AssetWithFiles, Currency, ListingType } from "../../types/asset";
+import { parseSolLamports } from "../../../../shared/utils/solPrice";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -41,6 +43,7 @@ export default function UploadPricingStep({
         priceCommercial: asset.priceCommercial ?? "",
     });
     const [error, setError] = useState("");
+    const [solPrices, setSolPrices] = useState({ personal: solPriceInput(asset.priceSolPersonal), commercial: solPriceInput(asset.priceSolCommercial) });
     const [saved, setSaved] = useState(false);
     const traditional = listingType === "TRADITIONAL";
     const dirty = () => {
@@ -74,7 +77,12 @@ export default function UploadPricingStep({
             );
             return;
         }
-        if (next && !traditional) return;
+        if (!traditional) {
+            try {
+                const tiers = [parseSolLamports(solPrices.personal), parseSolLamports(solPrices.commercial)];
+                if (next && tiers.every(price => price === null)) throw new Error("Set at least one SOL license price before continuing.");
+            } catch (error) { setError((error as Error).message); return; }
+        }
         try {
             await update.mutateAsync({
                 assetId: asset.id,
@@ -83,12 +91,9 @@ export default function UploadPricingStep({
                     currency,
                     pricePersonal: traditional ? personal : null,
                     priceCommercial: traditional ? commercial : null,
-                    // Keep a previously saved blockchain price while its new form is on hold.
-                    priceSol: traditional
-                        ? null
-                        : asset.priceSol === null
-                          ? null
-                          : Number(asset.priceSol),
+                    priceSol: null,
+                    priceSolPersonal: traditional ? null : solPrices.personal.trim() || null,
+                    priceSolCommercial: traditional ? null : solPrices.commercial.trim() || null,
                 },
             });
             setSaved(true);
@@ -161,7 +166,7 @@ export default function UploadPricingStep({
                                         value: "BLOCKCHAIN",
                                         title: "Blockchain",
                                         description:
-                                            "Blockchain license setup is coming soon.",
+                                            "Create a seller Master NFT on Solana Devnet after approval.",
                                         icon: Link2,
                                     },
                                 ] as const
@@ -317,21 +322,28 @@ export default function UploadPricingStep({
                     ) : (
                         <div
                             className="rounded-2xl border border-[#d4dbc9] bg-[#edf0e5] p-6"
-                            role="status"
                         >
                             <Link2
                                 className="mb-4 size-6 text-[#657152]"
                                 aria-hidden="true"
                             />
                             <h3 className="font-semibold">
-                                Blockchain setup is on hold
+                                SOL license pricing
                             </h3>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                The blockchain form will be added once its
-                                fields are decided. You can save this choice as
-                                a draft, or choose Traditional to set prices and
-                                continue to review.
+                                Set at least one license price. After approval, mint your Master NFT from My Listings. Buyer checkout will be available in a later update.
                             </p>
+                            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                                {([ ["personal", "Personal license"], ["commercial", "Commercial license"] ] as const).map(([tier, label]) => (
+                                    <label key={tier} className="space-y-2 text-sm font-medium">
+                                        <span>{label} · SOL</span>
+                                        <Input type="text" inputMode="decimal" value={solPrices[tier]} placeholder="e.g. 0.01"
+                                            onChange={event => { dirty(); setSolPrices(previous => ({ ...previous, [tier]: event.target.value })); }} />
+                                    </label>
+                                ))}
+                            </div>
+                            <p className="mt-3 text-xs text-muted-foreground">Leave a tier blank to disable it. Use a positive amount with up to 9 decimal places.</p>
+                            {asset.priceSol && !asset.priceSolPersonal && !asset.priceSolCommercial && <p className="mt-3 text-xs text-muted-foreground">Your previous SOL price was {asset.priceSol}. Choose which license tier it applies to.</p>}
                         </div>
                     )}
                 </fieldset>
@@ -376,7 +388,7 @@ export default function UploadPricingStep({
                         </Button>
                         <Button
                             type="submit"
-                            disabled={update.isPending || !traditional}
+                            disabled={update.isPending}
                             className="h-11 px-6"
                         >
                             {update.isPending ? (

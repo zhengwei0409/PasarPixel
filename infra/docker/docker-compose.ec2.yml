@@ -69,6 +69,7 @@ services:
       RABBITMQ_URL: amqp://pasarpixel:${RABBITMQ_PASSWORD}@rabbitmq:5672
       AUTH_SERVICE_URL: http://auth-service:3001
       CLIENT_URL: https://${SITE_ADDRESS}
+      PUBLIC_API_URL: https://${SITE_ADDRESS}/api
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,11 +105,18 @@ services:
   blockchain-service:
     <<: *service
     image: ${IMAGE_PREFIX}-blockchain-service:${IMAGE_TAG}
+    env_file:
+      - path: ../../services/blockchain-service/.env
+        required: false
+    volumes:
+      - ../../services/blockchain-service/.secrets:/app/services/blockchain-service/.secrets:ro
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://pasarpixel:${POSTGRES_PASSWORD}@postgres:5432/pasarpixel?schema=blockchain
       AUTH_SERVICE_URL: http://auth-service:3001
       CLIENT_URL: https://${SITE_ADDRESS}
+      MAIN_API_URL: http://main-api:3002
+      PUBLIC_API_URL: https://${SITE_ADDRESS}/api
     depends_on:
       postgres:
         condition: service_healthy

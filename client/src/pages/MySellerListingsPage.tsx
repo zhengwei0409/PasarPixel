@@ -20,6 +20,7 @@ import {
 } from "../components/ui/dialog";
 import { getErrorMessage } from "../lib/errors";
 import type { Asset, AssetCategory, AssetStatus } from "../types/asset";
+import MasterMintPanel from "../components/marketplace/MasterMintPanel";
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
     THREE_D_MODEL: "3D Model",
@@ -232,6 +233,7 @@ export default function MySellerListingsPage() {
                                                     {asset.status === "REJECTED" && asset.rejectionReason && (
                                                         <p className="mt-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800"><span className="font-medium">Rejection reason:</span> {asset.rejectionReason}</p>
                                                     )}
+                                                    {asset.listingType === "BLOCKCHAIN" && asset.status === "PUBLISHED" && <MasterMintPanel assetId={asset.id} />}
                                                     {asset.status !== "TAKEN_DOWN" && (
                                                         <div className="mt-5 flex flex-wrap gap-2 border-t border-border pt-4">
                                                             {asset.status === "REJECTED" && (

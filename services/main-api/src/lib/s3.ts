@@ -71,11 +71,28 @@ export async function putObjectBuffer(params: {
 }
 
 export async function deleteObject(key: string): Promise<void> {
+  if (key.startsWith("nft-originals/")) throw new Error("NFT snapshots cannot be deleted");
   const command = new DeleteObjectCommand({
     Bucket: BUCKET,
     Key: key,
   });
   await s3.send(command);
+}
+
+export async function putNftOriginalSnapshot(hash: string, body: Buffer): Promise<string> {
+  if (!/^[a-f0-9]{64}$/.test(hash)) throw new Error("Invalid NFT content hash");
+  const key = `nft-originals/${hash}`;
+  try {
+    await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: body,
+      ContentType: "application/octet-stream", IfNoneMatch: "*" }));
+  } catch (error) {
+    if ((error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode !== 412) throw error;
+    // An existing object must contain exactly the same content.
+    const { createHash } = await import('node:crypto');
+    const existing = await getObjectBuffer(key);
+    if (createHash('sha256').update(existing).digest('hex') !== hash) throw new Error('NFT snapshot integrity check failed');
+  }
+  return key;
 }
 
 export function extractKeyFromUrl(fileUrl: string): string {

@@ -36,6 +36,29 @@ model UserProfile {
   @@map("user_profiles")
 }
 
+// Immutable content snapshot, retained independently of listing/account deletion.
+model AssetMintSnapshot {
+  assetId Int @id
+  listingRef String @unique @default(uuid())
+  title String
+  manifestHash String
+  previewHash String
+  originals Json
+  createdAt DateTime @default(now())
+
+  @@map("asset_mint_snapshots")
+}
+
+// Public content-addressed manifest/preview bytes; DB trigger prevents mutation.
+model NftPublicObject {
+  hash String @id
+  contentType String
+  body Bytes
+  createdAt DateTime @default(now())
+
+  @@map("nft_public_objects")
+}
+
 model SellerApplication {
   id                  Int                     @id @default(autoincrement())
   userId              Int
@@ -96,6 +119,8 @@ model Asset {
   priceCommercial Decimal?
   currency       Currency    @default(USD)
   priceSol       Decimal?
+  priceSolPersonal Decimal? @db.Decimal(20, 9)
+  priceSolCommercial Decimal? @db.Decimal(20, 9)
   isAiGenerated  Boolean     @default(false)
   isDeleted      Boolean     @default(false)
   hiddenByRevoke Boolean     @default(false)

@@ -49,10 +49,26 @@ export function formatPrice(
     return `${CURRENCY_SYMBOL[displayIn]}${converted.toFixed(2)}`;
 }
 
+// Prisma can serialize small Decimals as "1e-9". Expand stored values without
+// converting through Number, which would lose precision for large SOL prices.
+export function solPriceInput(amount: number | string | null | undefined): string {
+    if (amount === null || amount === undefined || amount === "") return "";
+    const match = String(amount).trim().match(/^(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i);
+    if (!match) return "";
+    const exponent = Number(match[3] ?? 0);
+    if (!Number.isInteger(exponent) || Math.abs(exponent) > 30) return "";
+    const digits = match[1] + (match[2] ?? "");
+    const point = match[1].length + exponent;
+    const whole = (point <= 0 ? "0" : digits.slice(0, point).padEnd(point, "0")).replace(/^0+(?=\d)/, "");
+    const fraction = (point < 0 ? "0".repeat(-point) + digits : digits.slice(point)).replace(/0+$/, "");
+    if (fraction.length > 9) return "";
+    return fraction ? `${whole}.${fraction}` : whole;
+}
+
 export function formatSol(amount: number | string | null | undefined): string {
-    if (amount === null || amount === undefined || amount === "") return "—";
-    const n = typeof amount === "number" ? amount : parseFloat(amount);
-    if (isNaN(n)) return "—";
-    if (n === 0) return "Free";
-    return `${n.toFixed(2)} SOL`;
+    const decimal = solPriceInput(amount);
+    if (!decimal) return "—";
+    if (decimal === "0") return "Free";
+    const [whole, fraction = ""] = decimal.split(".");
+    return `${whole}.${fraction.padEnd(2, "0")} SOL`;
 }
