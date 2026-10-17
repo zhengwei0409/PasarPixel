@@ -85,6 +85,28 @@ services:
       DATABASE_URL: postgresql://pasarpixel:pasarpixel@postgres:5432/pasarpixel
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
 
+  blockchain-service:
+    build:
+      context: ../..
+      dockerfile: services/blockchain-service/Dockerfile
+    expose:
+      - "3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://pasarpixel:pasarpixel@postgres:5432/pasarpixel?schema=blockchain
+      AUTH_SERVICE_URL: http://auth-service:3001
+      CLIENT_URL: http://localhost:5173
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3004/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   kong:
     image: kong:3.9
     environment:
@@ -106,6 +128,7 @@ services:
       - auth-service
       - main-api
       - notification-service
+      - blockchain-service
 
   client:
     build:

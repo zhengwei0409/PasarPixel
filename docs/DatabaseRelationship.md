@@ -24,9 +24,10 @@
 
 ### Blockchain Service Relationships
 
-The following describes the existing Prisma scaffold, not deployed blockchain behavior:
+The following describes the Prisma models. Wallet binding is implemented; NFT and purchase models remain a scaffold:
 
 - WALLET owns many MASTER_NFTs (one-to-many).
+- Each account has at most one current WALLET_CHALLENGE, with a unique nonce, expiry, and consumption timestamp. Issuing a new challenge replaces the previous one.
 - WALLET receives many LICENSE_NFTs (one-to-many).
 - MASTER_NFT issues many LICENSE_NFTs (one-to-many).
 - BLOCKCHAIN_TRANSACTION creates exactly one LICENSE_NFT (one-to-one).

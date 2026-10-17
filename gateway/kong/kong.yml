@@ -74,6 +74,14 @@ services:
           - /notifications
         strip_path: false
 
+  - name: blockchain-service
+    url: http://blockchain-service:3004
+    routes:
+      - name: blockchain-route
+        paths:
+          - /blockchain
+        strip_path: false
+
 plugins:
   - name: cors
     config:

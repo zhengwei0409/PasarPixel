@@ -1,6 +1,6 @@
 # EC2 deployment
 
-Push to `main` builds four Linux AMD64 images in GitHub Actions, tags them with
+Push to `main` builds five Linux AMD64 images in GitHub Actions, tags them with
 the commit SHA and pushes them to GHCR. The deploy job assumes an AWS role using
 OIDC and runs the deployment through SSM. No inbound SSH from GitHub runners is
 needed. The existing SSH rule can remain restricted to your IP.
@@ -13,7 +13,7 @@ The workflow also supports **Actions → Deploy EC2 → Run workflow** on `main`
 
 After the first build, open each package under your GitHub profile → Packages:
 `pasarpixel-auth-service`, `pasarpixel-main-api`,
-`pasarpixel-notification-service`, `pasarpixel-client`.
+`pasarpixel-notification-service`, `pasarpixel-blockchain-service`, `pasarpixel-client`.
 In each package's settings, change **visibility to public**, so EC2 can pull
 without registry credentials. Public repository code does not automatically
 make its GHCR packages public. Do not put secrets into Docker images.
@@ -91,6 +91,7 @@ settings include:
   `S3_BUCKET_NAME`, `S3_PRESIGNED_URL_EXPIRES_IN`,
   `DOWNLOAD_TOKEN_EXPIRES_IN`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
 - **notification-service:** `RESEND_API_KEY`.
+- **blockchain-service:** no external credentials for wallet binding. Compose supplies its isolated `blockchain` database schema, auth-service URL and HTTPS frontend origin. Minting / RPC credentials are reserved for later implementation.
 
 Compose supplies the database/broker URLs, frontend URLs and internal service
 URLs. Each service uses its own PostgreSQL schema and migration history in the
@@ -139,8 +140,10 @@ readiness, not successful delivery of emails or queue consumers.
 
 Production seeds only the auth roles; it does not create `admin@test.com` with
 a known password or a demo admin profile. Register your own account, then grant
-its admin role explicitly if needed. Blockchain-service is not included in
-this deployment because it is not wired into the existing Compose gateway.
+its admin role explicitly if needed. Blockchain-service is included through
+Kong's `/blockchain` route (`/api/blockchain` on the public website). Its health
+check verifies database connectivity. Settings supports Phantom wallet binding;
+NFT minting and SOL purchases remain unimplemented.
 
 ## Maintenance and limits
 

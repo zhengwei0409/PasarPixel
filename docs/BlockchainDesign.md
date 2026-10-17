@@ -1,6 +1,6 @@
 # Blockchain v1 Design
 
-状态：Step 1 design baseline；runtime、schema migrations 和 smart contract 尚未实现。
+状态：Step 1 design baseline。Step 2 已实现 service foundation、wallet binding、初始 migrations 和 Settings UI；NFT minting、SOL checkout、entitlement integration 与 smart contract 尚未实现。运行与验证方式见 [项目 README](../README.md#blockchain)。
 
 本文件细化 [Functional Requirements](FunctionalRequirement.md) 的 FR-2.5、FR-3.3–3.5 和 FR-5，供后续实现使用。以下规则以 Solana Devnet 为范围。
 

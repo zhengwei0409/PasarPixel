@@ -126,4 +126,10 @@ Asynchronous events between services use **RabbitMQ fanout exchanges** for pub/s
 - NFT Standard: **Metaplex Core** (v1 design)
 - Wallet: **Phantom Wallet** (browser extension)
 
-Blockchain runtime is not implemented yet. The [Blockchain v1 Design](docs/BlockchainDesign.md) defines Master / License NFTs, non-transferable ownership, metadata snapshots, and purchase entitlement rules for implementation.
+Wallet binding is implemented: sign in, open **Settings → Phantom wallet**, then connect and sign the five-minute verification message. Disconnecting Phantom preserves the account binding. The service uses its own PostgreSQL `blockchain` schema; Docker Compose runs its migrations automatically.
+
+NFT minting and SOL checkout are not implemented yet. The [Blockchain v1 Design](docs/BlockchainDesign.md) defines their rules.
+
+For local testing, start Docker Desktop and run `docker compose -f infra/docker/docker-compose.yml up -d --build` from the project root. Open `http://localhost:5173` in the browser where Phantom is installed. Wallet binding only signs a message; no SOL or funding is required. Disconnect and reload to confirm the bound address is still saved.
+
+Automated checks: `pnpm --filter blockchain-service test`, `pnpm --filter auth-service test`, and `node --test client/tests/wallet-binding.test.cjs`. PostgreSQL integration tests use `TEST_DATABASE_URL=<local-test-database-url> pnpm --filter blockchain-service test:integration`; the runner creates and removes its own temporary schema.

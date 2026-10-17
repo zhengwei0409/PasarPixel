@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/client"
 }
 
 datasource db {
@@ -11,6 +12,7 @@ model Wallet {
   id        Int      @id @default(autoincrement())
   userId    Int      @unique // references Auth Service user ID (no FK across services)
   address   String   @unique
+  verifiedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -20,6 +22,20 @@ model Wallet {
   buyerTransactions  BlockchainTransaction[] @relation("BuyerWallet")
 
   @@map("wallets")
+}
+
+// One current challenge per account, invalidated when a new one is issued.
+// No cross-service FK: userId is supplied by auth-service.
+model WalletChallenge {
+  id         String    @id @default(cuid())
+  userId     Int       @unique
+  address    String
+  message    String
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  @@map("wallet_challenges")
 }
 
 model MasterNft {

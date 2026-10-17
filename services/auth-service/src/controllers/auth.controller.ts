@@ -435,15 +435,33 @@ export async function me(req: Request, res: Response) {
 
     const token = authHeader.split(" ")[1];
 
+    let userId: number;
     try {
         const payload = jwt.verify(token, process.env.JWT_SECRET!) as unknown as {
             sub: number;
-            email: string;
-            roles: string[];
+            purpose?: unknown;
         };
-
-        res.json({ userId: payload.sub, email: payload.email, roles: payload.roles });
+        if (payload.purpose !== undefined || !Number.isSafeInteger(payload.sub) || payload.sub <= 0) {
+            res.status(401).json({ error: "Invalid access token" });
+            return;
+        }
+        userId = payload.sub;
     } catch {
         res.status(401).json({ error: "Invalid or expired token" });
+        return;
+    }
+
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { roles: { include: { role: true } } },
+        });
+        if (!user) {
+            res.status(401).json({ error: "User not found" });
+            return;
+        }
+        res.json({ userId: user.id, email: user.email, roles: user.roles.map(({ role }) => role.name) });
+    } catch {
+        res.status(503).json({ error: "Unable to verify your session. Please try again." });
     }
 }

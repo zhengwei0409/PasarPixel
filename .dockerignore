@@ -1,5 +1,6 @@
 **/node_modules
 **/dist
+services/blockchain-service/generated
 **/.env
 **/.env.*
 **/*.pem

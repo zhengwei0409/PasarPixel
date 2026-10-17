@@ -29,6 +29,8 @@ jobs:
             dockerfile: services/main-api/Dockerfile
           - service: notification-service
             dockerfile: services/notification-service/Dockerfile
+          - service: blockchain-service
+            dockerfile: services/blockchain-service/Dockerfile
           - service: client
             dockerfile: client/Dockerfile.ec2
     steps:

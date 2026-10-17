@@ -57,7 +57,7 @@
 
 ## FR-5 — Blockchain / NFT
 
-Implementation status: design only. Detailed v1 rules and acceptance criteria are defined in [Blockchain v1 Design](BlockchainDesign.md).
+Implementation status: FR-5.1 wallet binding and the blockchain service foundation are implemented. NFT minting and SOL checkout remain planned. Detailed v1 rules and acceptance criteria are defined in [Blockchain v1 Design](BlockchainDesign.md).
 
 | ID | Requirement Description |
 |---|---|

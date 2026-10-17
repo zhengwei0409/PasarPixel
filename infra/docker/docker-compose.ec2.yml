@@ -101,6 +101,23 @@ services:
       <<: *health
       test: [CMD, node, -e, "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
+  blockchain-service:
+    <<: *service
+    image: ${IMAGE_PREFIX}-blockchain-service:${IMAGE_TAG}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://pasarpixel:${POSTGRES_PASSWORD}@postgres:5432/pasarpixel?schema=blockchain
+      AUTH_SERVICE_URL: http://auth-service:3001
+      CLIENT_URL: https://${SITE_ADDRESS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      <<: *health
+      test: [CMD, node, -e, "fetch('http://localhost:3004/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
   kong:
     <<: *service
     image: kong:3.9
@@ -118,6 +135,8 @@ services:
       main-api:
         condition: service_healthy
       notification-service:
+        condition: service_healthy
+      blockchain-service:
         condition: service_healthy
     healthcheck:
       <<: *health
