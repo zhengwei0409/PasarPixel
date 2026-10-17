@@ -123,5 +123,7 @@ Asynchronous events between services use **RabbitMQ fanout exchanges** for pub/s
 ## Blockchain
 
 - Network: **Solana Devnet** (development)
-- NFT Standard: **Metaplex**
+- NFT Standard: **Metaplex Core** (v1 design)
 - Wallet: **Phantom Wallet** (browser extension)
+
+Blockchain runtime is not implemented yet. The [Blockchain v1 Design](docs/BlockchainDesign.md) defines Master / License NFTs, non-transferable ownership, metadata snapshots, and purchase entitlement rules for implementation.

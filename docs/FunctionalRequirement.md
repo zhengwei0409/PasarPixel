@@ -57,10 +57,18 @@
 
 ## FR-5 — Blockchain / NFT
 
+Implementation status: design only. Detailed v1 rules and acceptance criteria are defined in [Blockchain v1 Design](BlockchainDesign.md).
+
 | ID | Requirement Description |
 |---|---|
 | FR-5.1 | Users shall be able to connect a Phantom Wallet (one per account) on Solana Devnet, which is required for all blockchain actions. |
 | FR-5.2 | Sellers shall be able to mint NFTs for blockchain listings, creating a Master NFT (seller ownership) and License NFT (per buyer), with platform-paid gas fees. |
 | FR-5.3 | Buyers shall be able to purchase blockchain listings directly using SOL, with 95% sent to the seller and 5% platform commission handled via smart contract. |
+| FR-5.4 | Blockchain listings shall use Metaplex Core, with exactly one Master NFT per listing and one License NFT per successfully purchased order item. Both NFT types shall remain bound to their initial recipient wallets in v1. |
+| FR-5.5 | Sellers shall enable at least one Personal or Commercial tier, priced independently in positive integer lamports. Each buyer may hold one active license per listing and tier; purchases grant non-exclusive usage rights. |
+| FR-5.6 | NFT metadata shall reference fixed content and license terms snapshots with verifiable hashes. Private original files and sensitive account data shall not be published in NFT metadata. |
+| FR-5.7 | SOL payment splitting, License NFT creation, and the unique purchase receipt shall execute atomically. Orders shall only complete after backend verification of finalized chain results, with idempotent retries and recovery. |
+| FR-5.8 | Blockchain downloads and public verification shall check the verified purchase and current entitlement state. Platform moderation shall preserve historical NFTs while separately controlling new sales and site access. |
+| FR-5.9 | Platform sponsorship shall include network fees, NFT account rent, and protocol fees. SOL paid directly to sellers shall be excluded from fiat withdrawal balances. |
 
 ---
