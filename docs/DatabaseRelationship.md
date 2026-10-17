@@ -24,7 +24,7 @@
 
 ### Blockchain Service Relationships
 
-The following describes the Prisma models. Wallet binding and Master mint operations are implemented; License NFT and purchase models remain a scaffold:
+The following describes the Prisma models. Wallet binding, Master mint, purchase intents / attempts, License NFT projections and SOL order fulfillment are implemented:
 
 - WALLET owns many MASTER_NFTs (one-to-many).
 - Each account has at most one current WALLET_CHALLENGE, with a unique nonce, expiry, and consumption timestamp. Issuing a new challenge replaces the previous one.
@@ -49,3 +49,12 @@ See [Blockchain v1 Design](BlockchainDesign.md). Master operation tracking and s
 - A transaction attempt can exist before a signature or LICENSE_NFT is available, and includes failure / recovery state. Master mint operations also need independent retry tracking.
 - One active entitlement is allowed per buyer account, listing and license tier; pending intents must also prevent concurrent duplicate purchases.
 - Cross-service IDs are logical references, without cross-service database foreign keys. Public chain references use opaque identifiers.
+
+### SOL purchase accounting
+
+- PURCHASE_INTENT references one MASTER_NFT, buyer WALLET and seller WALLET; `(buyerWalletId, masterNftId, licenseType)` is unique. Receipt and License asset addresses are unique.
+- PURCHASE_ATTEMPT stores each fully signed transaction before broadcast, its signature, last valid block height and confirmed / failed state.
+- PURCHASE_INTENT links to the Main API order / item by logical references only; no cross-service foreign keys.
+- ORDER `paymentMethod=SOL` stores exact `totalLamports`, unique `purchaseRef` and signature. ORDER_ITEM stores receipt / NFT / wallet references, immutable content / terms commitments and private originals snapshot.
+- Lamport amounts are canonical decimal strings with SQL u64 / integer-commission checks, avoiding signed PostgreSQL bigint and JavaScript Number precision limits. Fiat order amounts remain zero for SOL orders.
+- `accessRevokedAt` controls current download access independently of the historical NFT. Existing STRIPE rows retain their behavior through the payment method default.

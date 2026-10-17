@@ -10,6 +10,7 @@ COPY services/blockchain-service/package.json ./services/blockchain-service/
 COPY services/notification-service/package.json ./services/notification-service/
 COPY client/package.json ./client/
 RUN pnpm install --frozen-lockfile --filter blockchain-service...
+COPY shared ./shared
 COPY services/blockchain-service ./services/blockchain-service
 WORKDIR /app/services/blockchain-service
 RUN pnpm build

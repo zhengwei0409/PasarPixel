@@ -26,6 +26,7 @@ runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/controll
     require: name => {
         if (name === '../lib/prisma') return { prisma: db };
         if (name === '../lib/nftSnapshot') return hashes;
+        if (name === '../lib/nftDownloadName') return require('../dist/services/main-api/src/lib/nftDownloadName');
         if (name === '../lib/s3') return {
             extractKeyFromUrl: url => new URL(url).pathname.slice(1),
             getObjectBuffer: async key => { if (!objects.has(key)) throw new Error('Object not found'); return objects.get(key); },
@@ -69,6 +70,7 @@ test('snapshot hashes real original bytes, stores private copies and serves immu
     const result = await snapshot();
     assert.equal(result.code, 200);
     const row = await db.assetMintSnapshot.findUniqueOrThrow({ where: { assetId: asset.id } });
+    assert.equal(row.originals[0].name, 'original.png');
     const manifest = await db.nftPublicObject.findUniqueOrThrow({ where: { hash: row.manifestHash } });
     const content = JSON.parse(Buffer.from(manifest.body).toString());
     const expected = createHash('sha256').update('private original bytes').digest('hex');

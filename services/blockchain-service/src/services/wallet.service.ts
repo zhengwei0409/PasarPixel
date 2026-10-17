@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "../../generated/client";
+import { Prisma, PrismaClient } from "@pasarpixel/blockchain-client";
 import { HttpError } from "../lib/errors";
 import { createChallengeMessage, parseWalletAddress, verifyWalletSignature } from "../lib/walletSignature";
 
@@ -12,11 +12,13 @@ async function readWallet(db: WalletDb, userId: number) {
             masterNfts: { where: { status: { in: ["PREPARING", "AWAITING_SIGNATURE", "PENDING"] } }, take: 1, select: { id: true } },
             sellerTransactions: { where: { status: "PENDING" }, take: 1, select: { id: true } },
             buyerTransactions: { where: { status: "PENDING" }, take: 1, select: { id: true } },
+            purchases: { where: { status: { in: ["PREPARING", "AWAITING_SIGNATURE", "PENDING", "CONFIRMED"] } }, take: 1, select: { id: true, status: true } },
+            sales: { where: { status: { in: ["PREPARING", "AWAITING_SIGNATURE", "PENDING"] } }, take: 1, select: { id: true } },
         },
     });
-    const lockedReason = wallet && (wallet._count.masterNfts || wallet._count.licenseNfts)
+    const lockedReason = wallet && (wallet._count.masterNfts || wallet._count.licenseNfts || wallet.purchases.some(p => p.status === "CONFIRMED"))
         ? "NFT_OWNERSHIP"
-        : wallet && (wallet.masterNfts.length || wallet.sellerTransactions.length || wallet.buyerTransactions.length)
+        : wallet && (wallet.masterNfts.length || wallet.sellerTransactions.length || wallet.buyerTransactions.length || wallet.purchases.length || wallet.sales.length)
             ? "PENDING_TRANSACTION" : null;
     return {
         network: "solana:devnet" as const,
@@ -66,7 +68,7 @@ export function walletService(db: PrismaClient, origin: string) {
                 return { challengeId: challenge.id, address, message, expiresAt, network: "solana:devnet" };
             });
         },
-        async bind(userId: number, challengeId: unknown, signature: unknown) {
+        async bind(userId: number, challengeId: unknown, signature: unknown, onlyIfUnbound = false) {
             if (typeof challengeId !== "string" || !/^[a-z0-9]{20,40}$/.test(challengeId)) {
                 throw new HttpError(400, "Invalid wallet challenge");
             }
@@ -79,6 +81,9 @@ export function walletService(db: PrismaClient, origin: string) {
                     throw new HttpError(400, "Wallet signature could not be verified");
                 }
                 const status = await readWallet(tx, userId);
+                if (onlyIfUnbound && status.wallet && status.wallet.address !== challenge.address) {
+                    throw new HttpError(409, "A wallet is already linked to this account. Switch to that wallet in Phantom to continue.");
+                }
                 if (!status.canChange && status.wallet?.address !== challenge.address) {
                     throw new HttpError(409, "This account's wallet cannot change while it owns NFTs or has pending transactions");
                 }

@@ -27,7 +27,8 @@ import ReportDialog from "@/components/marketplace/ReportDialog";
 import ModelViewer from "@/components/marketplace/ModelViewer";
 import StarRating from "@/components/marketplace/StarRating";
 import type { AssetCategory } from "@/types/asset";
-import { formatPrice, formatSol } from "@/lib/price";
+import { formatPrice } from "@/lib/price";
+import SolPurchasePanel from "@/components/marketplace/SolPurchasePanel";
 import { shopDisplay } from "@/lib/store";
 import { useCurrencyStore } from "@/stores/currencyStore";
 
@@ -208,7 +209,6 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
 
   const fiatPrice =
     tier === "PERSONAL" ? asset.pricePersonal : asset.priceCommercial;
-  const solLabel = formatSol(asset.priceSol);
 
   return (
     <div className="mx-auto max-w-[1064px] px-4 py-8 sm:px-8 lg:py-12">
@@ -325,15 +325,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
           </div>
 
           {isBlockchain ? (
-            <div className="rounded-xl border p-5">
-              <p className="text-xs text-muted-foreground">Blockchain asset</p>
-              <p className="mt-2 text-2xl font-semibold">{solLabel}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {asset.priceSol === null
-                  ? "Not for sale"
-                  : "Blockchain checkout is not available yet."}
-              </p>
-            </div>
+            <SolPurchasePanel assetId={asset.id} sellerId={asset.sellerId} assetTitle={asset.title} />
           ) : (
             <div
               className="space-y-3"

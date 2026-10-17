@@ -8,7 +8,7 @@ import {
     type ChartConfig,
 } from "./ui/chart";
 import { useSellerDashboard } from "../hooks/useSellerDashboard";
-import { formatPrice, convertFiat } from "../lib/price";
+import { formatPrice, convertFiat, formatLamportsSol } from "../lib/price";
 import { useCurrencyStore } from "../stores/currencyStore";
 import WithdrawalSection from "./WithdrawalSection";
 import SellerRecentOrdersSection from "./SellerRecentOrdersSection";
@@ -62,6 +62,10 @@ export default function SellerDashboardSection() {
 
     return (
         <section aria-label="Seller performance" className="space-y-6">
+            <div className="rounded-xl border border-border bg-card px-5 py-4 text-sm">
+                <p className="font-medium">SOL earnings · Devnet: {formatLamportsSol(data.solRevenueLamports ?? "0")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Paid directly to your wallet after the 5% platform commission. Separate from your fiat withdrawal balance.</p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard title="Total revenue" value={formatPrice(data.revenue, "USD", displayCurrency, { zeroAsFree: false })} description="Earnings from your asset sales" icon={<Banknote className="size-5" />} />
                 <StatCard title="Total sales" value={data.salesCount.toLocaleString()} description="Sales across your store" icon={<ShoppingBag className="size-5" />} />

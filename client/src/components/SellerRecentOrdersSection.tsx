@@ -3,7 +3,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { useSellerRecentOrders } from "../hooks/useSellerDashboard";
 import { useCurrencyStore } from "../stores/currencyStore";
-import { convertFiat, formatPrice } from "../lib/price";
+import { convertFiat, formatPrice, formatLamportsSol } from "../lib/price";
 import { serializeCsv } from "../lib/csv";
 import type { PaymentStatus } from "../types/order";
 
@@ -25,8 +25,8 @@ export default function SellerRecentOrdersSection() {
             ...items.map((item) => [
                 String(item.orderId), item.buyerName, item.product, item.licenseType,
                 new Date(item.createdAt).toISOString(),
-                convertFiat(Number(item.amount), item.currency, displayCurrency).toFixed(2),
-                displayCurrency, item.paymentStatus,
+                item.paymentMethod === "SOL" ? formatLamportsSol(item.priceLamports).replace(" SOL", "") : convertFiat(Number(item.amount), item.currency, displayCurrency).toFixed(2),
+                item.paymentMethod === "SOL" ? "SOL (Devnet)" : displayCurrency, item.paymentStatus,
             ]),
         ];
         const url = URL.createObjectURL(new Blob([serializeCsv(rows)], { type: "text/csv;charset=utf-8;" }));
@@ -69,7 +69,7 @@ export default function SellerRecentOrdersSection() {
                             <caption className="sr-only">Latest asset purchases belonging to your store</caption>
                             <thead className="bg-background text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
                                 <tr>
-                                    {["Buyer", "Product", "License", "Date", `Amount (${displayCurrency})`, "Status"].map((label) => <th key={label} scope="col" className="px-4 py-3 font-semibold first:pl-6 last:pr-6">{label}</th>)}
+                                    {["Buyer", "Product", "License", "Date", "Amount", "Status"].map((label) => <th key={label} scope="col" className="px-4 py-3 font-semibold first:pl-6 last:pr-6">{label}</th>)}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -79,7 +79,7 @@ export default function SellerRecentOrdersSection() {
                                         <td className="min-w-36 px-4 py-4 font-medium">{item.product}</td>
                                         <td className="px-4 py-4 text-muted-foreground">{item.licenseType === "COMMERCIAL" ? "Commercial" : "Personal"}</td>
                                         <td className="px-4 py-4 whitespace-nowrap text-muted-foreground"><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString()}</time></td>
-                                        <td className="px-4 py-4 font-semibold whitespace-nowrap tabular-nums">{formatPrice(item.amount, item.currency, displayCurrency, { zeroAsFree: false })}</td>
+                                        <td className="px-4 py-4 font-semibold whitespace-nowrap tabular-nums">{item.paymentMethod === "SOL" ? `${formatLamportsSol(item.priceLamports)} (Devnet)` : formatPrice(item.amount, item.currency, displayCurrency, { zeroAsFree: false })}</td>
                                         <td className="py-4 pr-6 pl-4"><span className={`rounded-md px-2 py-1 text-[9px] font-semibold ${statusStyles[item.paymentStatus]}`}>{item.paymentStatus}</span></td>
                                     </tr>
                                 ))}

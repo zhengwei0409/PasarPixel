@@ -20,7 +20,7 @@ async function fulfilOrder(orderId: number): Promise<void> {
         where: { id: orderId },
         include: { orderItems: { include: { asset: true } } },
     });
-    if (!order || order.paymentStatus !== "PENDING") return;
+    if (!order || order.paymentStatus !== "PENDING" || order.paymentMethod === "SOL") return;
 
     await prisma.order.update({
         where: { id: orderId },
@@ -124,7 +124,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
     for (const item of cartItems) {
         const asset = item.asset;
 
-        if (asset.status !== "PUBLISHED" || asset.isDeleted) {
+        if (asset.listingType === "BLOCKCHAIN" || asset.status !== "PUBLISHED" || asset.isDeleted || asset.hiddenByRevoke) {
             res.status(409).json({
                 error: `"${asset.title}" is no longer available`,
             });
@@ -165,7 +165,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
     // slow) accumulates duplicate PENDING orders that never resolve. The new
     // order below reflects the current selection; older pending attempts are stale.
     await prisma.order.updateMany({
-        where: { buyerId: userId, paymentStatus: "PENDING" },
+        where: { buyerId: userId, paymentStatus: "PENDING", paymentMethod: "STRIPE" },
         data: { paymentStatus: "FAILED" },
     });
 

@@ -1,5 +1,11 @@
 import type { Currency } from "../types/asset";
 import apiClient from "./apiClient";
+import { lamportsToSol } from "../../../shared/utils/solPrice";
+
+export function formatLamportsSol(amount: string | bigint | null | undefined): string {
+    if (amount === null || amount === undefined) return "—";
+    return `${lamportsToSol(amount)} SOL`;
+}
 
 // Fallback rate used before the real rate loads, or if the API is unreachable.
 const FALLBACK_USD_TO_MYR = 4.7;

@@ -4,6 +4,15 @@ const { join } = require('node:path');
 const { test } = require('node:test');
 const { runInNewContext } = require('node:vm');
 const ts = require('typescript');
+function loadUtility(file) {
+    const exports = {};
+    runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/lib', file), 'utf8'), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS },
+    }).outputText, { exports, Buffer, process, require });
+    return exports;
+}
+const downloadNames = loadUtility('nftDownloadName.ts');
+const snapshotUtils = loadUtility('nftSnapshot.ts');
 
 const plain = value => JSON.parse(JSON.stringify(value));
 const compiled = ts.transpileModule(readFileSync(join(__dirname, '../src/controllers/orders.controller.ts'), 'utf8'), {
@@ -44,7 +53,10 @@ function fixture() {
         exports, console,
         require: name => {
             if (name === 'archiver') return () => archive;
-            if (name === '../lib/prisma') return { prisma: { order: { findUnique: async () => state.order } } };
+            if (name === '../lib/prisma') return { prisma: { order: { findUnique: async () => state.order }, orderItem: { findUnique: async () => state.item }, assetMintSnapshot: { findUnique: async () => state.snapshot ?? null } } };
+            if (name === '../lib/nftDownloadName') return downloadNames;
+            if (name === '../lib/nftSnapshot') return snapshotUtils;
+            if (name === '../lib/solEntitlement') return { solEntitlement: async () => state.accessFailure ?? null };
             if (name === '../lib/s3') return { extractKeyFromUrl: url => url, getObjectStream: async key => ({ key }) };
             if (name === '../lib/downloadToken') return {
                 signDownloadToken: args => { state.signed = plain(args); return 'signed-token'; },
@@ -62,6 +74,58 @@ function fixture() {
 }
 
 const request = (query = {}, userId = 7) => ({ user: { userId }, params: { id: '9' }, query });
+
+test('SOL ZIP downloads the purchased immutable originals even after listing files change', async () => {
+    const { handlers, state } = fixture();
+    state.order.paymentMethod = 'SOL';
+    state.order.orderItems[1].originalSnapshot = [{ key: `nft-originals/${'a'.repeat(64)}`, name: 'purchased.png' }];
+    state.order.orderItems[1].asset.files = [{ fileUrl: 'new-listing-file.png' }];
+    await handlers.downloadOrderZip(request({ token: 'signed-token' }), response());
+    assert.deepEqual(state.entries, [{ key: `nft-originals/${'a'.repeat(64)}`, name: '20-Image/purchased.png' }]);
+});
+
+test('legacy NFT snapshots recover pic2.jpg by the immutable file reference and still stream the private snapshot', async () => {
+    const { handlers, state } = fixture(); state.order.paymentMethod = 'SOL';
+    state.snapshot = { listingRef: 'legacy-listing', manifestHash: 'b'.repeat(64) };
+    const item = state.order.orderItems[1]; item.manifestHash = state.snapshot.manifestHash;
+    item.originalSnapshot = [{ key: `nft-originals/${'a'.repeat(64)}`, reference: snapshotUtils.sha256('legacy-listing:201'), fileType: 'image/jpeg' }];
+    item.asset.files = [{ id: 201, purpose: 'ORIGINAL', fileUrl: 'images/1792227247493-pic2.jpg' }];
+    await handlers.downloadOrderZip(request({ token: 'signed-token' }), response());
+    assert.deepEqual(state.entries, [{ key: `nft-originals/${'a'.repeat(64)}`, name: '20-Image/pic2.jpg' }]);
+    assert.equal(item.originalSnapshot[0].name, undefined);
+});
+
+test('unmatched or missing legacy file metadata falls back to a filename with the snapshotted type extension', async () => {
+    for (const matchingManifest of [true, false]) {
+        const { handlers, state } = fixture(); state.order.paymentMethod = 'SOL';
+        state.snapshot = { listingRef: 'legacy-listing', manifestHash: 'b'.repeat(64) };
+        const item = state.order.orderItems[1]; item.manifestHash = matchingManifest ? state.snapshot.manifestHash : 'c'.repeat(64);
+        item.originalSnapshot = [{ key: `nft-originals/${'a'.repeat(64)}`, reference: snapshotUtils.sha256('legacy-listing:201'), fileType: 'image/jpeg' }];
+        item.asset.files = [{ id: matchingManifest ? 202 : 201, purpose: 'ORIGINAL', fileUrl: 'images/new-file.png' }];
+        await handlers.downloadOrderZip(request({ token: 'signed-token' }), response());
+        assert.equal(state.entries[0].name, '20-Image/original-1.jpg');
+        assert.equal(state.entries[0].key, `nft-originals/${'a'.repeat(64)}`);
+    }
+});
+
+test('revoked SOL access blocks both new download tokens and redemption of an existing token', async () => {
+    const { handlers, state } = fixture();
+    state.order.paymentMethod = 'SOL'; state.accessFailure = { status: 403, error: 'Access revoked', purchaseVerified: true };
+    for (const [operation, query] of [[handlers.getDownloadUrl, {}], [handlers.downloadOrderZip, { token: 'signed-token' }]]) {
+        const res = response(); await operation(request(query), res); assert.equal(res.statusCode, 403);
+    }
+    assert.equal(state.signed, undefined); assert.equal(state.entries.length, 0);
+});
+
+test('public SOL verification distinguishes a valid historical purchase from current access and unverifiable proof', async () => {
+    for (const [failure, expectedStatus, valid, currentAccess] of [[null, 200, true, true], [{ status: 403, purchaseVerified: true }, 200, true, false], [{ status: 403, purchaseVerified: false }, 404, false, undefined], [{ status: 503, error: 'RPC offline' }, 503, undefined, undefined]]) {
+        const { handlers, state } = fixture(); state.accessFailure = failure;
+        state.item = { licenseKey: 'key', licenseType: 'PERSONAL', order: { paymentMethod: 'SOL', paymentStatus: 'COMPLETED', buyerId: 7 }, asset: { title: 'Asset', seller: { name: 'Seller' } } };
+        const res = response(); await handlers.verifyLicense({ params: { licenseKey: 'key' } }, res);
+        assert.equal(res.statusCode, expectedStatus); assert.equal(res.body.valid, valid); assert.equal(res.body.currentAccess, currentAccess);
+        assert.equal(res.body.buyerId, undefined);
+    }
+});
 
 test('item download URL signs the selected item into the token', async () => {
     const { handlers, state } = fixture();

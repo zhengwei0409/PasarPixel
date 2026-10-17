@@ -112,6 +112,12 @@ export default function VerifyPage() {
                                         </div>
                                     ))}
                                 </dl>
+                                {data.purchaseVerified && <div className="mt-4 space-y-2 border-t border-[#dfe4d6] pt-4 text-xs">
+                                    <p>On-chain purchase verified · Solana Devnet</p>
+                                    <p>Current platform download access: {data.currentAccess ? "Available" : "Restricted"}</p>
+                                    {data.licenseAssetAddress && <a className="block underline" href={`https://explorer.solana.com/address/${data.licenseAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer">View License NFT</a>}
+                                    {data.masterAssetAddress && <a className="block underline" href={`https://explorer.solana.com/address/${data.masterAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer">View Master NFT</a>}
+                                </div>}
                             </div>
                         )}
                     </div>

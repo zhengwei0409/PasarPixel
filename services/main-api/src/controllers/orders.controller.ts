@@ -9,6 +9,9 @@ import {
 } from "../lib/downloadToken";
 import { buildCertificate } from "../lib/certificate";
 import { buildReceipt } from "../lib/receipt";
+import { solEntitlement } from "../lib/solEntitlement";
+import { nftDownloadName } from "../lib/nftDownloadName";
+import { sha256 } from "../lib/nftSnapshot";
 
 const VALID_PAYMENT_STATUSES: PaymentStatus[] = [
     "PENDING",
@@ -135,7 +138,7 @@ export async function verifyLicense(req: Request, res: Response) {
                     seller: { select: { name: true } },
                 },
             },
-            order: { select: { paymentStatus: true, createdAt: true } },
+            order: { select: { paymentStatus: true, createdAt: true, paymentMethod: true, buyerId: true, blockchainSignature: true } },
         },
     });
 
@@ -146,6 +149,10 @@ export async function verifyLicense(req: Request, res: Response) {
         return;
     }
 
+    const access = item.order.paymentMethod === "SOL"
+        ? await solEntitlement({ paymentMethod: "SOL", orderItems: [item] }, item.order.buyerId) : null;
+    if (access?.status === 503) { res.status(503).json({ error: access.error }); return; }
+    if (access?.status === 403 && !access.purchaseVerified) { res.status(404).json({ valid: false }); return; }
     res.json({
         valid: true,
         licenseKey: item.licenseKey,
@@ -153,6 +160,9 @@ export async function verifyLicense(req: Request, res: Response) {
         assetTitle: item.asset.title,
         sellerName: item.asset.seller.name,
         purchasedAt: item.order.createdAt,
+        ...(item.order.paymentMethod === "SOL" ? { purchaseVerified: true, currentAccess: !access,
+            masterAssetAddress: item.masterAssetAddress, licenseAssetAddress: item.licenseAssetAddress, receiptAddress: item.receiptAddress,
+            txSignature: item.order.blockchainSignature, termsUri: item.termsUri } : {}),
     });
 }
 
@@ -227,7 +237,7 @@ export async function getDownloadUrl(req: Request, res: Response) {
 
     const order = await prisma.order.findUnique({
         where: { id: orderId },
-        select: { id: true, buyerId: true, paymentStatus: true, orderItems: { select: { id: true } } },
+        select: { id: true, buyerId: true, paymentStatus: true, paymentMethod: true, orderItems: true },
     });
 
     // Don't reveal existence of other buyers' orders — treat as not found.
@@ -246,6 +256,9 @@ export async function getDownloadUrl(req: Request, res: Response) {
         res.status(404).json({ error: "Order item not found" });
         return;
     }
+
+    const access = await solEntitlement({ ...order, orderItems: itemId === undefined ? order.orderItems : order.orderItems.filter(item => item.id === itemId) }, userId);
+    if (access) { res.status(access.status).json({ error: access.error }); return; }
 
     const token = signDownloadToken({ orderId, userId, itemId });
     res.json({ url: `/orders/${orderId}/download?token=${token}` });
@@ -296,11 +309,33 @@ export async function downloadOrderZip(req: Request, res: Response) {
     const items = payload.itemId === undefined
         ? order.orderItems
         : order.orderItems.filter((item) => item.id === payload.itemId);
+    if (!items.length) { res.status(404).json({ error: "Order item not found" }); return; }
+    const access = await solEntitlement({ ...order, orderItems: items }, payload.userId);
+    if (access) { res.status(access.status).json({ error: access.error }); return; }
     for (const item of items) {
         const folder = `${item.asset.id}-${item.asset.title}`.replace(
             /[/\\]/g,
             "_"
         );
+        if (order.paymentMethod === "SOL") {
+            if (!Array.isArray(item.originalSnapshot)) { res.status(409).json({ error: "Purchase snapshot unavailable" }); return; }
+            const legacyNames = new Map<string, string>();
+            if (item.originalSnapshot.some(raw => raw && typeof raw === "object" && !("name" in raw && raw.name))) {
+                const snapshot = await prisma.assetMintSnapshot.findUnique({ where: { assetId: item.asset.id }, select: { listingRef: true, manifestHash: true } });
+                if (snapshot && snapshot.manifestHash === item.manifestHash) {
+                    for (const source of item.asset.files.filter(file => file.purpose === "ORIGINAL")) {
+                        legacyNames.set(sha256(`${snapshot.listingRef}:${source.id}`), extractKeyFromUrl(source.fileUrl).split("/").pop() || "");
+                    }
+                }
+            }
+            for (const [index, raw] of item.originalSnapshot.entries()) {
+                const file = raw as { key?: string; name?: string; reference?: string; fileType?: string } | null;
+                if (!file || !file.key || !/^nft-originals\/[a-f0-9]{64}$/.test(file.key)) { res.status(409).json({ error: "Purchase snapshot unavailable" }); return; }
+                const name = nftDownloadName(file, index, legacyNames.get(file.reference || ""));
+                entries.push({ key: file.key, name: `${folder}/${name}` });
+            }
+            continue;
+        }
         for (const file of item.asset.files) {
             const key = extractKeyFromUrl(file.fileUrl);
             const filename = key.split("/").pop() || `file-${file.id}`;
@@ -365,10 +400,12 @@ export async function getReceipt(req: Request, res: Response) {
         createdAt: order.createdAt,
         currency: order.currency,
         totalAmount: Number(order.totalAmount),
+        totalLamports: order.paymentMethod === "SOL" ? order.totalLamports ?? undefined : undefined,
         items: order.orderItems.map((item) => ({
             title: item.asset.title,
             licenseType: item.licenseType,
             price: Number(item.price),
+            priceLamports: item.priceLamports ?? undefined,
         })),
     }).pipe(res);
 }

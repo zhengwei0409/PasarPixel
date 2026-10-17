@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowUpRight, Download, FileCheck2, Package, ShieldCheck } f
 import { useOrder, useDownloadOrder, useDownloadCertificate } from "@/hooks/useOrders";
 import { Button } from "@/components/ui/button";
 import OrderStatus from "@/components/orders/OrderStatus";
-import { formatPrice } from "@/lib/price";
+import { formatPrice, formatLamportsSol } from "@/lib/price";
 import type { OrderItem } from "@/types/order";
 
 const pageClass = "relative isolate orders-theme min-h-[calc(100dvh-73px)] bg-background text-foreground";
@@ -93,10 +93,15 @@ export default function OrderDetailPage() {
                                                     <p className="mt-1 text-xs text-muted-foreground">by {item.asset.seller.name}</p>
                                                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                                                         <span className="rounded-md bg-secondary px-2 py-1 text-[11px] text-[#555e49]">{item.licenseType === "PERSONAL" ? "Personal" : "Commercial"} license</span>
-                                                        <p className="text-sm font-semibold">{formatPrice(item.price, order.currency)}</p>
+                                                        <p className="text-sm font-semibold">{order.paymentMethod === "SOL" ? formatLamportsSol(item.priceLamports) : formatPrice(item.price, order.currency)}</p>
                                                     </div>
                                                 </div>
                                             </div>
+                                            {item.licenseAssetAddress && <div className="mt-3 space-y-2 text-xs">
+                                                <a href={`https://explorer.solana.com/address/${item.licenseAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer" className="block underline">View License NFT</a>
+                                                <a href={`https://explorer.solana.com/address/${item.masterAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer" className="block underline">View linked Master NFT</a>
+                                                {item.accessRevokedAt && <p role="alert" className="text-red-700">Download access revoked. The NFT remains as a purchase record.</p>}
+                                            </div>}
                                             <div className="mt-5 rounded-lg bg-[#f7f8f3] px-3.5 py-3">
                                                 <p className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">LICENSE KEY</p>
                                                 <p className="mt-1.5 font-mono text-[11px] leading-5 break-all text-[#555e49]">{item.licenseKey}</p>
@@ -118,8 +123,8 @@ export default function OrderDetailPage() {
                             <dl className="mt-6 space-y-4 text-xs">
                                 <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Order number</dt><dd>#{order.id}</dd></div>
                                 <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Assets</dt><dd>{itemCount}</dd></div>
-                                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Currency</dt><dd>{order.currency}</dd></div>
-                                <div className="flex items-baseline justify-between gap-3 border-t pt-5"><dt className="text-sm text-muted-foreground">Total</dt><dd className="text-2xl font-semibold tracking-tight">{formatPrice(order.totalAmount, order.currency)}</dd></div>
+                                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Currency</dt><dd>{order.paymentMethod === "SOL" ? "SOL · Devnet" : order.currency}</dd></div>
+                                <div className="flex items-baseline justify-between gap-3 border-t pt-5"><dt className="text-sm text-muted-foreground">Total</dt><dd className="text-2xl font-semibold tracking-tight">{order.paymentMethod === "SOL" ? formatLamportsSol(order.totalLamports) : formatPrice(order.totalAmount, order.currency)}</dd></div>
                             </dl>
                             {completed ? (
                                 <>

@@ -1,15 +1,21 @@
 import express, { type ErrorRequestHandler } from "express";
 import { rateLimit } from "express-rate-limit";
-import type { PrismaClient } from "../generated/client";
+import type { PrismaClient } from "@pasarpixel/blockchain-client";
 import { authenticate } from "./middleware/auth.middleware";
 import { HttpError } from "./lib/errors";
 import { walletService } from "./services/wallet.service";
 import { masterMintService, type MintOptions } from "./services/masterMint.service";
+import { purchaseService } from "./services/purchase.service";
+import type { PurchaseGateway } from "./lib/purchaseGateway";
+import { validInternalToken } from "../../../shared/utils/internalAuth";
 
-export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin: string, mintOptions?: MintOptions) {
+export interface ServiceOptions extends MintOptions { purchaseGateway?: PurchaseGateway; internalToken?: string }
+export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin: string, mintOptions?: ServiceOptions) {
     const app = express();
     const wallets = walletService(db, clientOrigin);
     const mints = masterMintService(db, mintOptions ?? { mainApiUrl: "http://main-api:3002", publicApiUrl: "http://localhost:8000", clientOrigin });
+    const purchases = purchaseService(db, { ...mintOptions, mainApiUrl: mintOptions?.mainApiUrl || "http://main-api:3002",
+        publicApiUrl: mintOptions?.publicApiUrl || "http://localhost:8000", gateway: mintOptions?.purchaseGateway });
     app.disable("x-powered-by");
     app.use(express.json({ limit: "8kb" }));
     const health = async (_req: express.Request, res: express.Response) => {
@@ -29,6 +35,11 @@ export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin
         res.set({ "Content-Type": "application/json", "Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" });
         res.send(metadata.body);
     });
+    app.get("/blockchain/internal/purchases/:id", async (req, res) => {
+        res.set("Cache-Control", "no-store");
+        if (!validInternalToken(req.headers["x-internal-token"], mintOptions?.internalToken || process.env.INTERNAL_SERVICE_TOKEN)) { res.status(401).end(); return; }
+        res.json(await purchases.proof(req.params.id));
+    });
     app.use("/blockchain", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); }, authenticate(authServiceUrl));
     const limit = rateLimit({
         windowMs: 60_000, limit: 10,
@@ -43,7 +54,7 @@ export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin
         res.status(201).json(await wallets.createChallenge(req.user!.userId, req.body?.address));
     });
     app.post("/blockchain/wallet/verify", limit, async (req, res) => {
-        res.json(await wallets.bind(req.user!.userId, req.body?.challengeId, req.body?.signature));
+        res.json(await wallets.bind(req.user!.userId, req.body?.challengeId, req.body?.signature, req.body?.onlyIfUnbound === true));
     });
     const masterId = (req: express.Request) => {
         const id = Number(req.params.assetId);
@@ -54,6 +65,22 @@ export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin
         if (!req.user!.roles.includes("SELLER")) throw new HttpError(403, "Seller access is required");
         next();
     };
+    const buyer: express.RequestHandler = (req, _res, next) => {
+        if (!req.user!.roles.includes("BUYER")) throw new HttpError(403, "Buyer access is required");
+        next();
+    };
+    app.get("/blockchain/offers/:assetId", buyer, async (req, res) => {
+        res.json(await purchases.offer(req.user!.userId, masterId(req)));
+    });
+    app.post("/blockchain/purchases/prepare/:assetId", buyer, limit, async (req, res) => {
+        res.json(await purchases.prepare(req.user!.userId, masterId(req), req.body?.licenseType, req.body?.termsHash));
+    });
+    app.get("/blockchain/purchases/:id", buyer, async (req, res) => {
+        res.json(await purchases.status(req.user!.userId, String(req.params.id)));
+    });
+    app.post("/blockchain/purchases/:id/submit", buyer, limit, async (req, res) => {
+        res.status(202).json(await purchases.submit(req.user!.userId, String(req.params.id), req.body?.transaction));
+    });
     app.get("/blockchain/masters/:assetId", seller, async (req, res) => {
         res.json(await mints.status(req.user!.userId, masterId(req)));
     });

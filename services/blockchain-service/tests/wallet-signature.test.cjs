@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { generateKeyPairSync, sign } = require('node:crypto');
 const bs58 = require('bs58').default;
-const { createChallengeMessage, parseWalletAddress, verifyWalletSignature, CHALLENGE_TTL_MS } = require('../dist/lib/walletSignature');
+const { createChallengeMessage, parseWalletAddress, verifyWalletSignature, CHALLENGE_TTL_MS } = require('../dist/services/blockchain-service/src/lib/walletSignature');
 
 function keypair() {
     const { publicKey, privateKey } = generateKeyPairSync('ed25519');

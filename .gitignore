@@ -16,6 +16,8 @@ build/
 services/main-api/node_modules/.prisma/
 services/blockchain-service/generated/
 services/blockchain-service/.secrets/
+programs/target/
+programs/.cache/
 
 # Logs
 logs/

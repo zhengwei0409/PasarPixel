@@ -106,7 +106,7 @@ Buyer 流程：
 - 重试、并发请求和重复 event 都必须受到链上唯一 receipt 与数据库 uniqueness 约束。
 - Seller 修改价格或 admin 下架后，旧 purchase authorization 必须通过 listing revision / expiry 检查失效。平台暂停操作以链上确认生效为准；已 finalized 的购买仍需正常入账。
 
-Master transaction builder 和 recovery worker 已实现；购买 program accounts、License NFT 和分账在后续步骤实现。
+Master mint、purchase program accounts、License NFT、95/5 分账及 recovery workers 已实现。Purchase program 已部署 Devnet，真实链上 SDK purchase 已通过；buyer Phantom UI flow 待手动验证。
 
 ## 6. Entitlement、verification 与 moderation
 
@@ -160,3 +160,43 @@ SOL 已直接进入 seller wallet，不计入现有 fiat withdrawal balance；se
 - [Permanent Freeze Delegate](https://www.metaplex.com/docs/smart-contracts/core/plugins/permanent-freeze-delegate)：创建时配置及 delegate 行为。
 - [Immutability](https://www.metaplex.com/docs/smart-contracts/core/guides/immutability)：移除 update authority 和 plugin authority 后的不可变性边界。
 - [Solana Transactions](https://solana.com/docs/core/transactions)：transaction atomicity 和失败 fee。
+
+## 9. Step 4 implementation and validation
+
+代码位于 `programs/pasar-purchase`。Program ID: `2HpUk2sbKNzheHtEYXxiDVF7hPCEE2bZrhzctYhCUdjJ`。
+
+| Account | Seeds / purpose |
+|---|---|
+| Config PDA | `config`；记录 platform authority / treasury，只有 deployment upgrade authority 可以初始化 |
+| Listing PDA | `listing`, Master address；保存 seller、manifest hash、tiers、prices、revision、active |
+| Receipt PDA | `receipt`, Listing PDA, buyer wallet, tier byte；同一 buyer / Master / tier 最多一次购买 |
+| License asset | 由独立 signer 创建的 Core asset，owner 为 buyer；它本身不是 PDA |
+
+Backend 保留并验证 transaction message，buyer 只能补上自己的 signature，platform 随后 co-sign。Receipt 保存 Master / License / buyer / seller / treasury、tier、purchase reference hash、terms / metadata / manifest hashes、金额及 revision。NFT JSON 的 `masterAssetAddress` 是可读引用；entitlement 使用真实 program receipt 与 Core account 验证。
+
+Pinned build tools: Solana CLI **2.3.0**, SBF platform tools **v1.53**, host Rust **1.89.0**, Anchor crate **0.31.1**, mpl-core crate **0.11.1**。Cargo.lock 已保存。无需 Anchor CLI 来运行下列构建和 LiteSVM tests：
+
+```bash
+cargo-build-sbf --tools-version v1.53 --arch v0 --manifest-path programs/pasar-purchase/Cargo.toml --sbf-out-dir programs/target/deploy
+mkdir -p programs/.cache
+solana program dump --url https://api.devnet.solana.com CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d programs/.cache/mpl_core.so
+cargo test --manifest-path programs/Cargo.toml
+pnpm --filter blockchain-service test:local-chain
+TEST_DATABASE_URL=<local-disposable-postgres-url> pnpm --filter blockchain-service test:integration
+TEST_DATABASE_URL=<local-disposable-postgres-url> pnpm --filter main-api test:integration
+node --test client/tests/sol-purchase.test.cjs
+```
+
+LiteSVM 使用真实编译的 purchase `.so` 与 Core `.so`，覆盖 95/5、重复购买、不同 buyer / tier、错误价格 / revision / signer / recipient、inactive listing、外部 transfer / burn 拒绝，以及 Core CPI 失败后商品款项和 receipt 全部回滚。Local validator 另验证真实 ProgramData 初始化及 JS instruction encoding / signature / simulation / receipt decoding。该测试仅在 fixture 中模拟 Devnet genesis，不放宽 production 的网络限制。
+
+2026-10-17 状态：上述本地验证通过；Devnet program 已部署，独立测试 buyer 购买成功，实际支付 0.01 SOL、seller 收到 0.0095 SOL、commission 为 0.0005 SOL。NFT 与 receipt 已 finalized，并通过 production gateway 校验。完整公开证据在 `programs/deployment.devnet.json`；本地 `PURCHASE_ENABLED=true`。Buyer Phantom UI flow 仍待手动验证。新环境的配置步骤见 root README。不要使用构建工具自动生成的 `programs/target/deploy/pasar_purchase-keypair.json` 来部署；必须使用与源码 ID 对应的 ignored `.secrets/purchase-program.json`。
+
+真实 Devnet smoke License: [6ZSHdNtk…zxzMFLx](https://explorer.solana.com/address/6ZSHdNtk6RyKY1wj6BEib82r49CxAE3ARhBK2zxzMFLx?cluster=devnet)。该 NFT 引用既有 SDK-test Master，不属于 marketplace order。测试 buyer 私钥与 signed transaction recovery 保存在 ignored `.secrets/devnet-purchase-smoke.json`，不会输出或提交 git。`scripts/devnet-purchase-smoke.cjs` 会自动复用 recovery；再次运行只验证同一购买，不再创建或扣款。需要本地 blockchain schema 的 `DATABASE_URL` 与可访问的 Main API `MAIN_API_URL`。
+
+### Small first payouts and recipient rent
+
+Seller / treasury wallet 可能尚未有链上 SOL account。若该次 proceeds 加现有余额低于 RPC 查询的 rent-exempt minimum，transaction builder 会在 purchase instruction 前加入 sponsor → recipient 的 System Program transfer，只补足差额。Seller 与 treasury 地址相同时先合并 proceeds；已有足够余额则不补款。
+
+所有 instructions 位于同一 transaction：用户取消不产生补款，purchase 失败时补款一起回滚。Top-up 纳入 sponsorship cost cap，client 只允许 sponsor 向本次 seller / treasury 补款，拒绝 buyer 扣款、其他 recipient、重复 recipient 与超额金额。Receipt 继续只记录商品价及 95/5 分账；补款不计入销售收入。Buyer 的正数余额余款也必须满足账户 minimum，余额不足会显示明确提示。
+
+Regression check: `SOLANA_TEST_VALIDATOR=<validator-path> pnpm --filter blockchain-service exec node scripts/local-purchase-smoke.cjs --empty-recipients`，覆盖低价购买、空 seller / treasury、精确 buyer 支付和失败时补款回滚。

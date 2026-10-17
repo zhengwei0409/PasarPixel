@@ -26,7 +26,7 @@ export async function getDashboardStats(req: Request, res: Response) {
         prisma.userProfile.count(),
         prisma.asset.count({ where: { status: "PUBLISHED" } }),
         prisma.order.findMany({
-            where: { paymentStatus: "COMPLETED" },
+            where: { paymentStatus: "COMPLETED", paymentMethod: "STRIPE" },
             select: { totalAmount: true, currency: true },
         }),
         prisma.sellerApplication.count({ where: { status: "PENDING" } }),
@@ -43,11 +43,16 @@ export async function getDashboardStats(req: Request, res: Response) {
         );
     }
 
+    const solOrders = await prisma.order.findMany({ where: { paymentStatus: "COMPLETED", paymentMethod: "SOL" },
+        select: { totalLamports: true, orderItems: { select: { commissionLamports: true } } } });
+    const solVolumeLamports = solOrders.reduce((sum, order) => sum + BigInt(order.totalLamports ?? "0"), 0n);
+    const solCommissionLamports = solOrders.reduce((sum, order) => sum + (order.orderItems ?? []).reduce((s, item) => s + BigInt(item.commissionLamports ?? "0"), 0n), 0n);
     res.json({
         totalUsers,
         totalAssets,
         totalRevenue: Math.round(totalRevenue * 100) / 100,
         revenueCurrency: REVENUE_BASE_CURRENCY,
+        solVolumeLamports: solVolumeLamports.toString(), solCommissionLamports: solCommissionLamports.toString(),
         pendingItems: pendingApplications + pendingAssets + pendingReports,
     });
 }

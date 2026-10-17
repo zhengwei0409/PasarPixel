@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import OrderStatus from "@/components/orders/OrderStatus";
-import { formatPrice } from "@/lib/price";
+import { formatPrice, formatLamportsSol } from "@/lib/price";
 import type { Order, PaymentStatus } from "@/types/order";
 
 const STATUS_OPTIONS: { value: PaymentStatus; label: string }[] = [
@@ -114,7 +114,7 @@ export default function PurchaseHistoryPage() {
                                                 <p className="mt-2 truncate text-xs text-[#555e49]">{order.orderItems.map((item) => item.asset.title).join(", ")}</p>
                                             </div>
                                             <div className="flex items-center justify-between gap-6 sm:justify-end">
-                                                <div className="sm:text-right"><p className="text-base font-semibold tracking-tight">{formatPrice(order.totalAmount, order.currency)}</p><p className="mt-1 text-[11px] text-muted-foreground">Order total</p></div>
+                                                <div className="sm:text-right"><p className="text-base font-semibold tracking-tight">{order.paymentMethod === "SOL" ? formatLamportsSol(order.totalLamports) : formatPrice(order.totalAmount, order.currency)}</p><p className="mt-1 text-[11px] text-muted-foreground">Order total{order.paymentMethod === "SOL" ? " · Devnet" : ""}</p></div>
                                                 <ArrowUpRight className="size-4 text-[#7a8568] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transform-none" aria-hidden="true" />
                                             </div>
                                         </Link>

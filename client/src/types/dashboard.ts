@@ -8,4 +8,6 @@ export interface DashboardStats {
     // The dashboard converts from this into the admin's display currency.
     revenueCurrency: Currency;
     pendingItems: number;
+    solVolumeLamports?: string;
+    solCommissionLamports?: string;
 }

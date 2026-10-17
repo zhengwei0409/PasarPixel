@@ -24,6 +24,7 @@ function renderCheckout({ sellerId = 3, status = 'PUBLISHED', error = null } = {
     runInNewContext(code, {
         exports,
         require: name => {
+            if (name === '@/components/home/FloatingShapes') return { default: () => null, __esModule: true };
             if (name === 'react' || name === 'react/jsx-runtime' || name === 'axios' || name === 'lucide-react') return clientRequire(name);
             if (name === 'react-router-dom') return {
                 Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children),

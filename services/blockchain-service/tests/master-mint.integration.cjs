@@ -4,11 +4,11 @@ const { generateKeyPairSync, sign, randomBytes } = require('node:crypto');
 const { createServer } = require('node:http');
 const { execFileSync } = require('node:child_process');
 const bs58 = require('bs58').default;
-const { PrismaClient } = require('../generated/client');
-const { masterMintService } = require('../dist/services/masterMint.service');
-const { walletService } = require('../dist/services/wallet.service');
-const { MintBuildError } = require('../dist/lib/coreMint');
-const { createApp } = require('../dist/app');
+const { PrismaClient } = require('@pasarpixel/blockchain-client');
+const { masterMintService } = require('../dist/services/blockchain-service/src/services/masterMint.service');
+const { walletService } = require('../dist/services/blockchain-service/src/services/wallet.service');
+const { MintBuildError } = require('../dist/services/blockchain-service/src/lib/coreMint');
+const { createApp } = require('../dist/services/blockchain-service/src/app');
 
 if (!process.env.TEST_DATABASE_URL) throw new Error('Set TEST_DATABASE_URL to a disposable local database');
 const url = new URL(process.env.TEST_DATABASE_URL);

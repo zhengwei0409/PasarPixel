@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "prisma generate && ts-node-dev --respawn src/index.ts",
     "build": "prisma generate && tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/services/blockchain-service/src/index.js",
     "test": "pnpm build && node --test tests/*.test.cjs",
     "test:integration": "pnpm build && node --test tests/*.integration.cjs",
     "wallet:create": "node scripts/create-devnet-wallet.cjs",
-    "test:devnet": "pnpm build && node scripts/devnet-smoke.cjs"
+    "test:devnet": "pnpm build && node scripts/devnet-smoke.cjs",
+    "test:local-chain": "pnpm build && node scripts/local-purchase-smoke.cjs"
   },
   "dependencies": {
     "@metaplex-foundation/mpl-core": "^1.10.0",
@@ -17,6 +18,7 @@
     "@metaplex-foundation/umi-bundle-defaults": "^1.6.0",
     "@noble/hashes": "^1.8.0",
     "@prisma/client": "^6.19.3",
+    "@solana/web3.js": "1.99.0",
     "bs58": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

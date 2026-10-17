@@ -12,6 +12,13 @@ export interface OrderItem {
     licenseKey: string;
     createdAt: string;
     asset: BrowseAssetItem;
+    priceLamports?: string | null;
+    commissionLamports?: string | null;
+    masterAssetAddress?: string | null;
+    licenseAssetAddress?: string | null;
+    receiptAddress?: string | null;
+    termsUri?: string | null;
+    accessRevokedAt?: string | null;
 }
 
 export interface Order {
@@ -24,6 +31,9 @@ export interface Order {
     createdAt: string;
     updatedAt: string;
     orderItems: OrderItem[];
+    paymentMethod?: "STRIPE" | "SOL";
+    totalLamports?: string | null;
+    blockchainSignature?: string | null;
 }
 
 export interface OrdersParams {
@@ -49,4 +59,10 @@ export interface LicenseVerification {
     assetTitle: string;
     sellerName: string;
     purchasedAt: string;
+    purchaseVerified?: boolean;
+    currentAccess?: boolean;
+    licenseAssetAddress?: string;
+    masterAssetAddress?: string;
+    receiptAddress?: string;
+    txSignature?: string;
 }

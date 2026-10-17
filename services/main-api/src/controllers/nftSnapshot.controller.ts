@@ -6,11 +6,19 @@ import sharp from "sharp";
 import { prisma } from "../lib/prisma";
 import { getObjectBuffer, extractKeyFromUrl, putNftOriginalSnapshot } from "../lib/s3";
 import { buildManifest, publicObjectUrl, sha256 } from "../lib/nftSnapshot";
+import { nftDownloadName } from "../lib/nftDownloadName";
 
 async function publicObject(body: Buffer, contentType: string) {
     const hash = sha256(body);
     await prisma.nftPublicObject.upsert({ where: { hash }, create: { hash, body: Uint8Array.from(body), contentType }, update: {} });
     return hash;
+}
+
+export async function publicLogoUri() {
+    const source = await readFile(join(process.cwd(), "assets/pasarpixel-logo.jpeg"));
+    const bytes = await sharp(source, { limitInputPixels: 40_000_000 }).rotate()
+        .resize(1024, 1024, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+    return publicObjectUrl(await publicObject(bytes, "image/png"));
 }
 
 export async function getNftContent(req: Request, res: Response) {
@@ -55,7 +63,8 @@ export async function getMintSnapshot(req: Request, res: Response) {
             const key = await putNftOriginalSnapshot(hash, bytes);
             const reference = sha256(`${listingRef}:${file.id}`);
             manifestFiles.push({ reference, size: bytes.length, hash });
-            privateFiles.push({ reference, key, fileType: file.fileType, size: bytes.length, hash });
+            privateFiles.push({ reference, key, fileType: file.fileType, size: bytes.length, hash,
+                name: nftDownloadName({ name: extractKeyFromUrl(file.fileUrl).split("/").pop(), fileType: file.fileType }, privateFiles.length) });
         }
         const manifestHash = await publicObject(Buffer.from(buildManifest(listingRef, manifestFiles)), "application/json");
         // Use the same brand artwork for every NFT, regardless of asset category.

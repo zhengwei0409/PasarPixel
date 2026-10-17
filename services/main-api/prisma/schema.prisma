@@ -241,6 +241,10 @@ model Order {
   currency       Currency    @default(USD)
   paymentStatus  PaymentStatus @default(PENDING)
   stripePaymentId String?
+  paymentMethod PaymentMethod @default(STRIPE)
+  purchaseRef String? @unique
+  totalLamports String? @db.VarChar(20)
+  blockchainSignature String? @unique
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -257,6 +261,11 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum PaymentMethod {
+  STRIPE
+  SOL
+}
+
 model OrderItem {
   id          Int         @id @default(autoincrement())
   orderId     Int
@@ -265,6 +274,21 @@ model OrderItem {
   price       Decimal
   licenseKey  String      @unique @default(cuid())
   createdAt   DateTime    @default(now())
+
+  blockchainPurchaseRef String? @unique
+  priceLamports String? @db.VarChar(20)
+  commissionLamports String? @db.VarChar(20)
+  licenseAssetAddress String? @unique
+  masterAssetAddress String?
+  receiptAddress String? @unique
+  metadataUri String?
+  buyerWalletAddress String?
+  termsVersion String?
+  termsHash String?
+  termsUri String?
+  manifestHash String?
+  originalSnapshot Json?
+  accessRevokedAt DateTime?
 
   order Order @relation(fields: [orderId], references: [id])
   asset Asset @relation(fields: [assetId], references: [id])

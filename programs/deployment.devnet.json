@@ -1,0 +1,19 @@
+{
+  "network": "Solana Devnet",
+  "programId": "2HpUk2sbKNzheHtEYXxiDVF7hPCEE2bZrhzctYhCUdjJ",
+  "deploymentSignature": "3At4inbZTEvtR1HbNc3TicTymCiawv4nUn5qkVoNynmhbjfvGEPL4aN8FqW8frrDutewq5oh8nbA18KF4TCv35JQ",
+  "binarySha256": "307ba445dd99f22cca8ae694cc0e229b65d1d5c8f813ccae23d55a2dbaf3f05f",
+  "binaryBytes": 461976,
+  "deploymentDate": "2026-10-17",
+  "sponsorAuthority": "CYTzMuQePCxUDvszUvLeoRAoAEB9s8F25NHker6QKKHs",
+  "solanaCli": "2.3.0",
+  "sbfPlatformTools": "v1.53",
+  "purchaseSmoke": {
+    "licenseAssetAddress": "6ZSHdNtk6RyKY1wj6BEib82r49CxAE3ARhBK2zxzMFLx",
+    "receiptAddress": "3MJKw5KoNBtia5vvNP9MaNouf2zFRiyQ7TsYi2CGnJUK",
+    "signature": "3XFXTNyvVvsVEmEXQLB4tkAjna9bWDohmTkqfNsegHcUdct19P5czinQSYBf1ZHoeRRc4Z6HcVjt8sMNjBQBUHAC",
+    "buyerPaidLamports": "10000000",
+    "sellerReceivedLamports": "9500000",
+    "commissionLamports": "500000"
+  }
+}

@@ -4,8 +4,8 @@ const { generateKeyPairSync, sign, randomBytes } = require('node:crypto');
 const { createServer } = require('node:http');
 const { execFileSync } = require('node:child_process');
 const bs58 = require('bs58').default;
-const { PrismaClient } = require('../generated/client');
-const { createApp } = require('../dist/app');
+const { PrismaClient } = require('@pasarpixel/blockchain-client');
+const { createApp } = require('../dist/services/blockchain-service/src/app');
 
 // An explicit local test URL is required. Each run migrates and later removes
 // only its own randomly named schema; never reset or clear a project database.
@@ -118,6 +118,24 @@ test('concurrent replay creates one binding and consumes the challenge once', as
     const results = await Promise.all([verify(userId, key, issued), verify(userId, key, issued)]);
     assert.deepEqual(results.map(r => r.status).sort(), [200, 400]);
     assert.equal(await db.wallet.count({ where: { userId } }), 1);
+});
+
+test('checkout first-link verification cannot replace an existing binding, including a binding created while the prompt was open', async () => {
+    const userId = nextUser++;
+    const existing = wallet(), candidate = wallet();
+    const issued = await challenge(userId, candidate);
+    await db.wallet.create({ data: { userId, address: existing.address } });
+    const attempt = await request(userId, '/wallet/verify', {
+        challengeId: issued.data.challengeId, signature: candidate.sign(issued.data.message), onlyIfUnbound: true,
+    });
+    assert.equal(attempt.status, 409);
+    assert.equal((await request(userId)).data.wallet.address, existing.address);
+    assert.equal((await db.walletChallenge.findUnique({ where: { userId } })).consumedAt, null);
+
+    const firstUser = nextUser++, firstWallet = wallet(), firstChallenge = await challenge(firstUser, firstWallet);
+    assert.equal((await request(firstUser, '/wallet/verify', {
+        challengeId: firstChallenge.data.challengeId, signature: firstWallet.sign(firstChallenge.data.message), onlyIfUnbound: true,
+    })).status, 200);
 });
 
 test('an unused binding can change; NFT ownership blocks replacement, including after challenge issuance', async () => {

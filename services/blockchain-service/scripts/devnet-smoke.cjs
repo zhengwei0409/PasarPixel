@@ -6,7 +6,7 @@ const { randomUUID } = require('node:crypto');
 const { createUmi } = require('@metaplex-foundation/umi-bundle-defaults');
 const { keypairIdentity } = require('@metaplex-foundation/umi');
 const { transfer, burn, safeFetchAssetV1, updateV1, updatePlugin } = require('@metaplex-foundation/mpl-core');
-const { createCoreGateway } = require('../dist/lib/coreMint');
+const { createCoreGateway } = require('../dist/services/blockchain-service/src/lib/coreMint');
 
 (async () => {
     const secret = Uint8Array.from(JSON.parse(readFileSync(process.env.PLATFORM_WALLET_FILE || '.secrets/devnet-sponsor.json', 'utf8')));

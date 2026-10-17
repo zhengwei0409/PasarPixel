@@ -9,6 +9,6 @@ export async function createWalletChallenge(address: string): Promise<WalletChal
     return (await apiClient.post<WalletChallenge>("/blockchain/wallet/challenge", { address })).data;
 }
 
-export async function verifyWalletChallenge(challengeId: string, signature: string): Promise<WalletStatus> {
-    return (await apiClient.post<WalletStatus>("/blockchain/wallet/verify", { challengeId, signature })).data;
+export async function verifyWalletChallenge(challengeId: string, signature: string, options?: { onlyIfUnbound: boolean }): Promise<WalletStatus> {
+    return (await apiClient.post<WalletStatus>("/blockchain/wallet/verify", { challengeId, signature, ...options })).data;
 }

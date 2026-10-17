@@ -144,7 +144,7 @@ its admin role explicitly if needed. Blockchain-service is included through
 Kong's `/blockchain` route (`/api/blockchain` on the public website). Its health
 check verifies database connectivity. Settings supports Phantom wallet binding;
 Seller Master minting can be enabled after configuring/funding the Devnet sponsor;
-buyer License NFTs and SOL purchases remain unimplemented.
+buyer License NFTs and SOL purchases are implemented behind `PURCHASE_ENABLED`, and the program / SDK purchase are verified on Devnet. Buyer Phantom UI payment remains a manual check. Keep it false in a fresh server configuration until completing the root README setup steps. Configure the same private `INTERNAL_SERVICE_TOKEN` in auth-service, main-api and blockchain-service; never put it in client env. For the existing program ID, securely migrate the same sponsor authority key and database / snapshots; a newly generated sponsor cannot use its existing Config PDA. Keep key files outside git and container images, then enable purchases. The sponsor must be the deployment upgrade authority for first initialization, and the treasury setting becomes fixed in its Config PDA.
 
 ## Maintenance and limits
 

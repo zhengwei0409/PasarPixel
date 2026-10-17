@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { masterMetadata, mintAuthorization, contentHash } = require('../dist/lib/masterMetadata');
-const { createCoreGateway, MintBuildError, DEVNET_GENESIS } = require('../dist/lib/coreMint');
+const { masterMetadata, mintAuthorization, contentHash } = require('../dist/services/blockchain-service/src/lib/masterMetadata');
+const { createCoreGateway, MintBuildError, DEVNET_GENESIS } = require('../dist/services/blockchain-service/src/lib/coreMint');
 const { createUmi } = require('@metaplex-foundation/umi-bundle-defaults');
 const { getCreateV2InstructionDataSerializer, getUpdateV1InstructionDataSerializer, MPL_CORE_PROGRAM_ID } = require('@metaplex-foundation/mpl-core');
 

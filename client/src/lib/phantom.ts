@@ -1,4 +1,5 @@
 import type { WalletChallenge, WalletStatus } from "../types/wallet";
+import type { Transaction } from "@solana/web3.js";
 
 interface PublicKey { toString(): string }
 type PhantomListener = (publicKey?: PublicKey | null) => void;
@@ -9,6 +10,7 @@ export interface PhantomProvider {
     connect(): Promise<{ publicKey: PublicKey }>;
     disconnect(): Promise<void>;
     signMessage(message: Uint8Array, display?: "utf8"): Promise<{ signature: Uint8Array; publicKey: PublicKey }>;
+    signTransaction?(transaction: Transaction): Promise<Transaction>;
     on(event: "connect" | "disconnect" | "accountChanged", listener: PhantomListener): void;
     removeListener(event: "connect" | "disconnect" | "accountChanged", listener: PhantomListener): void;
 }
@@ -88,10 +90,10 @@ export async function bindPhantomWallet(
     },
     assertSession: () => void,
     origin: string,
+    connectedAddress?: string,
 ): Promise<WalletStatus> {
     assertSession();
-    const { publicKey } = await connectPhantom(provider);
-    const address = publicKey.toString();
+    const address = connectedAddress ?? (await connectPhantom(provider)).publicKey.toString();
     const assertWallet = () => {
         assertSession();
         if (isDisconnected() || !provider.isConnected || provider.publicKey?.toString() !== address) {

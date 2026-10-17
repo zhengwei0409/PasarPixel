@@ -2,7 +2,7 @@ import { Users, Package, DollarSign, ClipboardList } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { useDashboardStats } from "../hooks/useDashboardStats";
 import { useCurrencyStore } from "../stores/currencyStore";
-import { formatPrice } from "../lib/price";
+import { formatPrice, formatLamportsSol } from "../lib/price";
 
 // One stats card: a label, an icon, and the big number underneath.
 function StatCard({
@@ -40,27 +40,30 @@ export default function DashboardStatsSection() {
     }
 
     return (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-                title="Total Users"
-                value={data.totalUsers.toLocaleString()}
-                icon={<Users className="h-4 w-4" />}
-            />
-            <StatCard
-                title="Assets Listed"
-                value={data.totalAssets.toLocaleString()}
-                icon={<Package className="h-4 w-4" />}
-            />
-            <StatCard
-                title="Platform Revenue"
-                value={formatPrice(data.totalRevenue, data.revenueCurrency, displayCurrency, { zeroAsFree: false })}
-                icon={<DollarSign className="h-4 w-4" />}
-            />
-            <StatCard
-                title="Pending Actions"
-                value={data.pendingItems.toLocaleString()}
-                icon={<ClipboardList className="h-4 w-4" />}
-            />
+        <div className="space-y-4">
+            <p className="rounded-xl border p-4 text-sm">SOL volume · Devnet: {formatLamportsSol(data.solVolumeLamports ?? "0")} · Platform commission: {formatLamportsSol(data.solCommissionLamports ?? "0")}</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                    title="Total Users"
+                    value={data.totalUsers.toLocaleString()}
+                    icon={<Users className="h-4 w-4" />}
+                />
+                <StatCard
+                    title="Assets Listed"
+                    value={data.totalAssets.toLocaleString()}
+                    icon={<Package className="h-4 w-4" />}
+                />
+                <StatCard
+                    title="Platform Revenue"
+                    value={formatPrice(data.totalRevenue, data.revenueCurrency, displayCurrency, { zeroAsFree: false })}
+                    icon={<DollarSign className="h-4 w-4" />}
+                />
+                <StatCard
+                    title="Pending Actions"
+                    value={data.pendingItems.toLocaleString()}
+                    icon={<ClipboardList className="h-4 w-4" />}
+                />
+            </div>
         </div>
     );
 }

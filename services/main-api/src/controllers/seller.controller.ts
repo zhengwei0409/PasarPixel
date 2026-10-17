@@ -21,7 +21,7 @@ async function getRevenue(sellerId: number): Promise<number> {
     const soldItems = await prisma.orderItem.findMany({
         where: {
             asset: { sellerId },
-            order: { paymentStatus: "COMPLETED" },
+            order: { paymentStatus: "COMPLETED", paymentMethod: "STRIPE" },
         },
         select: { price: true, order: { select: { currency: true } } },
     });
@@ -51,7 +51,7 @@ export async function getDashboard(req: Request, res: Response) {
     const soldItems = await prisma.orderItem.findMany({
         where: {
             asset: { sellerId },
-            order: { paymentStatus: "COMPLETED" },
+            order: { paymentStatus: "COMPLETED", paymentMethod: "STRIPE" },
         },
         select: {
             price: true,
@@ -60,8 +60,13 @@ export async function getDashboard(req: Request, res: Response) {
         },
     });
 
+    const solItems = await prisma.orderItem.findMany({ where: { asset: { sellerId }, order: { paymentStatus: "COMPLETED", paymentMethod: "SOL" } },
+        select: { priceLamports: true, commissionLamports: true } });
+    const solRevenueLamports = solItems.reduce((sum, item) => sum + BigInt(item.priceLamports ?? "0") - BigInt(item.commissionLamports ?? "0"), 0n);
+    const solCommissionLamports = solItems.reduce((sum, item) => sum + BigInt(item.commissionLamports ?? "0"), 0n);
+    const solSalesCount = solItems.filter(item => item.priceLamports !== null && item.priceLamports !== undefined).length;
     const revenue = await sumItemsInUsd(soldItems);
-    const salesCount = soldItems.length;
+    const salesCount = soldItems.length + solSalesCount;
 
     // Count this seller's listings grouped by status (excludes soft-deleted).
     const grouped = await prisma.asset.groupBy({
@@ -101,6 +106,7 @@ export async function getDashboard(req: Request, res: Response) {
         productsByStatus,
         revenueSeries,
         availableBalance,
+        solRevenueLamports: solRevenueLamports.toString(), solCommissionLamports: solCommissionLamports.toString(), solSalesCount,
     });
 }
 
@@ -115,11 +121,14 @@ export async function getRecentOrders(req: Request, res: Response) {
             orderId: true,
             licenseType: true,
             price: true,
+            priceLamports: true,
+            commissionLamports: true,
             asset: { select: { title: true } },
             order: { select: {
                 createdAt: true,
                 currency: true,
                 paymentStatus: true,
+                paymentMethod: true,
                 buyer: { select: { name: true } },
             } },
         },
@@ -131,6 +140,9 @@ export async function getRecentOrders(req: Request, res: Response) {
         buyerName: item.order.buyer.name,
         licenseType: item.licenseType,
         amount: String(item.price),
+        priceLamports: item.priceLamports,
+        commissionLamports: item.commissionLamports,
+        paymentMethod: item.order.paymentMethod,
         currency: item.order.currency,
         paymentStatus: item.order.paymentStatus,
         createdAt: item.order.createdAt,

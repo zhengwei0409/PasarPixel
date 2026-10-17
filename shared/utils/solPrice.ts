@@ -9,3 +9,9 @@ export function parseSolLamports(value: unknown): bigint | null {
     if (lamports <= 0n || lamports > 18_446_744_073_709_551_615n) throw new Error("SOL price is outside the supported range");
     return lamports;
 }
+export function lamportsToSol(amount: string | bigint): string {
+    const value = BigInt(amount);
+    if (value < 0n) throw new Error("Lamports cannot be negative");
+    const fraction = (value % 1_000_000_000n).toString().padStart(9, "0").replace(/0+$/, "");
+    return `${value / 1_000_000_000n}${fraction ? `.${fraction}` : ""}`;
+}

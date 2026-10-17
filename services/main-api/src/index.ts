@@ -18,8 +18,10 @@ import storeRoutes from './routes/store.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import reportRoutes from './routes/report.routes';
 import { handleWebhook } from './controllers/checkout.controller';
+import { fulfillBlockchainPurchase } from './controllers/blockchainCheckout.controller';
 
 const app = express();
+app.set("json replacer", (_key: string, value: unknown) => typeof value === "bigint" ? value.toString() : value);
 const PORT = process.env.PORT || 3002;
 
 // Stripe webhook needs the raw body for signature verification, so it must be
@@ -27,6 +29,7 @@ const PORT = process.env.PORT || 3002;
 app.post("/checkout/webhook", express.raw({ type: "application/json" }), handleWebhook);
 
 app.use(express.json());
+app.post("/internal/blockchain/fulfill/:reference", fulfillBlockchainPurchase);
 
 app.get("/health", (req, res) => {
     res.json({ status: "ok", service: "main-api"});

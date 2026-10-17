@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Prisma, type PrismaClient, type MasterNft } from "../../generated/client";
+import { Prisma, type PrismaClient, type MasterNft } from "@pasarpixel/blockchain-client";
 import { HttpError } from "../lib/errors";
 import { masterMetadata, mintAuthorization, type MintSource } from "../lib/masterMetadata";
 import { MintBuildError, type MintGateway } from "../lib/coreMint";

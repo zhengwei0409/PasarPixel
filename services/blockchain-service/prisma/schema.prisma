@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/client"
+  output   = "../node_modules/@pasarpixel/blockchain-client"
 }
 
 datasource db {
@@ -20,6 +20,8 @@ model Wallet {
   licenseNfts        LicenseNft[]
   sellerTransactions BlockchainTransaction[] @relation("SellerWallet")
   buyerTransactions  BlockchainTransaction[] @relation("BuyerWallet")
+  purchases PurchaseIntent[] @relation("PurchaseBuyer")
+  sales PurchaseIntent[] @relation("PurchaseSeller")
 
   @@map("wallets")
 }
@@ -63,6 +65,7 @@ model MasterNft {
   ownerWallet Wallet     @relation(fields: [ownerWalletId], references: [id])
   licenseNfts LicenseNft[]
   attempts MasterMintAttempt[]
+  purchases PurchaseIntent[]
 
   @@map("master_nfts")
 }
@@ -137,6 +140,70 @@ model BlockchainTransaction {
 }
 
 enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+model PurchaseIntent {
+  id String @id @default(uuid())
+  masterNftId Int
+  buyerWalletId Int
+  sellerWalletId Int
+  licenseType LicenseType
+  status PurchaseStatus @default(PREPARING)
+  buyerAddress String
+  sellerAddress String
+  priceLamports String @db.VarChar(20)
+  commissionLamports String @db.VarChar(20)
+  revision BigInt
+  listingAddress String
+  receiptAddress String @unique
+  assetAddress String @unique
+  metadataUri String @default("")
+  metadataHash String @default("")
+  name String @default("")
+  termsVersion String @default("pasarpixel-2026-10-17")
+  termsHash String @default("")
+  termsUri String @default("")
+  manifestHash String
+  preparedTransaction Bytes?
+  lastValidBlockHeight BigInt?
+  expiresAt DateTime?
+  txSignature String? @unique
+  leaseToken String?
+  leaseUntil DateTime?
+  errorMessage String?
+  mainOrderId Int?
+  mainOrderItemId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  masterNft MasterNft @relation(fields: [masterNftId], references: [id])
+  buyerWallet Wallet @relation("PurchaseBuyer", fields: [buyerWalletId], references: [id])
+  sellerWallet Wallet @relation("PurchaseSeller", fields: [sellerWalletId], references: [id])
+  attempts PurchaseAttempt[]
+
+  @@unique([buyerWalletId, masterNftId, licenseType])
+  @@map("purchase_intents")
+}
+
+model PurchaseAttempt {
+  id Int @id @default(autoincrement())
+  purchaseId String
+  signature String @unique
+  transaction Bytes
+  lastValidBlockHeight BigInt
+  status TransactionStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  purchase PurchaseIntent @relation(fields: [purchaseId], references: [id])
+
+  @@map("purchase_attempts")
+}
+
+enum PurchaseStatus {
+  PREPARING
+  AWAITING_SIGNATURE
   PENDING
   CONFIRMED
   FAILED

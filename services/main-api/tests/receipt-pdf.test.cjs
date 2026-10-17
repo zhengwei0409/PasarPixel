@@ -9,7 +9,11 @@ const code = ts.transpileModule(readFileSync(join(__dirname, '../src/lib/receipt
     compilerOptions: { module: ts.ModuleKind.CommonJS },
 }).outputText;
 const exportsObject = {};
-runInNewContext(code, { exports: exportsObject, require });
+const prices = {};
+runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../../../shared/utils/solPrice.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+}).outputText, { exports: prices });
+runInNewContext(code, { exports: exportsObject, require: name => name === '../../../../shared/utils/solPrice' ? prices : require(name) });
 
 async function receiptBytes(itemCount) {
     const doc = exportsObject.buildReceipt({

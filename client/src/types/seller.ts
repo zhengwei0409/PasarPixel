@@ -15,6 +15,9 @@ export interface SellerDashboard {
     productsByStatus: Record<string, number>;
     revenueSeries: RevenuePoint[];
     availableBalance: number;
+    solRevenueLamports?: string;
+    solCommissionLamports?: string;
+    solSalesCount?: number;
 }
 
 export type WithdrawalStatus = "PENDING" | "APPROVED" | "REJECTED" | "PAID";
@@ -43,6 +46,9 @@ export interface SellerRecentOrder {
     currency: Currency;
     paymentStatus: PaymentStatus;
     createdAt: string;
+    paymentMethod?: "STRIPE" | "SOL";
+    priceLamports?: string | null;
+    commissionLamports?: string | null;
 }
 
 export interface SellerRecentOrdersResponse {
