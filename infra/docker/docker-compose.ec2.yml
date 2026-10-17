@@ -105,11 +105,14 @@ services:
   blockchain-service:
     <<: *service
     image: ${IMAGE_PREFIX}-blockchain-service:${IMAGE_TAG}
-    env_file:
-      - path: ../../services/blockchain-service/.env
-        required: false
+    env_file: ../../services/blockchain-service/.env
     volumes:
-      - ../../services/blockchain-service/.secrets:/app/services/blockchain-service/.secrets:ro
+      - type: bind
+        source: ../../services/blockchain-service/.secrets/devnet-sponsor.json
+        target: /run/secrets/devnet-sponsor.json
+        read_only: true
+        bind:
+          create_host_path: false
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://pasarpixel:${POSTGRES_PASSWORD}@postgres:5432/pasarpixel?schema=blockchain
@@ -117,6 +120,7 @@ services:
       CLIENT_URL: https://${SITE_ADDRESS}
       MAIN_API_URL: http://main-api:3002
       PUBLIC_API_URL: https://${SITE_ADDRESS}/api
+      PLATFORM_WALLET_FILE: /run/secrets/devnet-sponsor.json
     depends_on:
       postgres:
         condition: service_healthy

@@ -8,7 +8,7 @@ commit_sha=${1:?Usage: sudo bash infra/ec2/deploy.sh COMMIT_SHA}
 [[ $(git -c safe.directory="$PWD" rev-parse HEAD) == "$commit_sha" ]] || {
   echo 'Checkout does not match the requested release'; exit 1;
 }
-for file in infra/docker/.env.ec2 services/{auth-service,main-api,notification-service}/.env; do
+for file in infra/docker/.env.ec2 services/{auth-service,main-api,notification-service,blockchain-service}/.env; do
   [[ -f "$file" ]] || { echo "Missing configuration: $file"; exit 1; }
 done
 
@@ -18,6 +18,8 @@ flock -n 9 || { echo 'Another deployment is running'; exit 1; }
 export IMAGE_TAG="$commit_sha"
 compose=(docker compose --env-file infra/docker/.env.ec2 -f infra/docker/docker-compose.ec2.yml)
 "${compose[@]}" config --quiet
+# Validate resolved runtime settings without printing secrets or replacing services.
+"${compose[@]}" config --format json | python3 infra/ec2/check-blockchain-config.py
 # Pull everything before replacing any running service.
 "${compose[@]}" pull
 "${compose[@]}" up -d --wait --wait-timeout 300

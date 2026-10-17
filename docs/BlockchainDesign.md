@@ -1,6 +1,6 @@
 # Blockchain v1 Design
 
-状态：Step 3 已实现 seller Master NFT minting、content snapshots、signature approval、独立 mint 状态与 recovery worker。2026-10-17 真实 Devnet SDK smoke mint 已 finalized，并通过 transfer、burn、metadata update、thaw 被拒绝的 simulation；网页 listing / Phantom 完整流程仍待手动验收。SOL checkout、License NFT、entitlement integration 与购买 smart contract 尚未实现。运行与验证记录见 [项目 README](../README.md#blockchain)。
+状态：seller Master NFT minting、SOL checkout、buyer License NFT、entitlement integration 与购买 smart contract 已实现。2026-10-17 Devnet mint 与 SDK purchase 已验证；buyer Phantom UI payment 仍待手动验收。配置步骤与验证记录见 [Blockchain setup](blockchain-setup.md)。
 
 本文件细化 [Functional Requirements](FunctionalRequirement.md) 的 FR-2.5、FR-3.3–3.5 和 FR-5，供后续实现使用。以下规则以 Solana Devnet 为范围。
 
@@ -189,7 +189,7 @@ node --test client/tests/sol-purchase.test.cjs
 
 LiteSVM 使用真实编译的 purchase `.so` 与 Core `.so`，覆盖 95/5、重复购买、不同 buyer / tier、错误价格 / revision / signer / recipient、inactive listing、外部 transfer / burn 拒绝，以及 Core CPI 失败后商品款项和 receipt 全部回滚。Local validator 另验证真实 ProgramData 初始化及 JS instruction encoding / signature / simulation / receipt decoding。该测试仅在 fixture 中模拟 Devnet genesis，不放宽 production 的网络限制。
 
-2026-10-17 状态：上述本地验证通过；Devnet program 已部署，独立测试 buyer 购买成功，实际支付 0.01 SOL、seller 收到 0.0095 SOL、commission 为 0.0005 SOL。NFT 与 receipt 已 finalized，并通过 production gateway 校验。完整公开证据在 `programs/deployment.devnet.json`；本地 `PURCHASE_ENABLED=true`。Buyer Phantom UI flow 仍待手动验证。新环境的配置步骤见 root README。不要使用构建工具自动生成的 `programs/target/deploy/pasar_purchase-keypair.json` 来部署；必须使用与源码 ID 对应的 ignored `.secrets/purchase-program.json`。
+2026-10-17 状态：上述本地验证通过；Devnet program 已部署，独立测试 buyer 购买成功，实际支付 0.01 SOL、seller 收到 0.0095 SOL、commission 为 0.0005 SOL。NFT 与 receipt 已 finalized，并通过 production gateway 校验。完整公开证据在 `programs/deployment.devnet.json`；本地 `PURCHASE_ENABLED=true`。Buyer Phantom UI flow 仍待手动验证。新环境的配置步骤见 [Blockchain setup](blockchain-setup.md)。不要使用构建工具自动生成的 `programs/target/deploy/pasar_purchase-keypair.json` 来部署；必须使用与源码 ID 对应的 ignored `.secrets/purchase-program.json`。
 
 真实 Devnet smoke License: [6ZSHdNtk…zxzMFLx](https://explorer.solana.com/address/6ZSHdNtk6RyKY1wj6BEib82r49CxAE3ARhBK2zxzMFLx?cluster=devnet)。该 NFT 引用既有 SDK-test Master，不属于 marketplace order。测试 buyer 私钥与 signed transaction recovery 保存在 ignored `.secrets/devnet-purchase-smoke.json`，不会输出或提交 git。`scripts/devnet-purchase-smoke.cjs` 会自动复用 recovery；再次运行只验证同一购买，不再创建或扣款。需要本地 blockchain schema 的 `DATABASE_URL` 与可访问的 Main API `MAIN_API_URL`。
 

@@ -73,6 +73,7 @@ cp infra/docker/.env.ec2.example infra/docker/.env.ec2
 cp services/auth-service/.env.example services/auth-service/.env
 cp services/main-api/.env.example services/main-api/.env
 cp services/notification-service/.env.example services/notification-service/.env
+cp services/blockchain-service/.env.example services/blockchain-service/.env
 ```
 
 Only copy examples on the FIRST setup; preserve filled `.env` files later.
@@ -91,7 +92,27 @@ settings include:
   `S3_BUCKET_NAME`, `S3_PRESIGNED_URL_EXPIRES_IN`,
   `DOWNLOAD_TOKEN_EXPIRES_IN`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
 - **notification-service:** `RESEND_API_KEY`.
-- **blockchain-service:** no external credentials for wallet binding. Master minting additionally needs a dedicated Devnet sponsor in `services/blockchain-service/.secrets/devnet-sponsor.json` and `MINT_ENABLED=true` in the service `.env`. Follow the root README setup on the server; do not reuse a wallet containing real funds. Compose mounts the key directory read-only and supplies its isolated schema, internal service URLs and public HTTPS metadata URL. The Devnet RPC endpoint is configurable and checked against the full genesis hash.
+- **blockchain-service:** requires its server `.env` with explicit `MINT_ENABLED` and `PURCHASE_ENABLED` flags. Set both to `true` for the complete Devnet demo. Configure the same random `INTERNAL_SERVICE_TOKEN` (at least 32 characters) in auth-service, main-api and blockchain-service when purchases are enabled. Securely copy the existing dedicated Devnet sponsor key to `services/blockchain-service/.secrets/devnet-sponsor.json`; do not generate a replacement for the existing purchase program. Compose mounts only this file read-only at `/run/secrets/devnet-sponsor.json` and sets `PLATFORM_WALLET_FILE` to that container path. Deployment/program/buffer/test-owner keys do not belong on the application server. Compose also supplies the isolated schema, internal URLs and public HTTPS metadata URL. The Devnet RPC endpoint is configurable and checked against the full genesis hash.
+
+Prepare the server key directory before copying the sponsor file, then restrict
+permissions after the copy:
+
+```bash
+install -d -m 700 services/blockchain-service/.secrets
+# Securely copy the existing devnet-sponsor.json from your Mac into this directory.
+chmod 700 services/blockchain-service/.secrets
+chmod 600 services/blockchain-service/.secrets/devnet-sponsor.json
+chmod 600 services/{auth-service,main-api,notification-service,blockchain-service}/.env
+```
+
+For an existing server, prepare its secrets and service environment settings
+**before pushing to main**. CI/CD does not upload local `.env` or private key
+files. The deploy script checks the resolved Compose settings, key format and
+permissions, and matching purchase-service tokens before pulling images or
+replacing services. It prints the enabled/disabled flags without printing secrets.
+Explicit `false` flags are supported for staged setup; the sponsor file is still
+required by the single-file mount. A missing key fails instead of creating a
+directory in its place. This preflight does not sign or send any transaction.
 
 Compose supplies the database/broker URLs, frontend URLs and internal service
 URLs. Each service uses its own PostgreSQL schema and migration history in the
@@ -144,7 +165,7 @@ its admin role explicitly if needed. Blockchain-service is included through
 Kong's `/blockchain` route (`/api/blockchain` on the public website). Its health
 check verifies database connectivity. Settings supports Phantom wallet binding;
 Seller Master minting can be enabled after configuring/funding the Devnet sponsor;
-buyer License NFTs and SOL purchases are implemented behind `PURCHASE_ENABLED`, and the program / SDK purchase are verified on Devnet. Buyer Phantom UI payment remains a manual check. Keep it false in a fresh server configuration until completing the root README setup steps. Configure the same private `INTERNAL_SERVICE_TOKEN` in auth-service, main-api and blockchain-service; never put it in client env. For the existing program ID, securely migrate the same sponsor authority key and database / snapshots; a newly generated sponsor cannot use its existing Config PDA. Keep key files outside git and container images, then enable purchases. The sponsor must be the deployment upgrade authority for first initialization, and the treasury setting becomes fixed in its Config PDA.
+buyer License NFTs and SOL purchases are implemented behind `PURCHASE_ENABLED`, and the program / SDK purchase are verified on Devnet. Buyer Phantom UI payment remains a manual check. Keep it false in a fresh server configuration until completing the [blockchain setup steps](blockchain-setup.md). Configure the same private `INTERNAL_SERVICE_TOKEN` in auth-service, main-api and blockchain-service; never put it in client env. For the existing program ID, securely migrate the same sponsor authority key; a newly generated sponsor cannot use its existing Config PDA. A fresh testing database is supported. Preserving existing marketplace purchases additionally requires their database records and snapshots; this is separate from configuring the sponsor key. Keep key files outside git and container images, then enable purchases. The sponsor must be the deployment upgrade authority for first initialization, and the treasury setting becomes fixed in its Config PDA.
 
 ## Maintenance and limits
 

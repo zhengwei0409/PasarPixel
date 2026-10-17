@@ -133,3 +133,55 @@ test('RPC reconciliation never declares success from a signature alone and only 
         assert.equal(await gateway.reconcile(master, attempt), 'FAILED');
     } finally { global.fetch = previous; }
 });
+
+test('a matching finalized Master recovers after signature history is pruned, while mismatched accounts never become ready', async () => {
+    const { getAssetV1AccountDataSerializer } = require('@metaplex-foundation/mpl-core/dist/src/generated/types/assetV1AccountData');
+    const { getPluginRegistryV1AccountDataSerializer } = require('@metaplex-foundation/mpl-core/dist/src/generated/types/pluginRegistryV1AccountData');
+    const { getPluginSerializer, Key, PluginType } = require('@metaplex-foundation/mpl-core');
+    const { getPluginHeaderV1AccountDataSerializer } = require('@metaplex-foundation/mpl-core');
+    const umi = createUmi('https://rpc.example');
+    const gateway = createCoreGateway('https://rpc.example', umi.eddsa.generateKeypair().secretKey);
+    const master = { assetAddress: gateway.assetAddress('recovery'), ownerAddress: umi.eddsa.generateKeypair().publicKey,
+        name: 'Master', metadataUri: 'https://example.com/master.json' };
+    const attempt = { signature: require('bs58').default.encode(new Uint8Array(64)), lastValidBlockHeight: 1n };
+    let status = null, overrides = {}, frozen = true, accountOwner = MPL_CORE_PROGRAM_ID;
+    const previous = global.fetch;
+    global.fetch = async (_input, init) => {
+        const { method, id, params } = JSON.parse(init.body);
+        let result;
+        if (method === 'getGenesisHash') result = DEVNET_GENESIS;
+        else if (method === 'getSignatureStatuses') result = { context: { slot: 1000 }, value: [status] };
+        else if (method === 'getAccountInfo') {
+            assert.equal(params[0], master.assetAddress);
+            assert.equal(params[1].commitment, 'finalized');
+            const base = getAssetV1AccountDataSerializer().serialize({ key: Key.AssetV1, owner: master.ownerAddress,
+                updateAuthority: { __kind: 'None' }, name: master.name, uri: master.metadataUri, seq: null, ...overrides });
+            const plugin = getPluginSerializer().serialize({ __kind: 'PermanentFreezeDelegate', fields: [{ frozen }] });
+            const offset = base.length + 9;
+            const header = getPluginHeaderV1AccountDataSerializer().serialize({ key: Key.PluginHeaderV1, pluginRegistryOffset: offset + plugin.length });
+            const registry = getPluginRegistryV1AccountDataSerializer().serialize({ key: Key.PluginRegistryV1, externalRegistry: [],
+                registry: [{ pluginType: PluginType.PermanentFreezeDelegate, authority: { __kind: 'None' }, offset }] });
+            const bytes = Buffer.concat([base, header, plugin, registry]);
+            result = { context: { slot: 1000 }, value: { owner: accountOwner, lamports: 10_000_000,
+                executable: false, rentEpoch: 0, data: [bytes.toString('base64'), 'base64'] } };
+        } else throw new Error(`Unexpected RPC method ${method}`);
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id, result }), { headers: { 'content-type': 'application/json' } });
+    };
+    try {
+        assert.equal(await gateway.reconcile(master, attempt), 'READY');
+        status = { slot: 1000, confirmations: 1, err: null, confirmationStatus: 'confirmed' };
+        assert.equal(await gateway.reconcile(master, attempt), 'PENDING');
+        status = { slot: 1000, confirmations: null, err: null, confirmationStatus: 'finalized' };
+        assert.equal(await gateway.reconcile(master, attempt), 'READY');
+        status = null;
+        for (const mismatch of [{ uri: 'https://example.com/wrong' }, { owner: umi.eddsa.generateKeypair().publicKey },
+            { updateAuthority: { __kind: 'Address', fields: [master.ownerAddress] } }]) {
+            overrides = mismatch;
+            await assert.rejects(gateway.reconcile(master, attempt), /does not match/);
+        }
+        overrides = {}; frozen = false;
+        await assert.rejects(gateway.reconcile(master, attempt), /does not match/);
+        frozen = true; accountOwner = master.ownerAddress;
+        await assert.rejects(gateway.reconcile(master, attempt), /does not match/);
+    } finally { global.fetch = previous; }
+});

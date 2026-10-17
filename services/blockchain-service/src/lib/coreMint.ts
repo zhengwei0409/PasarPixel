@@ -70,8 +70,9 @@ export function createCoreGateway(rpcUrl: string, secret: Uint8Array, maxCost = 
                 if (asset.header.owner !== MPL_CORE_PROGRAM_ID || asset.owner !== master.ownerAddress || asset.uri !== master.metadataUri || asset.name !== master.name ||
                     asset.updateAuthority.type !== "None" || !asset.permanentFreezeDelegate?.frozen || asset.permanentFreezeDelegate.authority.type !== "None" ||
                     asset.permanentTransferDelegate || asset.permanentBurnDelegate) throw new Error("On-chain Master NFT does not match its immutable snapshot");
-                // The known backend-signed transaction must also finalize successfully.
-                return status?.commitment === "finalized" && !status.error ? "READY" : "PENDING";
+                // The finalized, immutable account at our secret-derived address
+                // remains proof when an RPC provider prunes signature history.
+                return !status || (status.commitment === "finalized" && !status.error) ? "READY" : "PENDING";
             }
             if (status?.commitment === "finalized" && status.error) return "FAILED";
             if (status) return "PENDING";

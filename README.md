@@ -1,172 +1,89 @@
 # PasarPixel
 
-A web-based marketplace for buying and selling digital assets — supporting both traditional licensing and blockchain-based NFT ownership on Solana.
+A marketplace for digital assets with traditional payments and Solana Devnet NFT licenses.
 
----
+**Buyers** purchase and download assets. **Sellers** upload and sell their work. **Admins** review listings and manage the platform.
 
-## Tech Stack
+## Run locally
 
-| Layer | Technology |
-|---|---|
-| Frontend | React, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query |
-| API Gateway | Kong |
-| Backend | Node.js, Express.js, TypeScript |
-| Database | PostgreSQL, Prisma ORM |
-| Storage | Amazon S3 |
-| Blockchain | Solana, Metaplex |
-| Message Queue | RabbitMQ |
-| Payments | Stripe |
-| Email | Resend |
-| Infrastructure | Docker, Docker Compose |
+Install **Git** and **Docker Desktop**, then open the project folder in your terminal. Run all commands below from that folder.
 
----
+### 1. Create your environment files
 
-## Local Development
-
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose)
-- [Stripe CLI](https://stripe.com/docs/stripe-cli) — for testing payments locally
-
-### 1. Set up environment variables
-
-Each service ships a `.env.example`. Copy it to `.env` and fill in your own keys:
+These files store the settings and credentials used by each service:
 
 ```bash
-cp services/auth-service/.env.example         services/auth-service/.env
-cp services/main-api/.env.example             services/main-api/.env
+cp services/auth-service/.env.example services/auth-service/.env
+cp services/main-api/.env.example services/main-api/.env
 cp services/notification-service/.env.example services/notification-service/.env
-cp services/blockchain-service/.env.example   services/blockchain-service/.env
+cp services/blockchain-service/.env.example services/blockchain-service/.env
+printf 'VITE_API_URL=http://localhost:8000\n' > client/.env
 ```
 
-You'll need credentials from these external services:
+Do this once. Keep your existing `.env` files when updating the project.
 
-| Variable(s) | Where to get it |
+### 2. Fill in your credentials
+
+Open the new `.env` files and configure Google sign-in, S3 storage, Stripe test payments, Resend email, and the application secrets. The [local setup guide](docs/local-development.md#credentials) explains which values go in each service.
+
+Leave `MINT_ENABLED=false` and `PURCHASE_ENABLED=false` for your first run. Docker supplies the database and message queue connection settings.
+
+### 3. Start the app
+
+Make sure Docker Desktop is running:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml up -d --build
+```
+
+Open **[http://localhost:5173](http://localhost:5173)**. The API gateway runs at `http://localhost:8000`. Services run their database migrations automatically.
+
+For payment webhooks and common setup issues, see the [local setup guide](docs/local-development.md).
+
+## Try blockchain features
+
+Install **Phantom** in your browser, sign in, and open **Settings → Phantom wallet** to connect and verify your wallet. Wallet verification does not require SOL.
+
+Minting and SOL checkout need additional setup: a funded Devnet sponsor key and, for checkout, a shared internal token. Follow the [blockchain setup guide](docs/blockchain-setup.md). Use test SOL only.
+
+## Everyday commands
+
+View service status and logs:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml ps
+docker compose -f infra/docker/docker-compose.yml logs -f
+```
+
+Stop the app while keeping its database data:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml down
+```
+
+## Project layout
+
+```text
+client/       React frontend
+services/     Auth, main API, notifications, and blockchain services
+gateway/      Kong API gateway
+shared/       Code shared by services and the frontend
+programs/     Solana purchase smart contract
+infra/        Docker and EC2 deployment configuration
+docs/         Setup guides and project documentation
+```
+
+Built with React, TypeScript, Node.js, PostgreSQL, Prisma, RabbitMQ, Amazon S3, Stripe, Resend, Solana, and Docker.
+
+## Documentation
+
+| Guide | What it covers |
 |---|---|
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | [Google Cloud Console](https://console.cloud.google.com/) → OAuth credentials |
-| `JWT_SECRET`, `DOWNLOAD_TOKEN_SECRET` | Any random string you generate |
-| `RESEND_API_KEY` | [Resend](https://resend.com/) dashboard |
-| `AWS_*`, `S3_BUCKET_NAME` | AWS IAM user with S3 access |
-| `STRIPE_SECRET_KEY` | [Stripe](https://dashboard.stripe.com/test/apikeys) (test mode) |
-| `STRIPE_WEBHOOK_SECRET` | Printed by `stripe listen` (see below) |
+| [Local setup](docs/local-development.md) | Credentials, Stripe webhooks, and troubleshooting |
+| [Blockchain setup](docs/blockchain-setup.md) | Sponsor wallet, minting, SOL checkout, and testing |
+| [EC2 deployment](docs/ec2-deployment.md) | Server configuration and CI/CD deployment |
+| [Blockchain design](docs/BlockchainDesign.md) | NFT rules, smart contract, and verification |
+| [Requirements](docs/FunctionalRequirement.md) | Application features and user roles |
+| [Database](docs/DatabaseRelationship.md) | Data models and relationships |
 
-The client also needs a `client/.env`:
-
-```bash
-echo "VITE_API_URL=http://localhost:8000" > client/.env
-```
-
-> `DATABASE_URL`, `RABBITMQ_URL`, and service URLs already point at Docker's internal network in the examples — leave them as-is.
-
-### 2. Start everything
-
-```bash
-# Kong gateway on :8000, client on :5173
-cd infra/docker && docker compose up -d --build
-```
-
-On startup, main-api automatically runs database migrations and seeds the DB — no manual Prisma commands needed.
-
-### Testing Stripe payments locally
-
-Stripe can't reach `localhost`, so the [Stripe CLI](https://stripe.com/docs/stripe-cli) tunnels webhook events to the backend:
-
-```bash
-stripe listen --forward-to http://localhost:8000/checkout/webhook
-```
-
-- On start it prints a `whsec_...` signing secret — put it in `services/main-api/.env` as `STRIPE_WEBHOOK_SECRET`, then rebuild main-api.
-- Pay with test card `4242 4242 4242 4242`, any future expiry, any CVC.
-- A successful payment flips the order to `COMPLETED` and clears the cart via the webhook.
-
----
-
-## Project Structure
-
-```
-PasarPixel/
-├── client/                  # React frontend (4-layer: lib → services → hooks → pages)
-├── services/
-│   ├── auth-service/         # Authentication & authorisation (OAuth 2.0, Google Sign-In)
-│   ├── main-api/             # Core business logic (users, listings, orders)
-│   ├── notification-service/ # Email + in-app notifications (RabbitMQ consumers + REST API)
-│   └── blockchain-service/   # NFT minting, transfer, ownership (Solana + Metaplex)
-├── gateway/
-│   └── kong/                 # Kong API gateway config (kong.yml, DB-less mode)
-├── infra/
-│   └── docker/               # Docker Compose for local development
-└── shared/
-    ├── types/                # Shared event payloads + DTOs across services
-    └── utils/                # Shared helpers (e.g. RabbitMQ exchange names)
-```
-
----
-
-## User Roles
-
-| Role | Description |
-|---|---|
-| Admin | Platform management, content moderation |
-| Seller | Upload and list digital assets |
-| Buyer | Browse and purchase digital assets |
-
----
-
-## Service Communication
-
-All client requests go through **Kong API Gateway** (`localhost:8000`) which routes to backend services on the internal Docker network. Backend services are not exposed to the host.
-
-Asynchronous events between services use **RabbitMQ fanout exchanges** for pub/sub — one publisher can broadcast to multiple consumer queues (e.g. `user.registered` triggers both `main-api` profile creation and `notification-service` welcome email).
-
----
-
-## Blockchain
-
-- Network: **Solana Devnet** (development)
-- NFT Standard: **Metaplex Core** (v1 design)
-- Wallet: **Phantom Wallet** (browser extension)
-
-Wallet binding is implemented: sign in, open **Settings → Phantom wallet**, then connect and sign the five-minute verification message. Disconnecting Phantom preserves the account binding. The service uses its own PostgreSQL `blockchain` schema; Docker Compose runs its migrations automatically.
-
-Seller Master minting (`MINT_ENABLED`) and SOL checkout / buyer License NFTs (`PURCHASE_ENABLED`) are implemented. The purchase program is deployed on Devnet; manual buyer Phantom payment still needs testing. Fresh environments should keep `PURCHASE_ENABLED=false` until the shared service token and existing deployment authority key are configured. The [Blockchain v1 Design](docs/BlockchainDesign.md) documents the rules and contract test commands.
-
-For local testing, start Docker Desktop and run `docker compose -f infra/docker/docker-compose.yml up -d --build` from the project root. Open `http://localhost:5173` in the browser where Phantom is installed. Wallet binding only signs a message; no SOL or funding is required. Disconnect and reload to confirm the bound address is still saved.
-
-Automated checks: `pnpm --filter blockchain-service test`, `pnpm --filter auth-service test`, and `node --test client/tests/wallet-binding.test.cjs`. PostgreSQL integration tests use `TEST_DATABASE_URL=<local-test-database-url> pnpm --filter blockchain-service test:integration`; the runner creates and removes its own temporary schema.
-
-To enable seller minting on Devnet:
-
-1. Copy `services/blockchain-service/.env.example` to `.env` if it does not exist. Keep `MINT_ENABLED=false` during setup.
-2. Run `pnpm --filter blockchain-service wallet:create` once. This creates a dedicated key file in the ignored `.secrets` directory and prints only its public address. It refuses to overwrite an existing file. Keep the file private and backed up; retries derive the same NFT signer from this key and the saved mint reference.
-3. Request free **Devnet SOL** for the printed address at [Solana Faucet](https://faucet.solana.com/). No real SOL is needed. Use a dedicated test sponsor, not a wallet with real funds.
-4. Set `MINT_ENABLED=true` in the blockchain service `.env`. Keep `SOLANA_RPC_URL` on Devnet; the service checks the full Devnet genesis hash before building, sending or verifying transactions. Sponsorship defaults to a maximum of 0.03 Devnet SOL per mint, checked by simulation before sending.
-5. Rebuild locally with `docker compose -f infra/docker/docker-compose.yml up -d --build`. Compose mounts the private sponsor directory read-only and runs both services' migrations. For EC2, keep sponsor / deployment key files outside the image; when moving this existing Devnet deployment, securely retain the same sponsor authority key and database snapshots. Compose sets new public metadata URLs to the HTTPS `/api` endpoint.
-6. Sign in as a seller with a bound Phantom wallet. Upload a Blockchain listing, set at least one Personal / Commercial SOL price, and obtain admin approval. In **My Listings**, click **Mint Master NFT** and approve the purpose-specific message in Phantom. No SOL is transferred from the seller wallet. Wait for **Master NFT ready**, then inspect the Devnet Explorer link.
-
-Minting locks the bound wallet while preparation, authorization or confirmation is pending, and permanently after the NFT is ready. Cancelling a signature leaves the approval pending for up to five minutes. A pre-send failure or a definitively failed/expired transaction can be retried; unknown RPC results stay pending. Signed transaction bytes are stored before broadcast, and the background worker recovers after restart without creating a second NFT address. The Master is frozen against transfer/burn, has immutable metadata, and relinquishes update authority in the same transaction.
-
-Public metadata and previews are served from immutable, content-addressed database records; PostgreSQL triggers reject updates/deletes. Original bytes are copied to private S3 `nft-originals/<sha256>` objects using conditional writes, and no download URL or storage key is published. Restrict privileged S3 overwrite/delete access to this prefix in the bucket/IAM configuration as well; changing app code cannot enforce restrictions on external AWS administrators. Retain the database, S3 snapshots and public domain for minted metadata to remain available.
-
-All new NFT display images use the same bundled PasarPixel logo, regardless of asset category or listing cover. The logo is snapshotted as PNG before minting; existing snapshots and minted NFTs retain their original image.
-
-Additional checks: `node --test client/tests/master-mint.test.cjs client/tests/wallet-connection.test.cjs client/tests/sol-price.test.cjs`, `pnpm --filter main-api test`, and `TEST_DATABASE_URL=<local-test-database-url> pnpm --filter main-api test:integration` after generating/building main-api. Both integration suites use isolated temporary schemas. Once the test sponsor is funded, `pnpm --filter blockchain-service test:devnet` performs a real SDK smoke mint and simulates blocked transfer/burn, metadata updates and thaw. Each normal run creates one test-only NFT, separate from marketplace listings. To recheck the saved NFT without another mint, run `node scripts/devnet-smoke.cjs --resume` from the blockchain service directory. Recovery data, including the temporary test owner's keypair, stays in the ignored private `.secrets` file.
-
-Verified on 2026-10-17: [Devnet smoke NFT](https://explorer.solana.com/address/CSvU5rF5dwYGLEf4Qz65jJv2pZFtjzPxCqm7Xp4J7VsZ?cluster=devnet) finalized successfully; owner transfer/burn and sponsor metadata update/thaw simulations were rejected. Metadata immutability uses update authority `None`, because an `ImmutableMetadata` plugin would reject the authority-removal instruction. The seller listing / Phantom approval flow was also manually verified with the PicPic Master NFT. Buyer Phantom UI payment remains a manual check.
-
-### SOL checkout (Step 4)
-
-The buyer signs one purchase transaction in Phantom. The platform validates the exact stored transaction and co-signs it. The purchase program transfers 95% to the seller and 5% to the platform, creates an immutable buyer-owned Core License NFT, and writes its Master-linked receipt atomically. The sponsor pays network / NFT creation fees; the buyer pays only the selected price. If a tiny first payout would leave the seller or treasury below Solana's rent-exempt minimum, the same transaction first includes a platform-funded transfer for the exact shortfall. These transfers roll back with a failed purchase and count towards the sponsorship cap; they are not extra buyer charges or sales revenue.
-
-1. Set the same random `INTERNAL_SERVICE_TOKEN` (at least 32 characters) in auth-service, main-api and blockchain-service. Keep it out of git and client variables. Both services' additive migrations run on Docker startup.
-2. Build and test the program using the pinned toolchain in [BlockchainDesign.md](docs/BlockchainDesign.md#9-step-4-implementation-and-validation). Back up the ignored `.secrets/purchase-program.json` deployment key and existing sponsor key. The program ID in source must match this key.
-3. From `services/blockchain-service`, run `pnpm build` and `node scripts/deploy-purchase.cjs` for a read-only Devnet balance / rent check. The script queries current RPC rent and balance; this binary required about 4.80 Devnet SOL at peak in the 2026-10-17 check. Temporary buffer rent is recovered on successful deployment.
-4. Once funded, run `node scripts/deploy-purchase.cjs --deploy --paced` with Solana CLI available. The paced mode resumes only missing buffer chunks and avoids flooding the public RPC. This checks the full Devnet genesis and uses the explicit deployment / buffer key files. Then set `PURCHASE_ENABLED=true`, confirm `PURCHASE_PROGRAM_ID`, and restart blockchain-service. The first listing synchronization initializes the configuration using the deployment upgrade authority. `PLATFORM_TREASURY_ADDRESS` defaults to sponsor and is fixed at initialization.
-5. As a different BUYER account, use a different Phantom wallet with enough free Devnet SOL. Open a published listing with **Master NFT ready**, select Personal / Commercial and click **Buy**. The checkout dialog handles **Connect & verify Phantom** on the first purchase; already linked wallets only reconnect. It never silently replaces an existing binding. Read and accept the test terms, then explicitly click **Pay** to approve payment in Phantom. Settings remains available for wallet management. Wait for the finalized purchase and order, then check the License NFT Explorer link and download. A wallet shared with the seller cannot buy its own asset.
-
-The checkout resumes pending purchases after reload. Repeated requests and RPC timeouts reuse the same stored signed bytes, purchase reference and NFT address. A failed or expired transaction permits a retry only after chain reconciliation. Cancelling connection or verification creates no purchase. Cancelling the payment signature keeps the selection and permits retry; its unsigned quote expires after 90 seconds. Submission timeouts show **Check purchase status** because payment may already have reached the backend. Purchase processing and NFT ownership lock wallet replacement.
-
-License JSON includes `masterAssetAddress`, buyer / seller wallets, tier, immutable terms URI / hash and content manifest hash. The program receipt independently commits to those values. Terms are explicitly versioned **Devnet test terms**. Downloads use the private original snapshot and recheck chain proof, buyer account and access revocation when issuing and redeeming links. SOL totals / commissions are displayed separately from fiat and never increase the withdrawal balance.
-
-Verified locally: actual compiled SBF + Core CPI tests, a disposable `solana-test-validator` purchase using the production JS gateways, PostgreSQL recovery / fulfillment tests, and wallet signing checks. `pnpm --filter blockchain-service test:local-chain` runs the validator check after building the program and downloading the Core fixture. It creates ephemeral wallets only; its test fixture emulates the Devnet genesis response while all other calls execute on the local validator. It is **not** a Devnet deployment or browser / Phantom test.
-
-Verified on 2026-10-17: purchase program deployed on **Devnet** and a real 0.01 SOL test purchase finalized. Seller received 0.0095 SOL and the receipt records 0.0005 SOL commission. [Test License NFT](https://explorer.solana.com/address/6ZSHdNtk6RyKY1wj6BEib82r49CxAE3ARhBK2zxzMFLx?cluster=devnet). Deployment signature, program binary hash and receipt references are recorded in `programs/deployment.devnet.json`. This test uses separate SDK test wallets / Master and creates no marketplace order. Local checkout is enabled; the remaining manual check is a different buyer account purchasing through Phantom.
+Keep `.env` files and wallet private keys out of Git. Share only the test credentials a teammate needs, using a secure channel.
