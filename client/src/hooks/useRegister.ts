@@ -1,12 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
 import { register } from "../services/authService";
+import { setAuthTokens } from '../lib/authSession';
 
 export function useRegister() {
     return useMutation({
         mutationFn: register,
         onSuccess: (tokens) => {
-            localStorage.setItem("accessToken", tokens.accessToken);
-            localStorage.setItem("refreshToken", tokens.refreshToken);
+            setAuthTokens(tokens);
             window.location.href = "/dashboard";
         },
     });

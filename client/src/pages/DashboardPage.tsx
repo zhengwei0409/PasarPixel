@@ -22,11 +22,8 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between gap-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
                         <p className="text-sm text-blue-800">
                             Your account was upgraded — new access: <span className="font-medium">{newRoles.join(", ")}</span>.
-                            Reload to unlock these features.
+                            These features are now available.
                         </p>
-                        <Button size="sm" onClick={() => window.location.reload()}>
-                            Reload
-                        </Button>
                     </div>
                 )}
 
