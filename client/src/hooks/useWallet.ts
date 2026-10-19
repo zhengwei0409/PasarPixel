@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { bindPhantomWallet, disconnectPhantom, getConnectedAddress, getPhantom, subscribeToPhantom } from "@/lib/phantom";
+import { bindPhantomWallet, connectPhantom, disconnectPhantom, getConnectedAddress, getPhantom, subscribeToPhantom } from "@/lib/phantom";
 import { createWalletChallenge, getWalletStatus, verifyWalletChallenge } from "@/services/walletService";
 
 export function useWallet() {
@@ -10,6 +10,13 @@ export function useWallet() {
     const connectedAddress = useSyncExternalStore(subscribeToPhantom, getConnectedAddress, () => null);
     const queryKey = ["wallet", user?.sub];
     const status = useQuery({ queryKey, queryFn: getWalletStatus, enabled: Boolean(user), refetchOnWindowFocus: true });
+    const connect = useMutation({
+        mutationFn: async () => {
+            const provider = getPhantom();
+            if (!provider) throw new Error("Install Phantom, then reload this page to connect your wallet.");
+            return connectPhantom(provider);
+        },
+    });
     const bind = useMutation({
         mutationFn: async () => {
             const provider = getPhantom();
@@ -24,12 +31,12 @@ export function useWallet() {
             };
             return bindPhantomWallet(provider, {
                 challenge: createWalletChallenge, verify: verifyWalletChallenge,
-            }, assertSession, window.location.origin);
+            }, assertSession, window.location.origin, connectedAddress ?? undefined);
         },
         onSuccess: (data) => { queryClient.setQueryData(queryKey, data); },
     });
     const disconnect = useMutation({
         mutationFn: disconnectPhantom,
     });
-    return { status, bind, disconnect, connectedAddress };
+    return { status, connect, bind, disconnect, connectedAddress };
 }
