@@ -202,148 +202,142 @@ export default function UploadPricingStep({
                             ))}
                         </div>
                     </fieldset>
-                    {traditional ? (
-                        <>
-                            <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#ecefe5] p-5">
-                                <div>
-                                    <Label
-                                        htmlFor="pricing-currency"
-                                        className="text-base font-semibold"
-                                    >
-                                        Pricing currency
-                                    </Label>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        Applies to both license prices.
-                                    </p>
-                                </div>
-                                <Select
-                                    disabled={update.isPending}
-                                    value={currency}
-                                    onValueChange={(value) => {
-                                        dirty();
-                                        setCurrency(value as Currency);
-                                    }}
-                                >
-                                    <SelectTrigger
-                                        id="pricing-currency"
-                                        className="h-12 data-[size=default]:h-12 min-w-36 gap-4 rounded-xl border-[#dfe4d6] bg-white px-4 font-medium shadow-none"
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="USD">
-                                            USD ($)
-                                        </SelectItem>
-                                        <SelectItem value="MYR">
-                                            MYR (RM)
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-5 sm:grid-cols-2">
-                                {(
-                                    [
-                                        {
-                                            field: "pricePersonal",
-                                            title: "Personal license",
-                                            description:
-                                                "Set a price for personal projects.",
-                                            icon: UserRound,
-                                        },
-                                        {
-                                            field: "priceCommercial",
-                                            title: "Commercial license",
-                                            description:
-                                                "Set a price for commercial projects.",
-                                            icon: Building2,
-                                        },
-                                    ] as const
-                                ).map((tier) => (
-                                    <div
-                                        key={tier.field}
-                                        className="rounded-2xl border border-[#dfe4d6] bg-white p-6 sm:p-7"
-                                    >
-                                        <h3 className="flex items-center gap-3 text-lg font-semibold">
-                                            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#edf0e5] text-[#657152]">
-                                                <tier.icon
-                                                    className="size-5"
-                                                    aria-hidden="true"
-                                                />
-                                            </span>
-                                            {tier.title}
-                                        </h3>
-                                        <p className="mb-7 mt-4 text-sm text-muted-foreground">
-                                            {tier.description}
-                                        </p>
-                                        <Label
-                                            htmlFor={`pricing-${tier.field}`}
-                                            className="mb-2 block text-xs font-medium tracking-wider"
-                                        >
-                                            PRICE ({currency})
-                                        </Label>
-                                        <div className="relative">
-                                            <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-[#657152]">
-                                                {currency === "USD"
-                                                    ? "$"
-                                                    : "RM"}
-                                            </span>
-                                            <Input
-                                                id={`pricing-${tier.field}`}
-                                                type="number"
-                                                min="0"
-                                                step="any"
-                                                inputMode="decimal"
-                                                placeholder="Enter price"
-                                                value={prices[tier.field]}
-                                                aria-describedby="pricing-help"
-                                                className="h-12 rounded-xl border-[#dfe4d6] bg-[#f7f7f2] pl-12 shadow-none"
-                                                onChange={(event) => {
-                                                    dirty();
-                                                    setPrices((previous) => ({
-                                                        ...previous,
-                                                        [tier.field]:
-                                                            event.target.value,
-                                                    }));
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <p
-                                id="pricing-help"
-                                className="text-sm text-muted-foreground"
+                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#ecefe5] p-5">
+                        <div>
+                            <Label
+                                htmlFor={traditional ? "pricing-currency" : undefined}
+                                className="text-base font-semibold"
                             >
-                                Enter 0 for a free license. Leave a price blank
-                                to keep that license unavailable. At least one
-                                price is required to continue.
+                                Pricing currency
+                            </Label>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Applies to both license prices.
                             </p>
-                        </>
-                    ) : (
-                        <div
-                            className="rounded-2xl border border-[#d4dbc9] bg-[#edf0e5] p-6"
-                        >
-                            <Link2
-                                className="mb-4 size-6 text-[#657152]"
-                                aria-hidden="true"
-                            />
-                            <h3 className="font-semibold">
-                                SOL license pricing
-                            </h3>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Set at least one license price. After approval, mint your Master NFT from My Listings. Buyer checkout will be available in a later update.
-                            </p>
-                            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                                {([ ["personal", "Personal license"], ["commercial", "Commercial license"] ] as const).map(([tier, label]) => (
-                                    <label key={tier} className="space-y-2 text-sm font-medium">
-                                        <span>{label} · SOL</span>
-                                        <Input type="text" inputMode="decimal" value={solPrices[tier]} placeholder="e.g. 0.01"
-                                            onChange={event => { dirty(); setSolPrices(previous => ({ ...previous, [tier]: event.target.value })); }} />
-                                    </label>
-                                ))}
+                        </div>
+                        {traditional ? (
+                            <Select
+                                disabled={update.isPending}
+                                value={currency}
+                                onValueChange={(value) => {
+                                    dirty();
+                                    setCurrency(value as Currency);
+                                }}
+                            >
+                                <SelectTrigger
+                                    id="pricing-currency"
+                                    className="h-12 data-[size=default]:h-12 min-w-36 gap-4 rounded-xl border-[#dfe4d6] bg-white px-4 font-medium shadow-none"
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="USD">
+                                        USD ($)
+                                    </SelectItem>
+                                    <SelectItem value="MYR">
+                                        MYR (RM)
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        ) : (
+                            <span className="flex h-12 min-w-36 items-center rounded-xl border border-[#dfe4d6] bg-white px-4 font-medium">
+                                SOL
+                            </span>
+                        )}
+                    </div>
+                    <div className="grid gap-5 sm:grid-cols-2">
+                        {(
+                            [
+                                {
+                                    field: "pricePersonal",
+                                    solField: "personal",
+                                    title: "Personal license",
+                                    description:
+                                        "Set a price for personal projects.",
+                                    icon: UserRound,
+                                },
+                                {
+                                    field: "priceCommercial",
+                                    solField: "commercial",
+                                    title: "Commercial license",
+                                    description:
+                                        "Set a price for commercial projects.",
+                                    icon: Building2,
+                                },
+                            ] as const
+                        ).map((tier) => (
+                            <div
+                                key={tier.field}
+                                className="rounded-2xl border border-[#dfe4d6] bg-white p-6 sm:p-7"
+                            >
+                                <h3 className="flex items-center gap-3 text-lg font-semibold">
+                                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#edf0e5] text-[#657152]">
+                                        <tier.icon
+                                            className="size-5"
+                                            aria-hidden="true"
+                                        />
+                                    </span>
+                                    {tier.title}
+                                </h3>
+                                <p className="mb-7 mt-4 text-sm text-muted-foreground">
+                                    {tier.description}
+                                </p>
+                                <Label
+                                    htmlFor={`pricing-${tier.field}`}
+                                    className="mb-2 block text-xs font-medium tracking-wider"
+                                >
+                                    PRICE ({traditional ? currency : "SOL"})
+                                </Label>
+                                <div className="relative">
+                                    <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-sm font-semibold text-[#657152]">
+                                        {!traditional
+                                            ? "SOL"
+                                            : currency === "USD"
+                                            ? "$"
+                                            : "RM"}
+                                    </span>
+                                    <Input
+                                        id={`pricing-${tier.field}`}
+                                        type={traditional ? "number" : "text"}
+                                        min="0"
+                                        step="any"
+                                        inputMode="decimal"
+                                        placeholder="Enter price"
+                                        value={traditional ? prices[tier.field] : solPrices[tier.solField]}
+                                        aria-describedby="pricing-help"
+                                        className="h-12 rounded-xl border-[#dfe4d6] bg-[#f7f7f2] pl-12 shadow-none"
+                                        onChange={(event) => {
+                                            dirty();
+                                            if (traditional) {
+                                                setPrices((previous) => ({
+                                                    ...previous,
+                                                    [tier.field]: event.target.value,
+                                                }));
+                                            } else {
+                                                setSolPrices((previous) => ({
+                                                    ...previous,
+                                                    [tier.solField]: event.target.value,
+                                                }));
+                                            }
+                                        }}
+                                    />
+                                </div>
                             </div>
-                            <p className="mt-3 text-xs text-muted-foreground">Leave a tier blank to disable it. Use a positive amount with up to 9 decimal places.</p>
-                            {asset.priceSol && !asset.priceSolPersonal && !asset.priceSolCommercial && <p className="mt-3 text-xs text-muted-foreground">Your previous SOL price was {asset.priceSol}. Choose which license tier it applies to.</p>}
+                        ))}
+                    </div>
+                    <p
+                        id="pricing-help"
+                        className="text-sm text-muted-foreground"
+                    >
+                        {traditional
+                            ? "Enter 0 for a free license. Leave a price blank to keep that license unavailable. At least one price is required to continue."
+                            : "Use a positive amount with up to 9 decimal places. Leave a price blank to keep that license unavailable. At least one price is required to continue."}
+                    </p>
+                    {!traditional && (
+                        <div className="space-y-2 text-sm text-muted-foreground">
+                            <p>After approval, mint your Master NFT from My Listings. Buyer checkout will be available in a later update.</p>
+                            {asset.priceSol && !asset.priceSolPersonal && !asset.priceSolCommercial && (
+                                <p>Your previous SOL price was {asset.priceSol}. Choose which license tier it applies to.</p>
+                            )}
                         </div>
                     )}
                 </fieldset>

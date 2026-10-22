@@ -375,7 +375,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
           {!isBlockchain && canAddToCart && (
             <div className="space-y-2">
               <Button
-                className="h-12 w-full rounded-lg hover:bg-[#444f3a]"
+                className="h-10 w-full text-sm hover:bg-[#444f3a]"
                 disabled={fiatPrice === null || addToCart.isPending}
                 onClick={handleAddToCart}
               >
@@ -395,7 +395,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
           <div className={`grid gap-3 ${isAdmin ? "grid-cols-1" : "grid-cols-2"}`}>
             <Button
               variant="secondary"
-              className="h-10 text-xs"
+              className="h-10 text-sm"
               onClick={handleShare}
             >
               <Share2 size={14} /> Share
@@ -403,7 +403,7 @@ function AssetDetailContent({ asset }: { asset: AssetData }) {
             {!isAdmin && (
               <Button
                 variant="secondary"
-                className="h-10 text-xs"
+                className="h-10 text-sm"
                 onClick={handleReportClick}
               >
                 <Flag size={14} /> Report asset

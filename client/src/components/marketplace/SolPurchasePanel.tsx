@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
 import { Button } from "../ui/button";
 import { Dialog, DialogTrigger } from "../ui/dialog";
 import { useAuth } from "../../hooks/useAuth";
@@ -33,7 +34,7 @@ export default function SolPurchasePanel({ assetId, sellerId, assetTitle }: { as
         client.setQueryData(["solPurchase", user?.sub, data.purchase.id], data);
         setResult(data);
     };
-    if (!user) return <Button asChild className="h-12 w-full"><Link to="/login">Sign in to buy with SOL</Link></Button>;
+    if (!user) return <Button asChild className="h-10 w-full text-sm hover:bg-[#444f3a]"><Link to="/login">Sign in to buy with SOL</Link></Button>;
     if (Number(user.sub) === sellerId) return <p className="rounded-xl border p-5 text-sm text-muted-foreground">This is your listing. You cannot buy your own asset.</p>;
     if (!canBuy) return <p className="text-sm text-muted-foreground">A buyer account is required for SOL purchases.</p>;
     return <div className="space-y-4 rounded-xl border p-5">
@@ -43,24 +44,26 @@ export default function SolPurchasePanel({ assetId, sellerId, assetTitle }: { as
                 <div role="group" aria-label="Choose a SOL license" className="grid grid-cols-2 gap-3">
                     {(["PERSONAL", "COMMERCIAL"] as const).map(option => {
                         const amount = (option === "PERSONAL" ? offer.data.personal : offer.data.commercial) || "0";
-                        return <button key={option} type="button" aria-pressed={selectedTier === option} disabled={amount === "0" || pending || checkoutOpen}
+                        return <Button variant="outline" key={option} type="button" aria-pressed={selectedTier === option} disabled={amount === "0" || pending || checkoutOpen}
                             onClick={() => { setTier(option); setResult(null); }}
-                            className={`rounded-lg border-2 p-3 text-left disabled:opacity-40 ${selectedTier === option ? "border-primary bg-primary/5" : "border-border"}`}>
+                            className={`h-auto min-w-0 flex-col items-start gap-0 whitespace-normal rounded-lg border-2 p-3 text-left disabled:opacity-40 ${selectedTier === option ? "border-primary bg-primary/5 hover:bg-primary/5" : "border-border hover:bg-primary/5"}`}>
                             <span className="block text-sm font-medium">{option === "PERSONAL" ? "Personal" : "Commercial"}</span>
-                            <span className="mt-2 block text-sm">{amount === "0" ? "Unavailable" : formatLamportsSol(amount)}</span>
-                        </button>;
+                            <span className="mt-2 block max-w-full break-words text-sm">{amount === "0" ? "Unavailable" : formatLamportsSol(amount)}</span>
+                        </Button>;
                     })}
                 </div>
                 {purchase?.status === "CONFIRMED" && purchase.orderId ? <>
                     <p role="status" className="text-sm">Purchase complete. Your License NFT is ready.</p>
-                    <Button asChild className="w-full"><Link to={`/orders/${purchase.orderId}`}>View order and download</Link></Button>
-                    <a href={purchase.explorerUrl} target="_blank" rel="noreferrer" className="text-sm underline">View License NFT</a>
+                    <Button asChild className="h-10 w-full text-sm hover:bg-[#444f3a]"><Link to={`/orders/${purchase.orderId}`}>View order and download</Link></Button>
+                    <Button asChild variant="secondary" className="h-10 w-full text-sm">
+                        <a href={purchase.explorerUrl} target="_blank" rel="noreferrer">View License NFT <ArrowUpRight /></a>
+                    </Button>
                 </> : <>
                     <p className="text-xs leading-5 text-muted-foreground">Pay in test SOL. Connect and verify your wallet during checkout.</p>
                     {purchase?.error && <p role="status" className="text-xs text-muted-foreground">{purchase.error}</p>}
                 </>}
                 <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-                    {!(purchase?.status === "CONFIRMED" && purchase.orderId) && <DialogTrigger asChild><Button className="h-11 w-full" disabled={price === "0" && !pending}>
+                    {!(purchase?.status === "CONFIRMED" && purchase.orderId) && <DialogTrigger asChild><Button className="h-10 w-full text-sm hover:bg-[#444f3a]" disabled={price === "0" && !pending}>
                         {pending ? "View purchase status" : `Buy with ${formatLamportsSol(price)}`}
                     </Button></DialogTrigger>}
                     {checkoutOpen && <SolCheckoutDialog key={`${user.sub}:${assetId}`} userId={user.sub} assetId={assetId} assetTitle={assetTitle} tier={selectedTier} offer={offer.data} purchase={purchase} onPurchase={onPurchase} />}

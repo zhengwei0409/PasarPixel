@@ -129,8 +129,9 @@
     }
 }
 
-/* Homepage palette for asset, order, profile and settings pages. */
+/* Homepage palette for marketplace pages and their portaled dialogs. */
 .asset-detail-theme,
+.checkout-theme,
 .orders-theme,
 .profile-theme,
 .settings-theme,
