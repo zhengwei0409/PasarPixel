@@ -98,8 +98,10 @@ export default function OrderDetailPage() {
                                                 </div>
                                             </div>
                                             {item.licenseAssetAddress && <div className="mt-3 space-y-2 text-xs">
-                                                <a href={`https://explorer.solana.com/address/${item.licenseAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer" className="block underline">View License NFT</a>
-                                                <a href={`https://explorer.solana.com/address/${item.masterAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer" className="block underline">View linked Master NFT</a>
+                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                                    <a href={`https://explorer.solana.com/address/${item.licenseAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer" className="whitespace-nowrap underline">View License NFT</a>
+                                                    <a href={`https://explorer.solana.com/address/${item.masterAssetAddress}?cluster=devnet`} target="_blank" rel="noreferrer" className="whitespace-nowrap underline">View linked Master NFT</a>
+                                                </div>
                                                 {item.accessRevokedAt && <p role="alert" className="text-red-700">Download access revoked. The NFT remains as a purchase record.</p>}
                                             </div>}
                                             <div className="mt-5 rounded-lg bg-[#f7f8f3] px-3.5 py-3">

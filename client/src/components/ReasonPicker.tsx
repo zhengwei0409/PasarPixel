@@ -14,12 +14,13 @@ interface ReasonPickerProps {
     presets: string[];
     onChange: (reason: string) => void;
     placeholder?: string;
+    contentClassName?: string;
 }
 
 // Dropdown of preset reasons with an "Other" option that reveals a free-text box.
 // Emits the final reason string via onChange ("" while nothing valid is chosen),
 // so the parent only needs to keep a single reason string.
-export default function ReasonPicker({ presets, onChange, placeholder = "Select a reason" }: ReasonPickerProps) {
+export default function ReasonPicker({ presets, onChange, placeholder = "Select a reason", contentClassName }: ReasonPickerProps) {
     const [selected, setSelected] = useState("");
     const [customText, setCustomText] = useState("");
 
@@ -39,7 +40,7 @@ export default function ReasonPicker({ presets, onChange, placeholder = "Select 
                 <SelectTrigger className="w-full">
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={contentClassName}>
                     {presets.map((reason) => (
                         <SelectItem key={reason} value={reason}>
                             {reason}

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     approveAsset,
+    takeDownAdminAsset,
     browseAssets,
     createAsset,
     getAsset,
@@ -111,6 +112,8 @@ export function useApproveAsset() {
         onSuccess: (_data, assetId) => {
             queryClient.invalidateQueries({ queryKey: ["asset", assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "pending-review"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-assets"] });
+            queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
             queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
         },
     });
@@ -161,6 +164,8 @@ export function useRejectAsset() {
         onSuccess: (_data, vars) => {
             queryClient.invalidateQueries({ queryKey: ["asset", vars.assetId] });
             queryClient.invalidateQueries({ queryKey: ["assets", "pending-review"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-assets"] });
+            queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
             queryClient.invalidateQueries({ queryKey: ["assets", "mine"] });
         },
     });
@@ -313,5 +318,20 @@ export function useReuseGlbPreview() {
     return useMutation({
         mutationFn: ({ assetId, fileId }: { assetId: number; fileId: number }) => reuseGlbPreview(assetId, fileId),
         onSuccess: (_file, { assetId }) => queryClient.invalidateQueries({ queryKey: ["asset", assetId] }),
+    });
+}
+
+export function useTakeDownAdminAsset() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ assetId, reason }: { assetId: number; reason: string }) => takeDownAdminAsset(assetId, reason),
+        onSuccess: async (_data, { assetId }) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["assets"] }),
+                queryClient.invalidateQueries({ queryKey: ["asset", assetId] }),
+                queryClient.invalidateQueries({ queryKey: ["admin-assets"] }),
+                queryClient.invalidateQueries({ queryKey: ["dashboardStats"] }),
+            ]);
+        },
     });
 }

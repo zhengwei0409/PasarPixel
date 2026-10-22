@@ -5,19 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { useAuth } from "../hooks/useAuth";
 import { useSyncRoles } from "../hooks/useSyncRoles";
 import SellerDashboardSection from "../components/SellerDashboardSection";
-import RoleChangeLogSection from "../components/RoleChangeLogSection";
-import AssetReviewLogSection from "../components/AssetReviewLogSection";
-import DashboardStatsSection from "../components/DashboardStatsSection";
+import AdminDashboardSection from "../components/AdminDashboardSection";
 
 export default function DashboardPage() {
     const { user } = useAuth();
     const { newRoles } = useSyncRoles();
-    const isSeller = user?.roles.includes("SELLER");
     const isAdmin = user?.roles.includes("ADMIN");
+    const isSeller = !isAdmin && user?.roles.includes("SELLER");
+    const isThemed = isAdmin || isSeller;
 
     return (
-        <div className={isSeller ? "seller-dashboard-theme min-h-screen bg-background px-4 py-8 text-foreground sm:px-8 sm:py-10" : "min-h-screen p-8"}>
-            <div className={`mx-auto space-y-6 ${isSeller ? "max-w-[1200px]" : "max-w-3xl"}`}>
+        <div className={isThemed ? `${isAdmin ? "admin-dashboard-theme" : "seller-dashboard-theme"} min-h-screen bg-background px-4 py-8 text-foreground sm:px-8 sm:py-10` : "min-h-screen p-8"}>
+            <div className={`mx-auto space-y-6 ${isThemed ? "max-w-[1200px]" : "max-w-3xl"}`}>
                 {newRoles && (
                     <div className="flex items-center justify-between gap-4 rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
                         <p className="text-sm text-blue-800">
@@ -27,7 +26,7 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                <header className="flex flex-wrap items-center justify-between gap-5 pb-2">
+                {!isAdmin && <header className="flex flex-wrap items-center justify-between gap-5 pb-2">
                     <div>
                         {isSeller && <p className="mb-2 text-[10px] font-medium tracking-[0.2em] text-muted-foreground">YOUR CREATIVE BUSINESS</p>}
                         <h1 className={isSeller ? "text-3xl font-semibold tracking-[-0.04em] sm:text-4xl" : "text-2xl font-bold"}>
@@ -48,11 +47,11 @@ export default function DashboardPage() {
                             </Button>
                         </div>
                     )}
-                </header>
+                </header>}
 
                 {isSeller && <SellerDashboardSection />}
 
-                {(!isSeller || isAdmin) && (
+                {!isSeller && !isAdmin && (
                     <div className="grid gap-4 sm:grid-cols-2">
                         {!isAdmin && !isSeller && (
                             <Card>
@@ -86,41 +85,11 @@ export default function DashboardPage() {
                             </Card>
                         )}
 
-                        {isAdmin && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Admin</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                    <p className="text-sm text-muted-foreground">
-                                        Review pending seller applications and asset uploads.
-                                    </p>
-                                    <Button asChild variant="outline" className="w-full">
-                                        <Link to="/admin/applications">Seller Applications</Link>
-                                    </Button>
-                                    <Button asChild variant="outline" className="w-full">
-                                        <Link to="/admin/assets/pending">Pending Asset Reviews</Link>
-                                    </Button>
-                                    <Button asChild variant="outline" className="w-full">
-                                        <Link to="/admin/sellers">Manage Sellers</Link>
-                                    </Button>
-                                    <Button asChild variant="outline" className="w-full">
-                                        <Link to="/admin/users">Manage Users</Link>
-                                    </Button>
-                                    <Button asChild variant="outline" className="w-full">
-                                        <Link to="/admin/reports">Reported Listings</Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        )}
+
                     </div>
                 )}
 
-                {isAdmin && <DashboardStatsSection />}
-
-                {isAdmin && <RoleChangeLogSection />}
-
-                {isAdmin && <AssetReviewLogSection />}
+                {isAdmin && <AdminDashboardSection />}
             </div>
         </div>
     );

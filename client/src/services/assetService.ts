@@ -2,6 +2,8 @@ import axios from "axios";
 import apiClient from "../lib/apiClient";
 import type {
     Asset,
+    AssetStatus,
+    AdminAssetsResponse,
     AssetFile,
     AssetWithFileCount,
     AssetWithFiles,
@@ -173,4 +175,13 @@ export async function submitSellerReply(assetId: number, reviewId: number, reply
 export async function reuseGlbPreview(assetId: number, fileId: number): Promise<AssetFile> {
     const res = await apiClient.post<AssetFile>(`/assets/${assetId}/files/${fileId}/glb-preview`);
     return res.data;
+}
+
+export async function getAdminAssets(params: { page: number; status?: AssetStatus; search?: string }): Promise<AdminAssetsResponse> {
+    const res = await apiClient.get<AdminAssetsResponse>("/admin/assets", { params });
+    return res.data;
+}
+
+export async function takeDownAdminAsset(assetId: number, reason: string): Promise<void> {
+    await apiClient.patch(`/admin/assets/${assetId}/take-down`, { reason });
 }

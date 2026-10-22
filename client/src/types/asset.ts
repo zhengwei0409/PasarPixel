@@ -214,3 +214,14 @@ export interface BrowseAssetsResponse {
     page: number;
     pageSize: number;
 }
+
+export type AdminAssetListItem = Pick<Asset, "id" | "title" | "status" | "category" | "listingType" | "createdAt" | "updatedAt"> & {
+    seller: { userId: number; name: string };
+};
+
+export interface AdminAssetsResponse {
+    items: AdminAssetListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+}

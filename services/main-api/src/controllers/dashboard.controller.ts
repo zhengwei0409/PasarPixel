@@ -15,6 +15,13 @@ const REVENUE_BASE_CURRENCY = "USD";
 //   - pendingItems:  things waiting on an admin = pending seller applications
 //                    + assets awaiting review + unresolved reports
 export async function getDashboardStats(req: Request, res: Response) {
+    const now = new Date();
+    const trendStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
+    const monthlyTrends = Array.from({ length: 6 }, (_, index) => ({
+        month: new Date(Date.UTC(trendStart.getUTCFullYear(), trendStart.getUTCMonth() + index, 1)).toISOString().slice(0, 7),
+        users: 0,
+        revenue: 0,
+    }));
     const [
         totalUsers,
         totalAssets,
@@ -22,25 +29,37 @@ export async function getDashboardStats(req: Request, res: Response) {
         pendingApplications,
         pendingAssets,
         pendingReports,
+        recentUsers,
     ] = await Promise.all([
         prisma.userProfile.count(),
         prisma.asset.count({ where: { status: "PUBLISHED" } }),
         prisma.order.findMany({
             where: { paymentStatus: "COMPLETED", paymentMethod: "STRIPE" },
-            select: { totalAmount: true, currency: true },
+            select: { totalAmount: true, currency: true, createdAt: true },
         }),
         prisma.sellerApplication.count({ where: { status: "PENDING" } }),
         prisma.asset.count({ where: { status: "PENDING_REVIEW" } }),
         prisma.report.count({ where: { status: "PENDING" } }),
+        prisma.userProfile.findMany({
+            where: { createdAt: { gte: trendStart } },
+            select: { createdAt: true },
+        }),
     ]);
 
     let totalRevenue = 0;
     for (const order of completedOrders) {
-        totalRevenue += await convert(
+        const revenue = await convert(
             Number(order.totalAmount),
             order.currency,
             REVENUE_BASE_CURRENCY,
         );
+        totalRevenue += revenue;
+        const point = monthlyTrends.find((item) => item.month === order.createdAt.toISOString().slice(0, 7));
+        if (point) point.revenue += revenue;
+    }
+    for (const user of recentUsers) {
+        const point = monthlyTrends.find((item) => item.month === user.createdAt.toISOString().slice(0, 7));
+        if (point) point.users += 1;
     }
 
     const solOrders = await prisma.order.findMany({ where: { paymentStatus: "COMPLETED", paymentMethod: "SOL" },
@@ -54,5 +73,9 @@ export async function getDashboardStats(req: Request, res: Response) {
         revenueCurrency: REVENUE_BASE_CURRENCY,
         solVolumeLamports: solVolumeLamports.toString(), solCommissionLamports: solCommissionLamports.toString(),
         pendingItems: pendingApplications + pendingAssets + pendingReports,
+        pendingApplications,
+        pendingAssets,
+        pendingReports,
+        monthlyTrends: monthlyTrends.map((point) => ({ ...point, revenue: Math.round(point.revenue * 100) / 100 })),
     });
 }
