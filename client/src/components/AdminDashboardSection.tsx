@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownToLine, ArrowRight, Banknote, ChartNoAxesColumn, ClipboardCheck, Clock3, Flag, Package, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Banknote, ChartNoAxesColumn, ClipboardCheck, Flag, Package, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from "recharts";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
@@ -14,7 +14,7 @@ import { convertFiat, formatLamportsSol, formatPrice } from "../lib/price";
 
 const chartConfig = {
     users: { label: "New users", color: "#7a8568" },
-    revenue: { label: "Revenue", color: "#657152" },
+    revenue: { label: "Sales", color: "#657152" },
 };
 
 function monthLabel(month: string) {
@@ -45,21 +45,18 @@ function RecentSystemLogs() {
     return (
         <Card className="gap-0 overflow-hidden rounded-xl py-0 ring-border">
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-5 sm:px-6">
-                <div>
-                    <h2 className="text-base font-semibold tracking-tight">Recent system logs</h2>
-                    <p className="mt-1 text-xs text-muted-foreground">Seller access changes and marketplace asset reviews.</p>
-                </div>
+                <h2 className="text-base font-semibold tracking-tight">Recent admin activity</h2>
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => { void roles.refetch(); void assets.refetch(); }} aria-label="Refresh system logs">
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => { void roles.refetch(); void assets.refetch(); }} aria-label="Refresh admin activity">
                         <RefreshCw className={`size-3.5 ${busy ? "animate-spin" : ""}`} />
                     </Button>
-                    {logs.length > 5 && <Button variant="ghost" size="sm" onClick={() => setShowAll(!showAll)}>{showAll ? "Show recent" : "View all logs"}<ArrowRight className="size-3.5" /></Button>}
+                    {logs.length > 5 && <Button variant="ghost" size="sm" onClick={() => setShowAll(!showAll)}>{showAll ? "Show recent" : "View all activity"}<ArrowRight className="size-3.5" /></Button>}
                 </div>
             </CardHeader>
             <CardContent className="px-0">
                 {(roles.isError || assets.isError) && <p role="alert" className="px-6 py-4 text-sm text-red-700">Some activity could not be loaded. Refresh to try again.</p>}
-                {roles.isLoading || assets.isLoading ? <p role="status" className="p-6 text-sm text-muted-foreground">Loading system activity…</p> : logs.length === 0 ? (
-                    <div className="flex flex-col items-center px-6 py-12 text-center"><ShieldCheck className="mb-3 size-7 text-[#7a8568]" /><p className="text-sm font-medium">No system activity yet</p><p className="mt-2 text-xs text-muted-foreground">Admin actions will appear here as you review your marketplace.</p></div>
+                {roles.isLoading || assets.isLoading ? <p role="status" className="p-6 text-sm text-muted-foreground">Loading admin activity…</p> : logs.length === 0 ? (
+                    <div className="flex flex-col items-center px-6 py-12 text-center"><ShieldCheck className="mb-3 size-7 text-[#7a8568]" /><p className="text-sm font-medium">No admin activity yet</p></div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
@@ -86,15 +83,20 @@ export default function AdminDashboardSection() {
 
     function exportReport() {
         if (!data) return;
+        const exportMoney = (value: number) => convertFiat(value, data.revenueCurrency ?? "USD", displayCurrency).toFixed(2);
         const rows = [
-            ["Metric", "Value", "Currency"], ["Total registered users", data.totalUsers, ""], ["Published assets", data.totalAssets, ""],
-            ["Platform revenue (completed fiat order volume)", data.totalRevenue, data.revenueCurrency],
-            ["Pending seller applications", data.pendingApplications, ""], ["Pending asset reviews", data.pendingAssets, ""], ["Pending reports", data.pendingReports, ""],
-            ["SOL volume (lamports, Devnet)", data.solVolumeLamports ?? "0", "SOL lamports"], ["SOL commission (lamports, Devnet)", data.solCommissionLamports ?? "0", "SOL lamports"],
-            [], ["Month (UTC)", "New users", `Revenue (${data.revenueCurrency})`],
-            ...(data.monthlyTrends ?? []).slice(-Number(months)).map((point) => [point.month, point.users, point.revenue]),
+            ["Metric", "Value", "Currency"], ["Total users", data.totalUsers, ""], ["Published assets", data.totalAssets, ""],
+            [`Total sales (${displayCurrency})`, exportMoney(data.totalRevenue), displayCurrency],
+            ["Seller applications to review", data.pendingApplications, ""], ["Assets awaiting review", data.pendingAssets, ""], ["Reports awaiting review", data.pendingReports, ""],
+            ["Total SOL sales (lamports)", data.solVolumeLamports ?? "0", "SOL lamports"], ["Platform fees from SOL sales (lamports)", data.solCommissionLamports ?? "0", "SOL lamports"],
+            [], ["Month (UTC)", "New users", `Sales (${displayCurrency})`],
+            ...(data.monthlyTrends ?? []).slice(-Number(months)).map((point) => [point.month, point.users, exportMoney(point.revenue)]),
         ];
-        const blob = new Blob([rows.map((row) => row.join(",")).join("\r\n")], { type: "text/csv;charset=utf-8;" });
+        const csvCell = (value: string | number | undefined) => {
+            const text = String(value ?? "");
+            return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        };
+        const blob = new Blob([rows.map((row) => row.map(csvCell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
         anchor.href = url;
@@ -106,7 +108,7 @@ export default function AdminDashboardSection() {
     return (
         <section aria-label="Admin overview" className="space-y-6">
             <header className="flex flex-wrap items-center justify-between gap-5 pb-2">
-                <div><p className="mb-2 text-[10px] font-medium tracking-[0.2em] text-muted-foreground">YOUR MARKETPLACE AT A GLANCE</p><h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Executive overview</h1><p className="mt-2 text-xs leading-5 text-muted-foreground">Monitor platform performance and keep your creative marketplace moving.</p></div>
+                <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Dashboard</h1>
                 <Button className="h-11 gap-2 px-5" onClick={exportReport} disabled={!data}><ArrowDownToLine className="size-4" />Export report <span className="text-primary-foreground/65">(CSV)</span></Button>
             </header>
 
@@ -114,12 +116,13 @@ export default function AdminDashboardSection() {
                 <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Manage marketplace</h2>
                 <div className="grid gap-4 sm:grid-cols-2">
                     {[
-                        { to: "/admin/sellers", title: "Sellers", description: "Manage seller access and marketplace stores.", icon: ShieldCheck },
-                        { to: "/admin/reports", title: "Reported listings", description: data?.pendingReports !== undefined ? `${data.pendingReports.toLocaleString()} pending reports to review.` : "Review reports and moderate listings.", icon: Flag },
-                    ].map(({ to, title, description, icon: Icon }) => (
+                        { to: "/admin/sellers", title: "Manage sellers", count: undefined, icon: ShieldCheck },
+                        { to: "/admin/reports", title: "Reports awaiting review", count: data?.pendingReports, icon: Flag },
+                    ].map(({ to, title, count, icon: Icon }) => (
                         <Link key={to} to={to} className="group flex items-center gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
                             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-[#657152]"><Icon className="size-5" aria-hidden="true" /></span>
-                            <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold">{title}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p></div>
+                            <h3 className="min-w-0 flex-1 text-sm font-semibold">{title}</h3>
+                            {count !== undefined && <span className="rounded-lg bg-accent px-2.5 py-1 text-sm font-semibold tabular-nums" aria-label={`${count} reports awaiting review`}>{count.toLocaleString()}</span>}
                             <ArrowRight className="size-4 shrink-0 text-[#657152] transition-transform group-hover:translate-x-1" aria-hidden="true" />
                         </Link>
                     ))}
@@ -129,18 +132,18 @@ export default function AdminDashboardSection() {
             {isLoading ? <p role="status" className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Loading marketplace overview…</p> : isError || !data ? <div role="alert" className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-6 text-sm"><p>Unable to load marketplace statistics.</p><Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>Try again</Button></div> : <>
                 <div className="grid gap-4 sm:grid-cols-3">
                     {[
-                        { title: "Total registered users", value: data.totalUsers.toLocaleString(), description: "Creators across the marketplace", icon: Users, to: "/admin/users", action: "Manage users" },
-                        { title: "Total published assets", value: data.totalAssets.toLocaleString(), description: "Live and ready to discover", icon: Package, to: "/admin/assets", action: "View all assets" },
-                        { title: "Platform revenue", value: money(data.totalRevenue), description: "Completed fiat order volume · all time", icon: Banknote, to: null, action: null },
-                    ].map(({ title, value, description, icon: Icon, to, action }) => <Card key={title} className="gap-4 rounded-xl py-5 ring-border"><CardHeader className="px-5"><span className="flex size-10 items-center justify-center rounded-lg bg-accent text-[#657152]"><Icon className="size-5" aria-hidden="true" /></span></CardHeader><CardContent className="px-5"><h2 className="text-xs text-muted-foreground">{title}</h2><p className="mt-2 break-words text-3xl font-semibold tracking-tight tabular-nums">{value}</p><p className="mt-2 text-[11px] text-muted-foreground">{description}</p>{to && <Link to={to} className="mt-4 inline-flex items-center gap-2 rounded text-xs font-medium text-[#555e49] hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{action}<ArrowRight className="size-3.5" aria-hidden="true" /></Link>}</CardContent></Card>)}
+                        { title: "Total users", value: data.totalUsers.toLocaleString(), icon: Users, to: "/admin/users", action: "Manage users" },
+                        { title: "Published assets", value: data.totalAssets.toLocaleString(), icon: Package, to: "/admin/assets", action: "View all assets" },
+                        { title: `Total sales (${displayCurrency})`, value: money(data.totalRevenue), icon: Banknote, to: null, action: null },
+                    ].map(({ title, value, icon: Icon, to, action }) => <Card key={title} className="gap-4 rounded-xl py-5 ring-border"><CardHeader className="px-5"><span className="flex size-10 items-center justify-center rounded-lg bg-accent text-[#657152]"><Icon className="size-5" aria-hidden="true" /></span></CardHeader><CardContent className="px-5"><h2 className="text-xs text-muted-foreground">{title}</h2><p className="mt-2 break-words text-3xl font-semibold tracking-tight tabular-nums">{value}</p>{to && <Link to={to} className="mt-4 inline-flex items-center gap-2 rounded text-xs font-medium text-[#555e49] hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{action}<ArrowRight className="size-3.5" aria-hidden="true" /></Link>}</CardContent></Card>)}
                 </div>
 
                 {(data.pendingApplications === undefined || data.pendingAssets === undefined || !data.monthlyTrends) && <p role="status" className="rounded-lg border border-border bg-secondary/50 px-4 py-3 text-xs text-muted-foreground">Detailed queue counts and analytics are temporarily unavailable. You can still open the review queues below.</p>}
                 <div className="grid gap-4 md:grid-cols-2">
                     {[
-                        { title: "Pending seller applications", description: "Review credentials for new store owners.", count: data.pendingApplications, to: "/admin/applications", action: "Review applications", icon: Users },
-                        { title: "Pending asset reviews", description: "Keep quality at the heart of your marketplace.", count: data.pendingAssets, to: "/admin/assets/pending", action: "View review queue", icon: ClipboardCheck },
-                    ].map(({ title, description, count, to, action, icon: Icon }) => <Link key={title} to={to} className="group flex items-center justify-between gap-4 rounded-xl border border-border bg-[#eceee7] p-5 transition-colors hover:bg-[#e3e8d8] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:p-6"><div><span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-white/70 text-[#657152]"><Icon className="size-4" /></span><h2 className="text-sm font-semibold">{title}</h2><p className="mt-1.5 text-xs leading-5 text-muted-foreground">{description}</p></div><div className="shrink-0 text-right"><p className="text-4xl font-semibold tracking-tight text-[#555e49] tabular-nums">{count?.toLocaleString() ?? "—"}</p><span className="mt-3 flex items-center justify-end gap-1 text-[10px] font-medium text-[#555e49] sm:text-xs">{action}<ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" /></span></div></Link>)}
+                        { title: "Seller applications to review", count: data.pendingApplications, to: "/admin/applications", action: "Review applications", icon: Users },
+                        { title: "Assets awaiting review", count: data.pendingAssets, to: "/admin/assets/pending", action: "Review assets", icon: ClipboardCheck },
+                    ].map(({ title, count, to, action, icon: Icon }) => <Link key={title} to={to} className="group flex items-center justify-between gap-4 rounded-xl border border-border bg-[#eceee7] p-5 transition-colors hover:bg-[#e3e8d8] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:p-6"><div><span className="mb-4 flex size-9 items-center justify-center rounded-lg bg-white/70 text-[#657152]"><Icon className="size-4" /></span><h2 className="text-sm font-semibold">{title}</h2></div><div className="shrink-0 text-right"><p className="text-4xl font-semibold tracking-tight text-[#555e49] tabular-nums">{count?.toLocaleString() ?? "—"}</p><span className="mt-3 flex items-center justify-end gap-1 text-[10px] font-medium text-[#555e49] sm:text-xs">{action}<ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" /></span></div></Link>)}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2"><div className="flex items-center gap-2"><ChartNoAxesColumn className="size-4 text-[#7a8568]" /><h2 className="text-sm font-semibold">Marketplace analytics</h2></div><div className="flex items-center gap-3">
@@ -156,13 +159,24 @@ export default function AdminDashboardSection() {
                     </Select>
                 </div></div>
                 <div className="grid gap-6 lg:grid-cols-2">
-                    {(["users", "revenue"] as const).map((metric) => <Card key={metric} className="min-w-0 gap-6 rounded-xl py-6 ring-border"><CardHeader className="px-6"><h3 className="text-base font-semibold tracking-tight">{metric === "users" ? "User growth trend" : "Revenue performance"}</h3><p className="text-xs leading-5 text-muted-foreground">{metric === "users" ? "New registrations each month." : `Monthly completed fiat order volume in ${displayCurrency}.`}</p></CardHeader><CardContent className="px-4 sm:px-6">
-                        {!chartData.some((point) => point[metric] > 0) ? <div className="flex h-[260px] flex-col items-center justify-center rounded-lg bg-background px-6 text-center"><ChartNoAxesColumn className="mb-3 size-7 text-[#7a8568]" /><p className="text-sm font-medium">{!data.monthlyTrends ? "Analytics temporarily unavailable" : metric === "users" ? "No registrations in this period" : "No revenue in this period"}</p><p className="mt-2 text-xs text-muted-foreground">{!data.monthlyTrends ? "Please try again later." : "Activity will appear here as your marketplace grows."}</p></div> : <ChartContainer config={chartConfig} className="h-[260px] w-full">
+                    {(["users", "revenue"] as const).map((metric) => <Card key={metric} className="min-w-0 gap-6 rounded-xl py-6 ring-border"><CardHeader className="px-6"><h3 className="text-base font-semibold tracking-tight">{metric === "users" ? "New users per month" : `Monthly sales (${displayCurrency})`}</h3></CardHeader><CardContent className="px-4 sm:px-6">
+                        {!chartData.some((point) => point[metric] > 0) ? <div className="flex h-[260px] flex-col items-center justify-center rounded-lg bg-background px-6 text-center"><ChartNoAxesColumn className="mb-3 size-7 text-[#7a8568]" /><p className="text-sm font-medium">{!data.monthlyTrends ? "Analytics temporarily unavailable" : metric === "users" ? "No registrations in this period" : "No sales in this period"}</p></div> : <ChartContainer config={chartConfig} className="h-[260px] w-full">
                             {metric === "users" ? <BarChart accessibilityLayer data={chartData} margin={{ top: 15, left: -25, right: 8, bottom: 8 }}><CartesianGrid vertical={false} strokeDasharray="3 5" /><XAxis dataKey="label" axisLine={false} tickLine={false} tickMargin={12} tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="users" radius={[4, 4, 0, 0]} maxBarSize={64}>{chartData.map((point, index) => <Cell key={point.month} fill={index === chartData.length - 1 ? "#657152" : "#d8dfca"} />)}</Bar></BarChart> : <LineChart accessibilityLayer data={chartData} margin={{ top: 15, left: 8, right: 16, bottom: 8 }}><CartesianGrid vertical={false} strokeDasharray="3 5" /><XAxis dataKey="label" axisLine={false} tickLine={false} tickMargin={12} tick={{ fontSize: 10 }} /><ChartTooltip content={<ChartTooltipContent formatter={(value) => formatPrice(Number(value), displayCurrency, displayCurrency, { zeroAsFree: false })} />} /><Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2.5} dot={{ r: 3, fill: "#657152", strokeWidth: 0 }} activeDot={{ r: 5 }} /></LineChart>}
                         </ChartContainer>}
                     </CardContent></Card>)}
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-secondary/50 px-5 py-4 text-xs"><div className="flex items-start gap-3"><Banknote className="mt-0.5 size-4 shrink-0 text-[#7a8568]" /><div><p className="font-medium">SOL volume · Devnet: {formatLamportsSol(data.solVolumeLamports ?? "0")}</p><p className="mt-1 text-muted-foreground">Platform commission: {formatLamportsSol(data.solCommissionLamports ?? "0")} · Tracked separately from fiat revenue.</p></div></div><span className="flex items-center gap-1.5 text-muted-foreground"><Clock3 className="size-3.5" />{data.pendingItems.toLocaleString()} pending actions</span></div>
+                <section aria-label="SOL sales summary" className="overflow-hidden rounded-xl bg-secondary/50 ring-1 ring-border">
+                    <dl className="grid sm:grid-cols-2">
+                        <div className="min-w-0 px-5 py-6 sm:px-6">
+                            <dt className="text-sm font-medium">Total SOL sales</dt>
+                            <dd className="mt-3 break-words text-3xl font-semibold tracking-tight tabular-nums">{formatLamportsSol(data.solVolumeLamports ?? "0")}</dd>
+                        </div>
+                        <div className="min-w-0 border-t border-border px-5 py-6 sm:border-t-0 sm:border-l sm:px-6">
+                            <dt className="text-sm font-medium">Platform fees from SOL sales</dt>
+                            <dd className="mt-3 break-words text-3xl font-semibold tracking-tight text-[#555e49] tabular-nums">{formatLamportsSol(data.solCommissionLamports ?? "0")}</dd>
+                        </div>
+                    </dl>
+                </section>
             </>}
             <RecentSystemLogs />
 
