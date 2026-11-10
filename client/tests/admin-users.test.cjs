@@ -12,7 +12,7 @@ const code = ts.transpileModule(readFileSync(join(__dirname, '../src/pages/Admin
 const account = (id) => ({ userId: id, name: `User ${id}`, email: `user${id}@example.com`, avatarUrl: null, createdAt: new Date(Date.UTC(2026, 10, id)).toISOString() });
 function harness({ data = [account(1), account(2)], loading = false, loadError = false, missingData = false, authUser = { sub: '1' } } = {}) {
     const state = [];
-    let cursor = 0, buttons, inputs, selects;
+    let cursor = 0, buttons, inputs, selects, reason;
     const calls = [], refreshes = [];
     const mutation = { isPending: false, error: null, reset() { this.error = null; }, mutate(value, options) { calls.push({ value, options }); } };
     const modules = {
@@ -25,18 +25,21 @@ function harness({ data = [account(1), account(2)], loading = false, loadError =
         '../components/ui/select': { Select: (props) => { selects.push(props); return React.createElement('div', null, props.children); }, SelectContent: 'div', SelectItem: 'span', SelectTrigger: 'button', SelectValue: 'span' },
         '../components/ui/avatar': { Avatar: 'span', AvatarFallback: 'span', AvatarImage: 'img' },
         '../components/ui/dialog': { Dialog: ({ open, children }) => open ? React.createElement('div', null, children) : null, DialogContent: ({ children }) => React.createElement('div', null, children), DialogDescription: 'p', DialogFooter: 'div', DialogHeader: 'header', DialogTitle: 'h2' },
+        '../components/ReasonPicker': { __esModule: true, default: (props) => { reason = props; return null; } },
+        '../lib/adminReasons': { USER_DELETE_REASONS: ['Spam or scam activity', 'User requested account deletion'] },
         '../lib/errors': { getErrorMessage: (_, fallback) => fallback },
         '../hooks/useUsers': { useUsers: () => ({ data: missingData ? undefined : data, isLoading: loading, error: loadError ? new Error('failed') : null, refetch: () => refreshes.push('users') }), useDeleteUser: () => mutation },
         '../hooks/useAuth': { useAuth: () => ({ user: authUser }) },
     };
     const exports = {};
     runInNewContext(code, { exports, require: (name) => { assert.ok(name in modules, name); return modules[name]; } });
-    const render = () => { cursor = 0; buttons = []; inputs = []; selects = []; return renderToStaticMarkup(React.createElement(exports.default)); };
+    const render = () => { cursor = 0; buttons = []; inputs = []; selects = []; reason = null; return renderToStaticMarkup(React.createElement(exports.default)); };
     return { render, calls, refreshes, mutation,
         button: (label) => { const button = buttons.findLast((item) => item['aria-label'] === label || React.Children.toArray(item.children).filter((child) => typeof child === 'string').join('') === label); assert.ok(button, label); return button; },
         open: (label) => buttons.find((item) => item['aria-label'] === label).onClick({ currentTarget: { isConnected: true, focus() {} } }),
         search: (value) => inputs[0].onChange({ target: { value } }),
         sort: (value) => selects[0].onValueChange(value),
+        reason: (value) => reason.onChange(value),
         setAuth: (value) => { authUser = value; },
     };
 }
@@ -98,13 +101,16 @@ test('deleting requires confirmation, sends the user ID and allows Cancel', () =
     assert.doesNotMatch(view.render(), /Delete user\?/);
     assert.equal(view.calls.length, 0);
     view.open('Delete user 2: User 2'); view.render();
+    view.reason('  Spam or scam activity  '); view.render();
     view.button('Delete user').onClick();
-    assert.equal(view.calls[0].value, 2);
+    assert.equal(view.calls[0].value.userId, 2);
+    assert.equal(view.calls[0].value.reason, 'Spam or scam activity');
 });
 
 test('failed deletion retains the selected account and closes only on success', () => {
     const view = harness();
     view.render(); view.open('Delete user 2: User 2'); view.render();
+    view.reason('  Spam or scam activity  '); view.render();
     view.button('Delete user').onClick();
     view.mutation.error = new Error('failed');
     const failed = view.render();
@@ -119,7 +125,8 @@ test('failed deletion retains the selected account and closes only on success', 
 
 test('pending deletion blocks repeated requests and live auth changes protect the current user', () => {
     const view = harness();
-    view.render(); view.open('Delete user 2: User 2');
+    view.render(); view.open('Delete user 2: User 2'); view.render();
+    view.reason('Spam or scam activity');
     view.mutation.isPending = true; view.render();
     assert.equal(view.button('Cancel').disabled, true);
     assert.equal(view.button('Deleting…').disabled, true);
@@ -145,4 +152,30 @@ test('loading, failed loading and an empty user list show separate states', () =
     assert.match(fallback, /Unnamed user/);
     assert.match(fallback, /No email/);
     assert.doesNotMatch(fallback, /undefined/);
+});
+
+test('delete requires a non-blank reason and reopening clears the previous choice', () => {
+    const view = harness();
+    view.render(); view.open('Delete user 2: User 2'); view.render();
+    assert.equal(view.button('Delete user').disabled, true);
+    view.button('Delete user').onClick();
+    assert.equal(view.calls.length, 0);
+    view.reason('   '); view.render();
+    assert.equal(view.button('Delete user').disabled, true);
+    view.reason('User requested account deletion'); view.render();
+    assert.equal(view.button('Delete user').disabled, false);
+    view.button('Cancel').onClick(); view.render();
+    view.open('Delete user 2: User 2'); view.render();
+    assert.equal(view.button('Delete user').disabled, true);
+});
+
+test('a custom reason survives a failed deletion and is submitted when retrying', () => {
+    const view = harness();
+    view.render(); view.open('Delete user 2: User 2'); view.render();
+    view.reason('  Duplicate account confirmed by the owner  '); view.render();
+    view.button('Delete user').onClick();
+    view.mutation.error = new Error('failed'); view.render();
+    assert.equal(view.button('Delete user').disabled, false);
+    view.button('Delete user').onClick();
+    assert.equal(view.calls[1].value.reason, 'Duplicate account confirmed by the owner');
 });

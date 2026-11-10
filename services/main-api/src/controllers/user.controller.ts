@@ -25,11 +25,22 @@ export async function listUsers(req: Request, res: Response) {
 // 3. Publish user.deleted so auth-service drops the account and
 //    notification-service clears their notifications.
 export async function deleteUser(req: Request, res: Response) {
-    const targetUserId = parseInt(req.params.userId as string);
+    const targetUserId = Number(req.params.userId);
     const requester = req.user!;
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+
+    if (!Number.isSafeInteger(targetUserId) || targetUserId <= 0) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+    }
 
     if (requester.userId === targetUserId) {
         res.status(400).json({ error: "You cannot delete your own account" });
+        return;
+    }
+
+    if (!reason) {
+        res.status(400).json({ error: "A reason is required to delete a user" });
         return;
     }
 
@@ -87,6 +98,17 @@ export async function deleteUser(req: Request, res: Response) {
         await tx.asset.deleteMany({ where: { sellerId: targetUserId } });
         await tx.store.deleteMany({ where: { sellerId: targetUserId } });
         await tx.userProfile.delete({ where: { userId: targetUserId } });
+
+        // Store the reason on the admin's activity, so deleting the target
+        // account does not remove the deletion record.
+        await tx.activityLog.create({
+            data: {
+                userId: requester.userId,
+                action: `DELETE_USER: ${reason}`,
+                targetType: "USER",
+                targetId: targetUserId,
+            },
+        });
     });
 
     // 3. Tell the other services to clean up their own data.

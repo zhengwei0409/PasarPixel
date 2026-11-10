@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useUsers, useDeleteUser } from "../hooks/useUsers";
 import { useAuth } from "../hooks/useAuth";
 import { getErrorMessage } from "../lib/errors";
+import ReasonPicker from "../components/ReasonPicker";
+import { USER_DELETE_REASONS } from "../lib/adminReasons";
 import type { AdminUser } from "../types/user";
 
 const PAGE_SIZE = 10;
@@ -27,6 +29,7 @@ export default function AdminUsersPage() {
     const [sort, setSort] = useState("newest");
     const [page, setPage] = useState(1);
     const [selected, setSelected] = useState<AdminUser | null>(null);
+    const [deleteReason, setDeleteReason] = useState("");
     const [notice, setNotice] = useState("");
     const query = search.trim().toLowerCase();
     const filtered = (users.data ?? []).filter((item) => `${item.name} ${item.email ?? ""} ${item.userId}`.toLowerCase().includes(query))
@@ -42,16 +45,18 @@ export default function AdminUsersPage() {
         if (currentUserId === null || target.userId === currentUserId || remove.isPending) return;
         actionButtonRef.current = button;
         remove.reset();
+        setDeleteReason("");
         setNotice("");
         setSelected(target);
     }
 
     function confirmDelete() {
-        if (!selected || !canDelete || remove.isPending) return;
-        remove.mutate(selected.userId, {
+        if (!selected || !canDelete || remove.isPending || !deleteReason.trim()) return;
+        remove.mutate({ userId: selected.userId, reason: deleteReason.trim() }, {
             onSuccess: () => {
                 setNotice(`${userName(selected)}: account deleted.`);
                 setSelected(null);
+                setDeleteReason("");
             },
         });
     }
@@ -98,8 +103,9 @@ export default function AdminUsersPage() {
                 <DialogContent className="admin-dashboard-theme max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-md" showCloseButton={!remove.isPending} onCloseAutoFocus={(event) => { event.preventDefault(); if (actionButtonRef.current?.isConnected) actionButtonRef.current.focus(); else searchRef.current?.focus(); }} onEscapeKeyDown={(event) => { if (remove.isPending) event.preventDefault(); }} onInteractOutside={(event) => { if (remove.isPending) event.preventDefault(); }}>
                     <DialogHeader className="gap-3"><DialogTitle className="text-xl font-semibold tracking-tight">Delete user?</DialogTitle><DialogDescription className="leading-6">This permanently deletes the account and its listings, orders, and files. This cannot be undone.</DialogDescription></DialogHeader>
                     {selected && <div className="min-w-0 rounded-lg bg-secondary/60 p-4"><p className="break-words text-sm font-semibold">{userName(selected)}</p><p className="mt-1 break-words text-sm text-muted-foreground">{selected.email || "No email"}</p><p className="mt-3 text-xs text-muted-foreground">User #{selected.userId}</p></div>}
+                    {selected && <fieldset disabled={remove.isPending} className="min-w-0 space-y-2 [&_[data-slot=select-trigger]]:h-auto [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=select-trigger]]:whitespace-normal [&_[data-slot=select-trigger]]:text-left [&_[data-slot=select-value]]:line-clamp-none"><legend className="mb-2 text-sm font-medium">Reason</legend><ReasonPicker key={selected.userId} presets={USER_DELETE_REASONS} onChange={setDeleteReason} placeholder="Choose a reason" contentClassName="admin-dashboard-theme max-w-[calc(100vw-4rem)] [&_[data-slot=select-item]]:min-h-10" /></fieldset>}
                     {remove.error && <p role="alert" className="text-sm text-red-700">{getErrorMessage(remove.error, "Unable to delete this user. Please try again.")}</p>}
-                    <DialogFooter className="m-0 gap-3 rounded-none border-0 bg-transparent p-0"><Button variant="outline" className="h-11 px-4" disabled={remove.isPending} onClick={() => setSelected(null)}>Cancel</Button><Button variant="destructive" className="h-11 px-4" disabled={remove.isPending || !canDelete} onClick={confirmDelete}>{remove.isPending && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}{remove.isPending ? "Deleting…" : "Delete user"}</Button></DialogFooter>
+                    <DialogFooter className="m-0 gap-3 rounded-none border-0 bg-transparent p-0"><Button variant="outline" className="h-11 px-4" disabled={remove.isPending} onClick={() => setSelected(null)}>Cancel</Button><Button variant="destructive" className="h-11 px-4" disabled={remove.isPending || !canDelete || !deleteReason.trim()} onClick={confirmDelete}>{remove.isPending && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}{remove.isPending ? "Deleting…" : "Delete user"}</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
         </main>

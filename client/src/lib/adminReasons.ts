@@ -26,3 +26,11 @@ export const SELLER_REVOKE_REASONS = [
     "Repeated violations after prior warnings",
     "Impersonation or misrepresentation of identity",
 ];
+
+export const USER_DELETE_REASONS = [
+    "Repeated marketplace rule violations",
+    "Fraud or payment abuse",
+    "Spam or scam activity",
+    "Impersonation",
+    "User requested account deletion",
+];

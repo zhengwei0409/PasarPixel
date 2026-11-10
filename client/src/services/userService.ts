@@ -6,6 +6,6 @@ export async function listUsers(): Promise<AdminUser[]> {
     return res.data;
 }
 
-export async function deleteUser(userId: number): Promise<void> {
-    await apiClient.delete(`/users/${userId}`);
+export async function deleteUser(userId: number, reason: string): Promise<void> {
+    await apiClient.delete(`/users/${userId}`, { data: { reason } });
 }
