@@ -7,6 +7,15 @@ export interface AuthTokens {
 export interface TwoFactorChallenge {
     twoFactorRequired: true;
     tempToken: string;
+    attemptsRemaining: number;
+    lockedUntil: string | null;
+}
+
+export interface TwoFactorVerificationError {
+    error: string;
+    attemptsRemaining?: number;
+    lockedUntil?: string;
+    code?: "TWO_FACTOR_CHALLENGE_EXPIRED";
 }
 
 // login can resolve to either real tokens or a 2FA challenge.

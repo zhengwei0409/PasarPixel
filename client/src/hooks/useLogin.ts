@@ -1,15 +1,16 @@
 import { useMutation } from "@tanstack/react-query";
 import { login } from "../services/authService";
 import { finishLogin } from "../lib/finishLogin";
+import type { TwoFactorChallenge } from "../types/auth";
 
 // onTwoFactorRequired fires when the account has 2FA on; the page then shows
 // the code-entry step using the provided temp token.
-export function useLogin(onTwoFactorRequired: (tempToken: string) => void) {
+export function useLogin(onTwoFactorRequired: (challenge: TwoFactorChallenge) => void) {
     return useMutation({
         mutationFn: login,
         onSuccess: (result) => {
             if ("twoFactorRequired" in result) {
-                onTwoFactorRequired(result.tempToken);
+                onTwoFactorRequired(result);
                 return;
             }
             finishLogin(result);

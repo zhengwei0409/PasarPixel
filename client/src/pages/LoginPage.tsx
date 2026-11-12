@@ -10,6 +10,7 @@ import { Label } from "../components/ui/label";
 import { useLogin } from "../hooks/useLogin";
 import { getErrorMessage } from "../lib/errors";
 import TwoFactorChallenge from "../components/auth/TwoFactorChallenge";
+import type { TwoFactorChallenge as LoginChallenge } from "../types/auth";
 
 const schema = z.object({
     email: z.string().email("Invalid email"),
@@ -20,8 +21,8 @@ const schema = z.object({
 type LoginForm = z.infer<typeof schema>;
 
 export default function LoginPage() {
-    const [tempToken, setTempToken] = useState<string | null>(null);
-    const { mutate: login, isPending, error } = useLogin(setTempToken);
+    const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
+    const { mutate: login, isPending, error } = useLogin(setChallenge);
     const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
         resolver: zodResolver(schema),
         defaultValues: { rememberMe: false },
@@ -66,8 +67,8 @@ export default function LoginPage() {
                     </Link>
 
                     <div className="rounded-2xl border border-[#e7e9e1] bg-white px-6 py-8 shadow-[0_8px_40px_-20px_rgba(37,40,35,0.15)] sm:px-10 sm:py-10">
-                        {tempToken ? (
-                            <TwoFactorChallenge tempToken={tempToken} />
+                        {challenge ? (
+                            <TwoFactorChallenge challenge={challenge} onRestart={() => setChallenge(null)} />
                         ) : (
                             <>
                                 <header className="mb-8 space-y-2">

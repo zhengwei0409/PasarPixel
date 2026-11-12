@@ -46,12 +46,14 @@ model UserRole {
 }
 
 model TwoFactorAuth {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique
-  secret    String
-  isEnabled Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  secret         String
+  isEnabled      Boolean   @default(false)
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user          User           @relation(fields: [userId], references: [id])
   recoveryCodes RecoveryCode[]
