@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Currency } from "@prisma/client";
+import { normalizeSocialLink } from "../../../../shared/utils/socialLinks";
 import { prisma } from "../lib/prisma";
 import { getPresignedUploadUrl, deleteObject, extractKeyFromUrl } from "../lib/s3";
 
@@ -129,7 +130,7 @@ export async function deleteAvatar(req: Request, res: Response) {
 
 export async function updateMyProfile(req: Request, res: Response) {
     const userId = req.user!.userId;
-    const { name, bio, phone, country, billingAddress, preferredCurrency } = req.body;
+    const { name, bio, phone, country, billingAddress, preferredCurrency, socialLinks } = req.body;
 
     if (
         preferredCurrency !== undefined &&
@@ -137,6 +138,25 @@ export async function updateMyProfile(req: Request, res: Response) {
     ) {
         res.status(400).json({ error: "preferredCurrency must be USD or MYR" });
         return;
+    }
+
+    let socialLinkUrls: string[] | undefined;
+    if (socialLinks !== undefined) {
+        if (!Array.isArray(socialLinks)) {
+            res.status(400).json({ error: "socialLinks must be an array of URLs" });
+            return;
+        }
+
+        const urls = new Set<string>();
+        for (const link of socialLinks) {
+            const url = normalizeSocialLink(link);
+            if (!url) {
+                res.status(400).json({ error: "Each social link must be a valid HTTP or HTTPS URL" });
+                return;
+            }
+            urls.add(url);
+        }
+        socialLinkUrls = [...urls];
     }
 
     const updated = await prisma.userProfile.update({
@@ -148,6 +168,7 @@ export async function updateMyProfile(req: Request, res: Response) {
             ...(country !== undefined && { country }),
             ...(billingAddress !== undefined && { billingAddress }),
             ...(preferredCurrency !== undefined && { preferredCurrency }),
+            ...(socialLinkUrls !== undefined && { socialLinks: socialLinkUrls }),
         },
     });
 

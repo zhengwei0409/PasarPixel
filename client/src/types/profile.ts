@@ -6,6 +6,7 @@ export interface UserProfile {
     phone: string | null;
     country: string | null;
     billingAddress: string | null;
+    socialLinks: string[] | Record<string, string> | null;
     avatarUrl: string | null;
     preferredCurrency: Currency;
 }
@@ -28,5 +29,6 @@ export interface UpdateProfilePayload {
     phone?: string;
     country?: string | null;
     billingAddress?: string | null;
+    socialLinks?: string[];
     preferredCurrency?: Currency;
 }

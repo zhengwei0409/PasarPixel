@@ -1,17 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useRef, useState } from "react";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { Link } from "react-router-dom";
-import { Check, Loader2, Pencil } from "lucide-react";
+import { ArrowUpRight, Check, Loader2, Pencil, Plus, X } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { SocialLinkIcon } from "../components/profile/SocialLinkIcon";
+import { getSocialPlatform } from "../components/profile/socialPlatforms";
 import { useProfile } from "../hooks/useProfile";
 import { useUpdateProfile } from "../hooks/useUpdateProfile";
 import { useUploadAvatar, useDeleteAvatar } from "../hooks/useAvatar";
 import { useAuth } from "../hooks/useAuth";
 import { useTwoFactorStatus } from "../hooks/useTwoFactor";
+import { SocialLinksSaveError } from "../services/profileService";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import FloatingShapes from "@/components/home/FloatingShapes";
+import { getSocialLinkUrls, normalizeSocialLink } from "../../../shared/utils/socialLinks";
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 const fieldLabelClass = "text-[10px] font-medium uppercase tracking-[0.18em] text-[#73776e]";
@@ -23,6 +27,7 @@ interface ProfileForm {
     phone: string;
     country: string;
     billingAddress: string;
+    socialLinks: { url: string }[];
 }
 
 export default function ProfilePage() {
@@ -33,19 +38,28 @@ export default function ProfilePage() {
     const { user } = useAuth();
     const twoFactor = useTwoFactorStatus();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const addLinkRef = useRef<HTMLButtonElement>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [avatarError, setAvatarError] = useState("");
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<ProfileForm>();
+    const { control, register, handleSubmit, reset, formState: { dirtyFields, errors } } = useForm<ProfileForm>({
+        mode: "onBlur",
+    });
+    const { fields, append, remove } = useFieldArray({ control, name: "socialLinks" });
+    const draftSocialLinks = useWatch({ control, name: "socialLinks" });
 
-    // Avatar updates should not overwrite unsaved text changes.
     const name = profile?.name ?? "";
     const bio = profile?.bio ?? "";
     const phone = profile?.phone ?? "";
     const country = profile?.country ?? "";
     const billingAddress = profile?.billingAddress ?? "";
-    useEffect(() => {
-        reset({ name, bio, phone, country, billingAddress });
-    }, [name, bio, phone, country, billingAddress, reset]);
+    const socialLinks = getSocialLinkUrls(profile?.socialLinks);
+
+    const startEditing = (addLink = false) => {
+        reset({ name, bio, phone, country, billingAddress, socialLinks: socialLinks.map((url) => ({ url })) });
+        updateProfile.reset();
+        setIsEditing(true);
+        if (addLink) append({ url: "" });
+    };
 
     const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -72,6 +86,7 @@ export default function ProfilePage() {
             phone: data.phone,
             country: data.country,
             billingAddress: data.billingAddress,
+            ...(dirtyFields.socialLinks && { socialLinks: getSocialLinkUrls(data.socialLinks.map(({ url }) => url)) }),
         }, { onSuccess: () => setIsEditing(false) });
     };
 
@@ -118,7 +133,7 @@ export default function ProfilePage() {
                                 </div>
                                 <p className="mt-3 max-w-xl whitespace-pre-line break-words text-sm leading-6 text-[#73776e]">{bio || "A little about you, all in one place."}</p>
                                 <div className="mt-6 flex flex-wrap gap-3">
-                                    <Button type="button" onClick={() => { updateProfile.reset(); setIsEditing(true); }} disabled={isEditing} className="h-11 gap-2 rounded-lg px-5 hover:bg-[#444f3a]">
+                                    <Button type="button" onClick={() => startEditing()} disabled={isEditing} className="h-11 gap-2 rounded-lg px-5 hover:bg-[#444f3a]">
                                         <Pencil className="size-3.5" aria-hidden="true" /> Edit profile
                                     </Button>
                                 </div>
@@ -168,10 +183,59 @@ export default function ProfilePage() {
                                             <Label htmlFor="profile-bio" className={fieldLabelClass}>About you</Label>
                                             <textarea id="profile-bio" rows={3} className="w-full resize-y rounded-lg border border-[#dfe4d6] bg-[#fafbf7] px-3 py-3 text-sm outline-none placeholder:text-[#85897f] focus-visible:border-[#7a8568] focus-visible:ring-3 focus-visible:ring-[#7a8568]/20 disabled:opacity-50" placeholder="Tell us a little about yourself" {...register("bio")} />
                                         </div>
+                                        <section aria-labelledby="profile-social-links" className="border-t border-[#e7e9e1] pt-6 sm:col-span-2">
+                                            <h3 id="profile-social-links" className="text-sm font-semibold">Social links</h3>
+                                            <p id="profile-social-help" className="mt-1 text-sm text-[#73776e]">Add links to your social profiles or website.</p>
+                                            {fields.length > 0 && (
+                                                <ul className="mt-4 max-w-xl space-y-3">
+                                                    {fields.map((field, index) => {
+                                                        const inputId = `profile-social-${field.id}`;
+                                                        const error = errors.socialLinks?.[index]?.url;
+                                                        const platform = getSocialPlatform(draftSocialLinks?.[index]?.url ?? "");
+                                                        return (
+                                                            <li key={field.id}>
+                                                                <Label htmlFor={inputId} className="sr-only">Social link {index + 1}</Label>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="relative min-w-0 flex-1">
+                                                                        <SocialLinkIcon icon={platform?.icon} className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#657152]" />
+                                                                        <Input
+                                                                            id={inputId}
+                                                                            inputMode="url"
+                                                                            autoCapitalize="none"
+                                                                            spellCheck={false}
+                                                                            placeholder="instagram.com/username"
+                                                                            className={`${fieldInputClass} pl-9`}
+                                                                            aria-invalid={!!error}
+                                                                            aria-describedby={error ? `${inputId}-error` : "profile-social-help"}
+                                                                            {...register(`socialLinks.${index}.url`, {
+                                                                                validate: (value) => !value.trim() || !!normalizeSocialLink(value) || "Enter a URL like instagram.com/username.",
+                                                                            })}
+                                                                        />
+                                                                    </div>
+                                                                    <Button type="button" variant="ghost" size="icon" aria-label={`Remove social link ${index + 1}`} title="Remove link" className="size-11 text-[#657152]" onClick={() => { remove(index); addLinkRef.current?.focus(); }}>
+                                                                        <X aria-hidden="true" />
+                                                                    </Button>
+                                                                </div>
+                                                                {error && <p id={`${inputId}-error`} role="alert" className="mt-1.5 text-xs text-red-700">{error.message}</p>}
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            )}
+                                            <Button ref={addLinkRef} type="button" variant="outline" className="mt-4 h-11 gap-2 bg-white px-4" onClick={() => append({ url: "" })}>
+                                                <Plus aria-hidden="true" /> Add link
+                                            </Button>
+                                        </section>
                                     </fieldset>
-                                    {updateProfile.error && <p role="alert" className="mt-5 text-sm text-red-700">Failed to save your profile. Please try again.</p>}
+                                    {updateProfile.error && (
+                                        <p role="alert" className="mt-5 text-sm text-red-700">
+                                            {updateProfile.error instanceof SocialLinksSaveError
+                                                ? updateProfile.error.message
+                                                : "Failed to save your profile. Please try again."}
+                                        </p>
+                                    )}
                                     <div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-[#e7e9e1] pt-6">
-                                        <Button type="button" variant="outline" disabled={updateProfile.isPending} className="h-11 bg-white px-5" onClick={() => { reset({ name, bio, phone, country, billingAddress }); updateProfile.reset(); setIsEditing(false); }}>Cancel</Button>
+                                        <Button type="button" variant="outline" disabled={updateProfile.isPending} className="h-11 bg-white px-5" onClick={() => { updateProfile.reset(); setIsEditing(false); }}>Cancel</Button>
                                         <Button type="submit" disabled={updateProfile.isPending} className="h-11 px-5 hover:bg-[#444f3a]">{updateProfile.isPending ? "Saving…" : "Save changes"}</Button>
                                     </div>
                                 </form>
@@ -193,6 +257,41 @@ export default function ProfilePage() {
                                         <dt className={fieldLabelClass}>Two-factor authentication</dt>
                                         <dd className="mt-2.5 flex items-center gap-2 text-sm leading-6">
                                             {twoFactor.isLoading ? <span className="text-[#85897f]">Checking…</span> : twoFactor.isError ? <span className="text-[#85897f]">Unavailable</span> : twoFactor.data?.enabled ? <span className="inline-flex items-center gap-2 text-[#657152]"><Check className="size-4" aria-hidden="true" /> Enabled</span> : <><span className="text-[#73776e]">Not enabled</span><Link to="/settings" className="rounded-sm text-xs text-[#657152] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#7a8568]">Set up</Link></>}
+                                        </dd>
+                                    </div>
+                                    <div className="border-t border-[#e7e9e1] pt-6 sm:col-span-2">
+                                        <dt className="text-sm font-semibold">Social links</dt>
+                                        <dd className="mt-2">
+                                            {socialLinks.length > 0 ? (
+                                                <ul className="grid gap-2 sm:grid-cols-2">
+                                                    {socialLinks.map((url) => {
+                                                        const platform = getSocialPlatform(url);
+                                                        const displayUrl = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+                                                        return (
+                                                            <li key={url} className="min-w-0">
+                                                                <a href={url} target="_blank" rel="noopener noreferrer" title={url} className="group flex h-full min-h-14 items-center gap-3 rounded-lg bg-[#fafbf7] px-3 py-2 text-[#3f4b35] transition-colors hover:bg-[#f0f2e9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7a8568]">
+                                                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#e9ecdf] text-[#4e5b42]">
+                                                                        <SocialLinkIcon icon={platform?.icon} className="size-5" />
+                                                                    </span>
+                                                                    <span className="min-w-0 flex-1 wrap-anywhere">
+                                                                        {platform && <span className="block text-sm font-semibold">{platform.name}</span>}
+                                                                        <span className={`block group-hover:underline group-hover:underline-offset-4 ${platform ? "text-xs text-[#616959]" : "text-sm"}`}>{displayUrl}</span>
+                                                                    </span>
+                                                                    <ArrowUpRight className="size-4 shrink-0" aria-hidden="true" />
+                                                                    <span className="sr-only"> (opens in a new tab)</span>
+                                                                </a>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            ) : (
+                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                                    <p className="text-sm text-[#73776e]">No links added yet.</p>
+                                                    <Button type="button" variant="link" className="h-11 gap-1.5 px-2" onClick={() => startEditing(true)}>
+                                                        <Plus aria-hidden="true" /> Add link
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </dd>
                                     </div>
                                 </dl>
