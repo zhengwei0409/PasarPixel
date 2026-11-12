@@ -2,7 +2,7 @@
 // price in a different currency (e.g. a buyer checking out in MYR, or showing a
 // consistent total), we convert at the current exchange rate.
 //
-// We use frankfurter.app: a free, no-key, no-auth exchange-rate API.
+// We use Frankfurter: a free, no-key, no-auth exchange-rate API.
 // Rates barely change minute-to-minute, so we cache each rate in memory for
 // CACHE_TTL_MS to avoid hammering the API (and to stay up if it's briefly down).
 
@@ -29,15 +29,16 @@ export async function getRate(from: string, to: string): Promise<number> {
     return cached.rate;
   }
 
-  const url = `https://api.frankfurter.app/latest?from=${from}&to=${to}`;
-  const res = await fetch(url);
+  const params = new URLSearchParams({ base: from, symbols: to });
+  const url = `https://api.frankfurter.dev/v1/latest?${params}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) {
     throw new Error(`Exchange rate request failed: ${res.status} ${res.statusText}`);
   }
 
   const data = (await res.json()) as { rates?: Record<string, number> };
   const rate = data.rates?.[to];
-  if (typeof rate !== 'number') {
+  if (typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) {
     throw new Error(`No exchange rate returned for ${from} -> ${to}`);
   }
 

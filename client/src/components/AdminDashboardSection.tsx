@@ -78,12 +78,18 @@ export default function AdminDashboardSection() {
     const { data, isLoading, isError, refetch, isFetching } = useDashboardStats();
     const displayCurrency = useCurrencyStore((s) => s.displayCurrency);
     const [months, setMonths] = useState("6");
-    const money = (value: number) => formatPrice(value, data?.revenueCurrency ?? "USD", displayCurrency, { zeroAsFree: false });
-    const chartData = (data?.monthlyTrends ?? []).slice(-Number(months)).map((point) => ({ ...point, label: monthLabel(point.month), revenue: convertFiat(point.revenue, data?.revenueCurrency ?? "USD", displayCurrency) }));
+    const revenueCurrency = data?.revenueCurrency ?? "USD";
+    const revenueUnavailable = data?.totalRevenue === null;
+    const chartData = (data?.monthlyTrends ?? []).slice(-Number(months)).map((point) => ({
+        ...point,
+        label: monthLabel(point.month),
+        revenue: point.revenue === null ? null : convertFiat(point.revenue, revenueCurrency, displayCurrency),
+    }));
 
     function exportReport() {
         if (!data) return;
-        const exportMoney = (value: number) => convertFiat(value, data.revenueCurrency ?? "USD", displayCurrency).toFixed(2);
+        const exportMoney = (value: number | null) =>
+            value === null ? "" : convertFiat(value, revenueCurrency, displayCurrency).toFixed(2);
         const rows = [
             ["Metric", "Value", "Currency"], ["Total users", data.totalUsers, ""], ["Published assets", data.totalAssets, ""],
             [`Total sales (${displayCurrency})`, exportMoney(data.totalRevenue), displayCurrency],
@@ -134,10 +140,14 @@ export default function AdminDashboardSection() {
                     {[
                         { title: "Total users", value: data.totalUsers.toLocaleString(), icon: Users, to: "/admin/users", action: "Manage users" },
                         { title: "Published assets", value: data.totalAssets.toLocaleString(), icon: Package, to: "/admin/assets", action: "View all assets" },
-                        { title: `Total sales (${displayCurrency})`, value: money(data.totalRevenue), icon: Banknote, to: null, action: null },
+                        { title: `Total sales (${displayCurrency})`, value: formatPrice(data.totalRevenue, revenueCurrency, displayCurrency, { zeroAsFree: false }), icon: Banknote, to: null, action: null },
                     ].map(({ title, value, icon: Icon, to, action }) => <Card key={title} className="gap-4 rounded-xl py-5 ring-border"><CardHeader className="px-5"><span className="flex size-10 items-center justify-center rounded-lg bg-accent text-[#657152]"><Icon className="size-5" aria-hidden="true" /></span></CardHeader><CardContent className="px-5"><h2 className="text-xs text-muted-foreground">{title}</h2><p className="mt-2 break-words text-3xl font-semibold tracking-tight tabular-nums">{value}</p>{to && <Link to={to} className="mt-4 inline-flex items-center gap-2 rounded text-xs font-medium text-[#555e49] hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">{action}<ArrowRight className="size-3.5" aria-hidden="true" /></Link>}</CardContent></Card>)}
                 </div>
 
+                {revenueUnavailable && <div role="status" className="flex items-center justify-between gap-4 rounded-lg border border-border bg-secondary/50 px-4 py-3 text-sm">
+                    <p>Sales totals are temporarily unavailable because the exchange rate could not be loaded.</p>
+                    <Button variant="outline" size="sm" onClick={() => void refetch()} disabled={isFetching}>Try again</Button>
+                </div>}
                 {(data.pendingApplications === undefined || data.pendingAssets === undefined || !data.monthlyTrends) && <p role="status" className="rounded-lg border border-border bg-secondary/50 px-4 py-3 text-xs text-muted-foreground">Detailed queue counts and analytics are temporarily unavailable. You can still open the review queues below.</p>}
                 <div className="grid gap-4 md:grid-cols-2">
                     {[
@@ -160,7 +170,7 @@ export default function AdminDashboardSection() {
                 </div></div>
                 <div className="grid gap-6 lg:grid-cols-2">
                     {(["users", "revenue"] as const).map((metric) => <Card key={metric} className="min-w-0 gap-6 rounded-xl py-6 ring-border"><CardHeader className="px-6"><h3 className="text-base font-semibold tracking-tight">{metric === "users" ? "New users per month" : `Monthly sales (${displayCurrency})`}</h3></CardHeader><CardContent className="px-4 sm:px-6">
-                        {!chartData.some((point) => point[metric] > 0) ? <div className="flex h-[260px] flex-col items-center justify-center rounded-lg bg-background px-6 text-center"><ChartNoAxesColumn className="mb-3 size-7 text-[#7a8568]" /><p className="text-sm font-medium">{!data.monthlyTrends ? "Analytics temporarily unavailable" : metric === "users" ? "No registrations in this period" : "No sales in this period"}</p></div> : <ChartContainer config={chartConfig} className="h-[260px] w-full">
+                        {!chartData.some((point) => (point[metric] ?? 0) > 0) ? <div className="flex h-[260px] flex-col items-center justify-center rounded-lg bg-background px-6 text-center"><ChartNoAxesColumn className="mb-3 size-7 text-[#7a8568]" /><p className="text-sm font-medium">{!data.monthlyTrends ? "Analytics temporarily unavailable" : metric === "users" ? "No registrations in this period" : revenueUnavailable ? "Sales data temporarily unavailable" : "No sales in this period"}</p></div> : <ChartContainer config={chartConfig} className="h-[260px] w-full">
                             {metric === "users" ? <BarChart accessibilityLayer data={chartData} margin={{ top: 15, left: -25, right: 8, bottom: 8 }}><CartesianGrid vertical={false} strokeDasharray="3 5" /><XAxis dataKey="label" axisLine={false} tickLine={false} tickMargin={12} tick={{ fontSize: 10 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10 }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="users" radius={[4, 4, 0, 0]} maxBarSize={64}>{chartData.map((point, index) => <Cell key={point.month} fill={index === chartData.length - 1 ? "#657152" : "#d8dfca"} />)}</Bar></BarChart> : <LineChart accessibilityLayer data={chartData} margin={{ top: 15, left: 8, right: 16, bottom: 8 }}><CartesianGrid vertical={false} strokeDasharray="3 5" /><XAxis dataKey="label" axisLine={false} tickLine={false} tickMargin={12} tick={{ fontSize: 10 }} /><ChartTooltip content={<ChartTooltipContent formatter={(value) => formatPrice(Number(value), displayCurrency, displayCurrency, { zeroAsFree: false })} />} /><Line type="monotone" dataKey="revenue" stroke="var(--color-revenue)" strokeWidth={2.5} dot={{ r: 3, fill: "#657152", strokeWidth: 0 }} activeDot={{ r: 5 }} /></LineChart>}
                         </ChartContainer>}
                     </CardContent></Card>)}

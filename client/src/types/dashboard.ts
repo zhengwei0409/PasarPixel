@@ -3,7 +3,7 @@ import type { Currency } from "./asset";
 export interface DashboardStats {
     totalUsers: number;
     totalAssets: number;
-    totalRevenue: number;
+    totalRevenue: number | null;
     // The currency totalRevenue is expressed in (backend normalises to USD).
     // The dashboard converts from this into the admin's display currency.
     revenueCurrency: Currency;
@@ -11,7 +11,7 @@ export interface DashboardStats {
     pendingApplications?: number;
     pendingAssets?: number;
     pendingReports?: number;
-    monthlyTrends?: { month: string; users: number; revenue: number }[];
+    monthlyTrends?: { month: string; users: number; revenue: number | null }[];
     solVolumeLamports?: string;
     solCommissionLamports?: string;
 }

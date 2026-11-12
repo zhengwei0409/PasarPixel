@@ -198,6 +198,4 @@ PasarPixel/
 └── CLAUDE.md
 ```
 
-Check `FunctionalRequirement.md` for functional requirement. 
-Check `DatabaseRelationship.md` for database info. 
 

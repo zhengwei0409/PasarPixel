@@ -46,13 +46,16 @@ export async function getDashboardStats(req: Request, res: Response) {
         }),
     ]);
 
-    let totalRevenue = 0;
+    let totalRevenue: number | null = 0;
     for (const order of completedOrders) {
-        const revenue = await convert(
-            Number(order.totalAmount),
-            order.currency,
-            REVENUE_BASE_CURRENCY,
-        );
+        let revenue: number;
+        try {
+            revenue = await convert(Number(order.totalAmount), order.currency, REVENUE_BASE_CURRENCY);
+        } catch (error) {
+            console.error(`Dashboard exchange rate failed for ${order.currency} to ${REVENUE_BASE_CURRENCY}`, error);
+            totalRevenue = null;
+            break;
+        }
         totalRevenue += revenue;
         const point = monthlyTrends.find((item) => item.month === order.createdAt.toISOString().slice(0, 7));
         if (point) point.revenue += revenue;
@@ -69,13 +72,16 @@ export async function getDashboardStats(req: Request, res: Response) {
     res.json({
         totalUsers,
         totalAssets,
-        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalRevenue: totalRevenue === null ? null : Math.round(totalRevenue * 100) / 100,
         revenueCurrency: REVENUE_BASE_CURRENCY,
         solVolumeLamports: solVolumeLamports.toString(), solCommissionLamports: solCommissionLamports.toString(),
         pendingItems: pendingApplications + pendingAssets + pendingReports,
         pendingApplications,
         pendingAssets,
         pendingReports,
-        monthlyTrends: monthlyTrends.map((point) => ({ ...point, revenue: Math.round(point.revenue * 100) / 100 })),
+        monthlyTrends: monthlyTrends.map((point) => ({
+            ...point,
+            revenue: totalRevenue === null ? null : Math.round(point.revenue * 100) / 100,
+        })),
     });
 }

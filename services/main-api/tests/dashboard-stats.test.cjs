@@ -8,7 +8,7 @@ const controller = ts.transpileModule(readFileSync(join(__dirname, "../src/contr
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 
-async function stats(orders = [], users = []) {
+async function stats(orders = [], users = [], convert = async (amount, currency) => currency === "MYR" ? amount / 4 : amount) {
     const queries = {};
     class FixedDate extends Date {
         constructor(...args) { super(...(args.length ? args : ["2026-02-15T12:00:00Z"])); }
@@ -24,7 +24,12 @@ async function stats(orders = [], users = []) {
         } },
     };
     const exports = {};
-    runInNewContext(controller, { exports, Date: FixedDate, require: (name) => name === "../lib/prisma" ? { prisma } : { convert: async (amount, currency) => currency === "MYR" ? amount / 4 : amount } });
+    runInNewContext(controller, {
+        exports,
+        Date: FixedDate,
+        console: { error() {} },
+        require: (name) => name === "../lib/prisma" ? { prisma } : { convert },
+    });
     const res = { json(body) { this.body = body; } };
     await exports.getDashboardStats({}, res);
     return JSON.parse(JSON.stringify({ body: res.body, queries }));
@@ -51,4 +56,22 @@ test("revenue normalizes mixed currencies, preserves all-time totals, and keeps 
     assert.equal(body.monthlyTrends.at(-1).revenue, 35.13);
     assert.equal(body.solVolumeLamports, "9007199254740993");
     assert.equal(body.solCommissionLamports, "450359962737049");
+});
+
+test("a failed exchange rate preserves counts, signup trends, and SOL sales", async () => {
+    const createdAt = new Date("2026-02-02T00:00:00Z");
+    const { body } = await stats([
+        { totalAmount: "15", currency: "USD", createdAt },
+        { totalAmount: "80", currency: "MYR", createdAt },
+    ], [{ createdAt }], async (amount, currency) => {
+        if (currency === "MYR") throw new TypeError("fetch failed");
+        return amount;
+    });
+    assert.equal(body.totalUsers, 20);
+    assert.equal(body.totalAssets, 12);
+    assert.equal(body.pendingReports, 4);
+    assert.equal(body.monthlyTrends.at(-1).users, 1);
+    assert.equal(body.solVolumeLamports, "9007199254740993");
+    assert.equal(body.totalRevenue, null);
+    assert.ok(body.monthlyTrends.every((point) => point.revenue === null));
 });
