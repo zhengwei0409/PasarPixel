@@ -24,6 +24,7 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminUserDetailPage from './pages/AdminUserDetailPage';
 import AdminReportsPage from './pages/AdminReportsPage';
 import AdminTransactionsPage from './pages/AdminTransactionsPage';
+import AdminActivityLogPage from './pages/AdminActivityLogPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
 import PurchaseHistoryPage from './pages/PurchaseHistoryPage';
@@ -92,6 +93,7 @@ function App() {
         <Route path="/admin/users/:userId" element={<AdminUserDetailPage />} />
         <Route path="/admin/reports" element={<AdminReportsPage />} />
         <Route path="/admin/transactions" element={<AdminTransactionsPage />} />
+        <Route path="/admin/activity-log" element={<AdminActivityLogPage />} />
       </Route>
     </Routes>
     </>

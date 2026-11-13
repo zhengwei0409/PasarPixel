@@ -6,7 +6,7 @@ const { runInNewContext } = require("node:vm");
 const ts = require("typescript");
 const exportsObject = {};
 runInNewContext(ts.transpileModule(
-    readFileSync(join(__dirname, "../src/lib/csv.ts"), "utf8"),
+    readFileSync(join(__dirname, "../../shared/utils/csv.ts"), "utf8"),
     { compilerOptions: { module: ts.ModuleKind.CommonJS } },
 ).outputText, { exports: exportsObject });
 const { serializeCsv } = exportsObject;

@@ -7,8 +7,7 @@ import { Card, CardContent, CardHeader } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
 import { useDashboardStats } from "../hooks/useDashboardStats";
-import { useRoleLogs } from "../hooks/useRoleLogs";
-import { useAssetReviewLogs } from "../hooks/useAssetReviewLogs";
+import { useAdminActivity } from "../hooks/useAdminActivity";
 import { useCurrencyStore } from "../stores/currencyStore";
 import { convertFiat, formatLamportsSol, formatPrice } from "../lib/price";
 
@@ -23,48 +22,33 @@ function monthLabel(month: string) {
 }
 
 function RecentSystemLogs() {
-    const roles = useRoleLogs();
-    const assets = useAssetReviewLogs();
-    const [showAll, setShowAll] = useState(false);
-    const logs = [
-        ...(roles.data ?? []).map((log) => ({
-            id: `role-${log.id}`, action: `${log.role} ${log.action === "GRANT" ? "granted" : "revoked"}`,
-            admin: log.admin.name ?? log.admin.email ?? `User #${log.admin.userId}`,
-            subject: log.targetUser.name ?? log.targetUser.email ?? `User #${log.targetUser.userId}`,
-            createdAt: log.createdAt, status: log.action === "GRANT" ? "Granted" : "Revoked", positive: log.action === "GRANT", reason: log.reason,
-        })),
-        ...(assets.data ?? []).map((log) => ({
-            id: `asset-${log.id}`, action: `Asset ${log.action === "APPROVE" ? "approved" : "rejected"}`,
-            admin: log.admin.name ?? log.admin.email ?? `User #${log.admin.userId}`,
-            subject: log.asset.title ?? `Asset #${log.asset.id}`,
-            createdAt: log.createdAt, status: log.action === "APPROVE" ? "Approved" : "Rejected", positive: log.action === "APPROVE", reason: log.reason,
-        })),
-    ].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-    const busy = roles.isFetching || assets.isFetching;
+    const activity = useAdminActivity({});
+    const logs = activity.data?.items.slice(0, 5) ?? [];
+    const busy = activity.isFetching;
 
     return (
         <Card className="gap-0 overflow-hidden rounded-xl py-0 ring-border">
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-5 sm:px-6">
                 <h2 className="text-base font-semibold tracking-tight">Recent admin activity</h2>
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => { void roles.refetch(); void assets.refetch(); }} aria-label="Refresh admin activity">
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => void activity.refetch()} aria-label="Refresh admin activity">
                         <RefreshCw className={`size-3.5 ${busy ? "animate-spin" : ""}`} />
                     </Button>
-                    {logs.length > 5 && <Button variant="ghost" size="sm" onClick={() => setShowAll(!showAll)}>{showAll ? "Show recent" : "View all activity"}<ArrowRight className="size-3.5" /></Button>}
+                    <Button asChild variant="ghost" size="sm"><Link to="/admin/activity-log">View all activity<ArrowRight className="size-3.5" aria-hidden="true" /></Link></Button>
                 </div>
             </CardHeader>
             <CardContent className="px-0">
-                {(roles.isError || assets.isError) && <p role="alert" className="px-6 py-4 text-sm text-red-700">Some activity could not be loaded. Refresh to try again.</p>}
-                {roles.isLoading || assets.isLoading ? <p role="status" className="p-6 text-sm text-muted-foreground">Loading admin activity…</p> : logs.length === 0 ? (
+                {activity.isError ? <p role="alert" className="px-6 py-4 text-sm text-red-700">Activity could not be loaded. Refresh to try again.</p>
+                    : activity.isPending ? <p role="status" className="p-6 text-sm text-muted-foreground">Loading admin activity…</p> : logs.length === 0 ? (
                     <div className="flex flex-col items-center px-6 py-12 text-center"><ShieldCheck className="mb-3 size-7 text-[#7a8568]" /><p className="text-sm font-medium">No admin activity yet</p></div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
-                            <thead className="bg-secondary/60 text-muted-foreground"><tr>{["Action", "Admin", "Subject", "Timestamp", "Status", "Reason"].map((label) => <th key={label} className="whitespace-nowrap px-6 py-3 font-medium">{label}</th>)}</tr></thead>
-                            <tbody>{(showAll ? logs : logs.slice(0, 5)).map((log) => <tr key={log.id} className="border-t border-border/60 hover:bg-background/60">
-                                <td className="whitespace-nowrap px-6 py-4 font-medium">{log.action}</td><td className="px-6 py-4">{log.admin}</td><td className="min-w-40 px-6 py-4">{log.subject}</td>
+                            <thead className="bg-secondary/60 text-muted-foreground"><tr>{["Action", "Actor", "Subject", "Timestamp", "Reason"].map((label) => <th key={label} scope="col" className="whitespace-nowrap px-6 py-3 font-medium">{label}</th>)}</tr></thead>
+                            <tbody>{logs.map((log) => <tr key={log.id} className="border-t border-border/60 hover:bg-background/60">
+                                <td className="whitespace-nowrap px-6 py-4 font-medium">{log.action}</td><td className="px-6 py-4">{log.actorName || log.actorEmail || `User #${log.actorId}`}</td><td className="min-w-40 px-6 py-4">{log.targetLabel ?? "—"}</td>
                                 <td className="whitespace-nowrap px-6 py-4 text-muted-foreground"><time dateTime={log.createdAt}>{new Date(log.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time></td>
-                                <td className="px-6 py-4"><span className={`rounded px-2 py-1 text-[10px] font-medium ${log.positive ? "bg-[#e3e8d8] text-[#425137]" : "bg-red-50 text-red-700"}`}>{log.status}</span></td><td className="min-w-40 px-6 py-4 text-muted-foreground">{log.reason ?? "—"}</td>
+                                <td className="min-w-40 px-6 py-4 text-muted-foreground">{log.reason ?? "—"}</td>
                             </tr>)}</tbody>
                         </table>
                     </div>

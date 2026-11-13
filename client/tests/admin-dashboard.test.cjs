@@ -19,16 +19,15 @@ function renderDashboard(data, { displayCurrency = 'USD', download = {} } = {}) 
         'react-router-dom': { Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) },
         'lucide-react': new Proxy({}, { get: () => icon }),
         recharts: new Proxy({}, { get: () => () => null }),
-        './ui/button': { Button: (props) => {
+        './ui/button': { Button: ({ asChild, ...props }) => {
             if (React.Children.toArray(props.children).includes('Export report ')) download.click = props.onClick;
-            return React.createElement('button', props);
+            return asChild ? props.children : React.createElement('button', props);
         } },
         './ui/select': { Select: ({ children }) => React.createElement('div', null, children), SelectContent: ({ children }) => React.createElement('div', null, children), SelectItem: 'div', SelectTrigger: 'button', SelectValue: 'span' },
         './ui/card': { Card: 'section', CardContent: 'div', CardHeader: 'header' },
         './ui/chart': { ChartContainer: 'div', ChartTooltip: 'div', ChartTooltipContent: 'div' },
         '../hooks/useDashboardStats': { useDashboardStats: () => ({ data, isLoading: false, isError: false }) },
-        '../hooks/useRoleLogs': { useRoleLogs: () => ({ data: [] }) },
-        '../hooks/useAssetReviewLogs': { useAssetReviewLogs: () => ({ data: [] }) },
+        '../hooks/useAdminActivity': { useAdminActivity: () => ({ data: { items: [] } }) },
         '../stores/currencyStore': { useCurrencyStore: (selector) => selector({ displayCurrency }) },
         '../lib/price': { convertFiat: (value, from, to) => from === to ? value : from === 'USD' ? value * 4.7 : value / 4.7, formatPrice: (value) => `$${value}`, formatLamportsSol: (value) => `${value} SOL` },
     };
@@ -86,6 +85,7 @@ test('admin dashboard renders queue counts and charts with the updated API respo
     const html = renderDashboard(legacy);
     assert.ok(html.indexOf('Manage marketplace') < html.indexOf('Total users'));
     assert.match(html, /href="\/admin\/transactions"/);
+    assert.match(html, /href="\/admin\/activity-log"/);
     assert.equal((html.match(/href="\/admin\/users"/g) ?? []).length, 1);
     assert.match(html, /href="\/admin\/assets"/);
     assert.match(html, /View all assets/);
