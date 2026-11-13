@@ -1,7 +1,7 @@
-export interface AdminUser {
-    userId: number;
+import type { AdminAccount } from "../../../shared/types/adminAccount";
+
+export interface AdminUser extends AdminAccount {
     name: string;
-    email: string | null;
     avatarUrl: string | null;
-    createdAt: string;
+    hasProfile: boolean;
 }

@@ -20,6 +20,7 @@ function fixture({ missing = false, failAudit = false } = {}) {
         $transaction: async (callback) => { calls.push({ transaction: true }); await callback(tx); },
     };
     const modules = {
+        axios: {},
         '../lib/prisma': { prisma },
         '../lib/s3': { extractKeyFromUrl: (url) => url, deleteObject: async (key) => calls.push({ file: key }) },
         '../lib/publisher': { publishUserDeleted: async (event) => calls.push({ published: event }) },
@@ -83,4 +84,32 @@ test('an audit write failure fails the transaction and does not publish a succes
     const view = fixture({ failAudit: true });
     await assert.rejects(() => view.invoke({ reason: 'Spam or scam activity' }), /audit failure/);
     assert.equal(view.calls.some((call) => call.published), false);
+});
+
+test('the user list includes accounts without profiles and excludes profiles with no account', async () => {
+    const exports = {};
+    const accounts = [
+        { userId: 1, email: 'current@example.com', createdAt: '2026-11-10T00:00:00.000Z', roles: ['ADMIN'], status: 'ACTIVE' },
+        { userId: 2, email: 'new@example.com', createdAt: '2026-11-09T00:00:00.000Z', roles: ['BUYER'], status: 'TWO_FACTOR_LOCKED' },
+    ];
+    const modules = {
+        axios: { get: async (url, options) => {
+            assert.equal(url, 'http://auth-service:3001/auth/admin/accounts');
+            assert.equal(options.headers.authorization, 'Bearer session');
+            return { data: accounts };
+        } },
+        '../lib/prisma': { prisma: { userProfile: { findMany: async () => [
+            { userId: 1, name: 'Admin name', avatarUrl: 'avatar' },
+            { userId: 3, name: 'Orphan profile', avatarUrl: null },
+        ] } } },
+        '../lib/s3': {},
+        '../lib/publisher': {},
+    };
+    runInNewContext(code, { exports, process: { env: { AUTH_SERVICE_URL: 'http://auth-service:3001/' } }, require: (name) => modules[name] });
+    const response = { set() { return this; }, json(body) { this.body = JSON.parse(JSON.stringify(body)); } };
+    await exports.listUsers({ headers: { authorization: 'Bearer session' } }, response);
+    assert.deepEqual(response.body, [
+        { ...accounts[0], name: 'Admin name', avatarUrl: 'avatar', hasProfile: true },
+        { ...accounts[1], name: 'new@example.com', avatarUrl: null, hasProfile: false },
+    ]);
 });

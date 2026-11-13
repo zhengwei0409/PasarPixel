@@ -7,6 +7,40 @@ import type { Prisma, TwoFactorAuth } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { publishUserRegistered, publishPasswordReset } from "../lib/publisher";
 import type { AuthedRequest } from "../middleware/requireAuth";
+import type { AdminAccount } from "../../../../shared/types/adminAccount";
+
+export async function listAdminAccounts(req: AuthedRequest, res: Response) {
+    const admin = await prisma.userRole.findFirst({
+        where: { userId: req.userId!, role: { name: "ADMIN" } },
+        select: { userId: true },
+    });
+    if (!admin) {
+        res.status(403).json({ error: "Forbidden: insufficient role" });
+        return;
+    }
+
+    const accounts = await prisma.user.findMany({
+        orderBy: { createdAt: "desc" },
+        select: {
+            id: true,
+            email: true,
+            createdAt: true,
+            roles: { select: { role: { select: { name: true } } } },
+            twoFactorAuth: { select: { isEnabled: true, lockedUntil: true } },
+        },
+    });
+    const now = new Date();
+    const result: AdminAccount[] = accounts.map(({ id, email, createdAt, roles, twoFactorAuth }) => ({
+        userId: id,
+        email,
+        createdAt: createdAt.toISOString(),
+        roles: roles.map(({ role }) => role.name).sort(),
+        status: twoFactorAuth?.isEnabled && twoFactorAuth.lockedUntil && twoFactorAuth.lockedUntil > now
+            ? "TWO_FACTOR_LOCKED"
+            : "ACTIVE",
+    }));
+    res.set("Cache-Control", "no-store").json(result);
+}
 
 export async function passwordStatus(req: AuthedRequest, res: Response) {
     const user = await prisma.user.findUnique({ where: { id: req.userId! } });

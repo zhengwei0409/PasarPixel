@@ -1,22 +1,43 @@
 import { Request, Response } from "express";
+import axios from "axios";
+import type { AdminAccount } from "../../../../shared/types/adminAccount";
 import { prisma } from "../lib/prisma";
 import { deleteObject, extractKeyFromUrl } from "../lib/s3";
 import { publishUserDeleted } from "../lib/publisher";
 
-// Admin-only: list every user profile, newest first, for the admin user table.
+// Auth owns the account list; a profile may not exist yet for every account.
 export async function listUsers(req: Request, res: Response) {
-    const profiles = await prisma.userProfile.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-            userId: true,
-            name: true,
-            email: true,
-            avatarUrl: true,
-            createdAt: true,
-        },
-    });
+    const authUrl = (process.env.AUTH_SERVICE_URL || "http://localhost:3001").replace(/\/$/, "");
+    let accounts: AdminAccount[];
+    try {
+        const { data } = await axios.get<AdminAccount[]>(`${authUrl}/auth/admin/accounts`, {
+            headers: { authorization: req.headers.authorization },
+            timeout: 10_000,
+        });
+        accounts = data;
+    } catch (error) {
+        if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
+            res.status(error.response.status).json({ error: "Unable to authorize the user list request" });
+            return;
+        }
+        res.status(503).json({ error: "Unable to load user accounts. Please try again." });
+        return;
+    }
 
-    res.json(profiles);
+    const profiles = accounts.length ? await prisma.userProfile.findMany({
+        select: { userId: true, name: true, avatarUrl: true },
+    }) : [];
+    const profilesById = new Map(profiles.map((profile) => [profile.userId, profile]));
+
+    res.set("Cache-Control", "no-store").json(accounts.map((account) => {
+        const profile = profilesById.get(account.userId);
+        return {
+            ...account,
+            name: profile?.name ?? account.email,
+            avatarUrl: profile?.avatarUrl ?? null,
+            hasProfile: Boolean(profile),
+        };
+    }));
 }
 
 // Admin-only: hard-delete a user.

@@ -50,3 +50,48 @@ test('/auth/me returns current roles and email instead of stale token claims', a
 test('/auth/me reports a database outage as retryable instead of invalidating the session', async () => {
     assert.equal((await me({ sub: 7 }, undefined, true)).statusCode, 503);
 });
+
+test('admin account listing uses current permissions and only reports an ongoing enabled 2FA lockout', async () => {
+    const exports = {};
+    let canAdmin = false;
+    let reads = 0;
+    const createdAt = new Date('2026-01-01T00:00:00Z');
+    const account = (id, isEnabled, lockedUntil) => ({
+        id, email: `user${id}@example.com`, createdAt,
+        roles: [{ role: { name: 'SELLER' } }, { role: { name: 'BUYER' } }],
+        twoFactorAuth: { isEnabled, lockedUntil, secret: 'private' },
+    });
+    const future = new Date(Date.now() + 60_000);
+    const prisma = {
+        userRole: { findFirst: async ({ where }) => {
+            assert.equal(where.userId, 7);
+            assert.equal(where.role.name, 'ADMIN');
+            return canAdmin ? { userId: 7 } : null;
+        } },
+        user: { findMany: async () => {
+            reads++;
+            return [account(1, true, future), account(2, true, createdAt), account(3, false, future)];
+        } },
+    };
+    runInNewContext(compiled, { exports, require: (name) => name === '../lib/prisma' ? { prisma } : {} });
+    async function list() {
+        const res = {
+            statusCode: 200,
+            status(code) { this.statusCode = code; return this; },
+            set() { return this; },
+            json(body) { this.body = JSON.parse(JSON.stringify(body)); },
+        };
+        await exports.listAdminAccounts({ userId: 7 }, res);
+        return res;
+    }
+    assert.equal((await list()).statusCode, 403);
+    assert.equal(reads, 0);
+    canAdmin = true;
+    const result = await list();
+    assert.equal(result.statusCode, 200);
+    assert.deepEqual(result.body.map(({ status }) => status), ['TWO_FACTOR_LOCKED', 'ACTIVE', 'ACTIVE']);
+    assert.deepEqual(result.body[0], {
+        userId: 1, email: 'user1@example.com', createdAt: createdAt.toISOString(),
+        roles: ['BUYER', 'SELLER'], status: 'TWO_FACTOR_LOCKED',
+    });
+});

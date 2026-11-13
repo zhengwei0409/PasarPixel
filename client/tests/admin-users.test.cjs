@@ -9,14 +9,14 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const code = ts.transpileModule(readFileSync(join(__dirname, '../src/pages/AdminUsersPage.tsx'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
-const account = (id) => ({ userId: id, name: `User ${id}`, email: `user${id}@example.com`, avatarUrl: null, createdAt: new Date(Date.UTC(2026, 10, id)).toISOString() });
+const account = (id, overrides = {}) => ({ userId: id, name: `User ${id}`, email: `user${id}@example.com`, avatarUrl: null, createdAt: new Date(Date.UTC(2026, 10, id)).toISOString(), roles: ['BUYER'], status: 'ACTIVE', hasProfile: true, ...overrides });
 function harness({ data = [account(1), account(2)], loading = false, loadError = false, missingData = false, authUser = { sub: '1' } } = {}) {
     const state = [];
     let cursor = 0, buttons, inputs, selects, reason;
     const calls = [], refreshes = [];
     const mutation = { isPending: false, error: null, reset() { this.error = null; }, mutate(value, options) { calls.push({ value, options }); } };
     const modules = {
-        react: { ...React, useState: (initial) => { const index = cursor++; if (!(index in state)) state[index] = initial; return [state[index], (value) => { state[index] = value; }]; }, useRef: (value) => { const index = cursor++; return state[index] ??= { current: value }; } },
+        react: { ...React, useState: (initial) => { const index = cursor++; if (!(index in state)) state[index] = initial; return [state[index], (value) => { state[index] = typeof value === 'function' ? value(state[index]) : value; }]; }, useRef: (value) => { const index = cursor++; return state[index] ??= { current: value }; } },
         'react/jsx-runtime': require('react/jsx-runtime'),
         'react-router-dom': { Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) },
         'lucide-react': new Proxy({}, { get: () => () => null }),
@@ -38,7 +38,11 @@ function harness({ data = [account(1), account(2)], loading = false, loadError =
         button: (label) => { const button = buttons.findLast((item) => item['aria-label'] === label || React.Children.toArray(item.children).filter((child) => typeof child === 'string').join('') === label); assert.ok(button, label); return button; },
         open: (label) => buttons.find((item) => item['aria-label'] === label).onClick({ currentTarget: { isConnected: true, focus() {} } }),
         search: (value) => inputs[0].onChange({ target: { value } }),
-        sort: (value) => selects[0].onValueChange(value),
+        select: (label, value) => {
+            const select = selects.find(({ children }) => React.Children.toArray(children).some((child) => child.props['aria-label'] === label));
+            assert.ok(select, label);
+            select.onValueChange(value);
+        },
         reason: (value) => reason.onChange(value),
         setAuth: (value) => { authUser = value; },
     };
@@ -71,12 +75,36 @@ test('pagination, newest/oldest/name sorting and result shrinkage keep pages val
     assert.match(view.render(), /1–10 of 10/);
     view.search('user12@');
     assert.match(view.render(), /1–1 of 1/);
-    view.search(''); view.sort('oldest');
+    view.search(''); view.select('Sort users', 'oldest');
     const oldest = view.render();
     assert.ok(oldest.indexOf('User 3<') < oldest.indexOf('User 4<'));
-    view.sort('name');
+    view.select('Sort users', 'name');
     const byName = view.render();
     assert.ok(byName.indexOf('User 10<') < byName.indexOf('User 11<'));
+});
+
+test('role and account status narrow the full list before pagination and combine with search', () => {
+    const data = Array.from({ length: 15 }, (_, i) => account(i + 1));
+    data[1] = account(2, { roles: ['BUYER', 'SELLER'], status: 'TWO_FACTOR_LOCKED' });
+    data[3] = account(4, { roles: ['SELLER'] });
+    data[4] = account(5, { status: 'TWO_FACTOR_LOCKED' });
+    const view = harness({ data });
+    view.render();
+    view.button('Next page').onClick();
+    view.render();
+    view.select('Filter by role', 'BUYER');
+    assert.match(view.render(), /1–10 of 14/);
+    view.select('Filter by role', 'SELLER');
+    assert.match(view.render(), /1–2 of 2/);
+    view.select('Filter by account status', 'TWO_FACTOR_LOCKED');
+    const lockedSeller = view.render();
+    assert.match(lockedSeller, /Delete user 2: User 2/);
+    assert.match(lockedSeller, /1–1 of 1/);
+    assert.match(lockedSeller, /Buyer, Seller/);
+    view.search('USER4@');
+    assert.match(view.render(), /No users found/);
+    view.button('Clear search and filters').onClick();
+    assert.match(view.render(), /1–10 of 15/);
 });
 
 test('the signed-in account is labeled and has no delete action', () => {
@@ -121,6 +149,7 @@ test('failed deletion retains the selected account and closes only on success', 
     const success = view.render();
     assert.doesNotMatch(success, /Delete user\?/);
     assert.match(success, /User 2: account deleted/);
+    assert.doesNotMatch(success, /Delete user 2: User 2/);
 });
 
 test('pending deletion blocks repeated requests and live auth changes protect the current user', () => {
