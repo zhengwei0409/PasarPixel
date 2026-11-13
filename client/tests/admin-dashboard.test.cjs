@@ -85,6 +85,7 @@ test('admin dashboard renders queue counts and charts with the updated API respo
  test('dashboard management cards appear above metrics and user and asset cards link to admin pages', () => {
     const html = renderDashboard(legacy);
     assert.ok(html.indexOf('Manage marketplace') < html.indexOf('Total users'));
+    assert.match(html, /href="\/admin\/transactions"/);
     assert.equal((html.match(/href="\/admin\/users"/g) ?? []).length, 1);
     assert.match(html, /href="\/admin\/assets"/);
     assert.match(html, /View all assets/);

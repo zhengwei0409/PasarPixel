@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownToLine, ArrowRight, Banknote, ChartNoAxesColumn, ClipboardCheck, Flag, Package, RefreshCw, ShieldCheck, Users } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Banknote, ChartNoAxesColumn, ClipboardCheck, Flag, Package, ReceiptText, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from "recharts";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
@@ -120,10 +120,11 @@ export default function AdminDashboardSection() {
 
             <nav aria-label="Marketplace management" className="space-y-3">
                 <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Manage marketplace</h2>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                     {[
                         { to: "/admin/sellers", title: "Manage sellers", count: undefined, icon: ShieldCheck },
                         { to: "/admin/reports", title: "Reports awaiting review", count: data?.pendingReports, icon: Flag },
+                        { to: "/admin/transactions", title: "View transactions", count: undefined, icon: ReceiptText },
                     ].map(({ to, title, count, icon: Icon }) => (
                         <Link key={to} to={to} className="group flex items-center gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
                             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-[#657152]"><Icon className="size-5" aria-hidden="true" /></span>
