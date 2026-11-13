@@ -109,12 +109,19 @@ export async function updateAccountSuspension(req: AuthedRequest, res: Response)
     const now = new Date();
     const result = await prisma.$transaction(async (tx) => {
         const changed = await tx.user.updateMany({
-            where: { id: userId, suspendedAt: suspended ? null : { not: null } },
+            where: {
+                id: userId,
+                suspendedAt: suspended ? null : { not: null },
+                roles: { none: { role: { name: "ADMIN" } } },
+            },
             data: suspended ? { suspendedAt: now, sessionVersion: { increment: 1 } } : { suspendedAt: null },
         });
         const account = await tx.user.findUnique({ where: { id: userId }, select: adminAccountSelect });
         if (!account) return { status: 404, error: "User not found" } as const;
         if (!changed.count) {
+            if (account.roles.some(({ role }) => role.name === "ADMIN")) {
+                return { status: 403, error: "Admin accounts cannot be modified or deleted by another admin" } as const;
+            }
             return { status: 409, error: suspended ? "This account is already suspended" : "This account is not suspended" } as const;
         }
         await tx.accountModeration.create({ data: { userId, adminId, suspended, reason } });

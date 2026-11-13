@@ -131,6 +131,8 @@ test('moderation requires an admin and a reason, records one decision per transi
             updateMany: async ({ where, data }) => {
                 assert.equal(transactionActive, true);
                 if (where.id !== target.id || (where.suspendedAt === null) !== (target.suspendedAt === null)) return { count: 0 };
+                const excludedRole = where.roles?.none?.role?.name;
+                if (target.roles.some(({ role }) => role.name === excludedRole)) return { count: 0 };
                 target.suspendedAt = data.suspendedAt;
                 target.sessionVersion += data.sessionVersion?.increment ?? 0;
                 return { count: 1 };
@@ -167,8 +169,19 @@ test('moderation requires an admin and a reason, records one decision per transi
     assert.equal((await update(true, 'x'.repeat(501))).statusCode, 400);
     assert.equal(decisions.length, 0);
 
+    target.roles.push({ role: { name: 'ADMIN' } });
+    assert.equal((await update(true, 'Policy violation')).statusCode, 403);
+    assert.equal(target.suspendedAt, null);
+    assert.equal(target.sessionVersion, 0);
+    target.roles.pop();
     assert.equal((await update(true, '  Policy violation  ')).body.status, 'SUSPENDED');
     assert.equal(target.sessionVersion, 1);
+    const suspendedAt = target.suspendedAt;
+    target.roles.push({ role: { name: 'ADMIN' } });
+    assert.equal((await update(false, 'Appeal accepted')).statusCode, 403);
+    assert.equal(target.suspendedAt, suspendedAt);
+    assert.equal(decisions.length, 1);
+    target.roles.pop();
     assert.equal((await update(true, 'Duplicate')).statusCode, 409);
     assert.equal((await update(false, ' ')).statusCode, 400);
     assert.equal((await update(false, '  Appeal accepted  ')).body.status, 'TWO_FACTOR_LOCKED');

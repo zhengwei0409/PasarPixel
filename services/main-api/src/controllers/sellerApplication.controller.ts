@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { requireNonAdminAccount } from "../lib/adminAccountGuard";
 import { getPresignedUploadUrl, getPresignedDownloadUrl } from "../lib/s3";
 import { publishSellerApproved, publishSellerRejected, publishSellerRevoked, publishSellerReinstated } from "../lib/publisher";
 
@@ -174,6 +175,8 @@ export async function approveApplication(req: Request, res: Response) {
         return;
     }
 
+    if (!await requireNonAdminAccount(req, res, application.userId)) return;
+
     await prisma.sellerApplication.update({
         where: { id },
         data: { status: "APPROVED", reviewedAt: new Date() },
@@ -277,6 +280,8 @@ export async function revokeSeller(req: Request, res: Response) {
         return;
     }
 
+    if (!await requireNonAdminAccount(req, res, userId)) return;
+
     // Hide this seller's live listings from the marketplace. Tag them with
     // hiddenByRevoke so a later reinstate restores exactly these assets.
     await prisma.asset.updateMany({
@@ -333,6 +338,8 @@ export async function reinstateSeller(req: Request, res: Response) {
         res.status(404).json({ error: "User is not a revoked seller" });
         return;
     }
+
+    if (!await requireNonAdminAccount(req, res, userId)) return;
 
     // Re-publish exactly the listings that this revoke hid, then clear the tag.
     await prisma.asset.updateMany({

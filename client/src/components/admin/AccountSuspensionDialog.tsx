@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 
-export type SuspensionTarget = Pick<AdminAccount, "userId" | "email" | "status"> & { name: string };
+export type SuspensionTarget = Pick<AdminAccount, "userId" | "email" | "status" | "roles"> & { name: string };
 
 export function AccountSuspensionDialog({ target, currentUserId, onClose, onSuccess, restoreFocus }: {
     target: SuspensionTarget | null;
@@ -23,7 +23,7 @@ export function AccountSuspensionDialog({ target, currentUserId, onClose, onSucc
     const mutation = useUpdateAccountSuspension();
     const suspended = target?.status !== "SUSPENDED";
     const action = suspended ? "Suspend" : "Unsuspend";
-    const canSubmit = target && currentUserId !== null && target.userId !== currentUserId && reason.trim();
+    const canSubmit = target && currentUserId !== null && target.userId !== currentUserId && !target.roles.includes("ADMIN") && reason.trim();
 
     function close() {
         setReason("");

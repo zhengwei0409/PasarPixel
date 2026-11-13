@@ -102,7 +102,14 @@ export async function startConsumer(): Promise<void> {
             const event: UserDeletedEvent = JSON.parse(msg.content.toString());
 
             // Delete children before the User row, in FK-safe order.
-            await prisma.$transaction(async (tx) => {
+            const deleted = await prisma.$transaction(async (tx) => {
+                // Recheck the role in case the account was promoted after the delete request.
+                const adminRole = await tx.userRole.findFirst({
+                    where: { userId: event.userId, role: { name: 'ADMIN' } },
+                    select: { userId: true },
+                });
+                if (adminRole) return false;
+
                 const twoFactor = await tx.twoFactorAuth.findUnique({
                     where: { userId: event.userId },
                 });
@@ -111,15 +118,17 @@ export async function startConsumer(): Promise<void> {
                     await tx.twoFactorAuth.delete({ where: { userId: event.userId } });
                 }
 
-                await tx.userRole.deleteMany({ where: { userId: event.userId } });
+                await tx.userRole.deleteMany({ where: { userId: event.userId, role: { name: { not: 'ADMIN' } } } });
                 await tx.loginAttempt.deleteMany({ where: { userId: event.userId } });
                 await tx.passwordReset.deleteMany({ where: { userId: event.userId } });
                 await tx.refreshToken.deleteMany({ where: { userId: event.userId } });
                 await tx.user.delete({ where: { id: event.userId } });
+                return true;
             });
 
             channel.ack(msg);
-            console.log(`Deleted account for user ${event.userId}`);
+            if (deleted) console.log(`Deleted account for user ${event.userId}`);
+            else console.warn(`Skipped deletion of admin account ${event.userId}`);
         } catch (err) {
             console.error('Failed to process user.deleted:', err);
             channel.nack(msg, false, false);

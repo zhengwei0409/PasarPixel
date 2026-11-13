@@ -55,7 +55,9 @@ export default function AdminUsersPage() {
     const currentPage = Math.min(page, totalPages);
     const start = (currentPage - 1) * PAGE_SIZE;
     const visible = filtered.slice(start, start + PAGE_SIZE);
-    const canDelete = currentUserId !== null && selected !== null && selected.hasProfile && selected.userId !== currentUserId;
+    const selectedAccount = selected && allUsers?.find((item) => item.userId === selected.userId);
+    const canDelete = currentUserId !== null && selectedAccount?.hasProfile
+        && selectedAccount.userId !== currentUserId && !selectedAccount.roles.includes("ADMIN");
 
     function updateList(next: Partial<typeof defaultFilters>) {
         navigate(pathname, { replace: true, preventScrollReset: true, state: { filters: { ...filters, page: 1, ...next } } });
@@ -66,7 +68,7 @@ export default function AdminUsersPage() {
     }
 
     function openDelete(target: AdminUser, button: HTMLButtonElement) {
-        if (currentUserId === null || target.userId === currentUserId || !target.hasProfile || remove.isPending) return;
+        if (currentUserId === null || target.userId === currentUserId || target.roles.includes("ADMIN") || !target.hasProfile || remove.isPending) return;
         actionButtonRef.current = button;
         remove.reset();
         setDeleteReason("");
@@ -144,7 +146,9 @@ export default function AdminUsersPage() {
                                 <td className="hidden px-4 py-5 lg:table-cell"><AccountStatusBadge status={item.status} /></td>
                                 <td className="hidden px-4 py-5 text-xs text-muted-foreground sm:table-cell"><time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time></td>
                                 <td className="px-4 py-5 text-right sm:px-6">
-                                    {item.userId === currentUserId ? <span className="text-muted-foreground" aria-label="Your account">—</span> : (
+                                    {item.userId === currentUserId ? <span className="text-muted-foreground" aria-label="Your account">—</span> : item.roles.includes("ADMIN") ? (
+                                        <span className="text-xs text-muted-foreground">Protected account</span>
+                                    ) : (
                                         <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                                             <Button variant="outline" className={ROW_ACTION_CLASS} disabled={remove.isPending || currentUserId === null}
                                                 aria-label={`${moderationAction} user ${item.userId}: ${userName(item)}`}
@@ -168,7 +172,7 @@ export default function AdminUsersPage() {
                 </section>
             </div>
             <AccountSuspensionDialog
-                target={moderationTarget}
+                target={allUsers?.find((item) => item.userId === moderationTarget?.userId) ?? moderationTarget}
                 currentUserId={currentUserId}
                 onClose={() => setModerationTarget(null)}
                 onSuccess={setNotice}

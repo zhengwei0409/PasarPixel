@@ -7,8 +7,14 @@ const ts = require('typescript');
 const code = ts.transpileModule(readFileSync(join(__dirname, '../src/controllers/user.controller.ts'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
+const guardCode = ts.transpileModule(readFileSync(join(__dirname, '../src/lib/adminAccountGuard.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true },
+}).outputText;
+const sellerCode = ts.transpileModule(readFileSync(join(__dirname, '../src/controllers/sellerApplication.controller.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
 
-function fixture({ missing = false, failAudit = false } = {}) {
+function fixture({ missing = false, failAudit = false, roles = ['BUYER'], authStatus } = {}) {
     const calls = [];
     const profile = { assets: [{ id: 20, files: [{ fileUrl: 'file-key' }] }], avatarUrl: 'avatar-key', store: null };
     const tx = new Proxy({}, { get: (_, model) => new Proxy({}, { get: (_, operation) => async (query) => {
@@ -17,19 +23,43 @@ function fixture({ missing = false, failAudit = false } = {}) {
     } }) });
     const prisma = {
         userProfile: { findUnique: async (query) => { calls.push({ lookup: query }); return missing ? null : profile; } },
+        sellerApplication: {
+            findUnique: async () => ({ userId: 2, status: 'PENDING' }),
+            findFirst: async () => ({ userId: 2 }),
+        },
         $transaction: async (callback) => { calls.push({ transaction: true }); await callback(tx); },
     };
     const modules = {
-        axios: {},
+        axios: {
+            get: async (url, options) => {
+                calls.push({ auth: { url, authorization: options.headers.authorization } });
+                if (authStatus) throw { response: { status: authStatus } };
+                return { data: { userId: 2, roles } };
+            },
+            isAxiosError: (error) => Boolean(error.response),
+        },
         '../lib/prisma': { prisma },
         '../lib/s3': { extractKeyFromUrl: (url) => url, deleteObject: async (key) => calls.push({ file: key }) },
         '../lib/publisher': { publishUserDeleted: async (event) => calls.push({ published: event }) },
     };
     const exports = {};
+    const guard = {};
+    runInNewContext(guardCode, {
+        exports: guard, process: { env: { AUTH_SERVICE_URL: 'http://auth-service:3001/' } },
+        require: (name) => modules[name],
+    });
+    modules['../lib/adminAccountGuard'] = guard;
     runInNewContext(code, { exports, require: (name) => { assert.ok(name in modules, name); return modules[name]; } });
-    const invoke = async (body, { id = '2', adminId = 9 } = {}) => {
+    const invoke = async (body, { id = '2', adminId = 9, sellerAction } = {}) => {
         const response = { statusCode: 200, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; }, send() { this.sent = true; } };
-        await exports.deleteUser({ params: { userId: id }, body, user: { userId: adminId } }, response);
+        const req = { params: { id: '12', userId: id }, body, user: { userId: adminId }, headers: { authorization: 'Bearer session' } };
+        if (sellerAction) {
+            const sellerExports = {};
+            runInNewContext(sellerCode, { exports: sellerExports, require: (name) => { assert.ok(name in modules, name); return modules[name]; } });
+            await sellerExports[sellerAction](req, response);
+        } else {
+            await exports.deleteUser(req, response);
+        }
         return response;
     };
     return { calls, invoke };
@@ -72,12 +102,40 @@ test('valid preset and custom reasons are recorded against the admin in the dele
     }
 });
 
+test('deletion stops before any cleanup for an admin or an account Auth cannot verify', async () => {
+    for (const [options, status] of [
+        [{ roles: ['ADMIN'] }, 403],
+        [{ roles: ['BUYER', 'ADMIN', 'SELLER'] }, 403],
+        [{ authStatus: 404 }, 404],
+        [{ authStatus: 500 }, 503],
+        [{ roles: null }, 503],
+    ]) {
+        const view = fixture(options);
+        const response = await view.invoke({ reason: 'Policy violation' });
+        assert.equal(response.statusCode, status);
+        assert.deepEqual(view.calls, [{ auth: {
+            url: 'http://auth-service:3001/auth/admin/accounts/2',
+            authorization: 'Bearer session',
+        } }]);
+    }
+});
+
+test('seller-role changes cannot modify an admin account', async () => {
+    for (const sellerAction of ['approveApplication', 'revokeSeller', 'reinstateSeller']) {
+        const view = fixture({ roles: ['SELLER', 'ADMIN'] });
+        const response = await view.invoke({ adminNote: 'Policy violation' }, { sellerAction });
+        assert.equal(response.statusCode, 403);
+        assert.equal(view.calls.length, 1);
+        assert.match(view.calls[0].auth.url, /\/accounts\/2$/);
+    }
+});
+
 test('a missing account does not delete files, create audit records or publish an event', async () => {
     const view = fixture({ missing: true });
     const response = await view.invoke({ reason: 'User requested account deletion' });
     assert.equal(response.statusCode, 404);
-    assert.equal(view.calls.length, 1);
-    assert.ok(view.calls[0].lookup);
+    assert.equal(view.calls.length, 2);
+    assert.ok(view.calls[1].lookup);
 });
 
 test('an audit write failure fails the transaction and does not publish a successful deletion', async () => {

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import axios from "axios";
 import type { AdminAccount } from "../../../../shared/types/adminAccount";
+import { requireNonAdminAccount } from "../lib/adminAccountGuard";
 import { prisma } from "../lib/prisma";
 import { deleteObject, extractKeyFromUrl } from "../lib/s3";
 import { publishUserDeleted } from "../lib/publisher";
@@ -50,7 +51,7 @@ export async function deleteUser(req: Request, res: Response) {
     const requester = req.user!;
     const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
 
-    if (!Number.isSafeInteger(targetUserId) || targetUserId <= 0) {
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0 || targetUserId > 2_147_483_647) {
         res.status(400).json({ error: "Invalid user ID" });
         return;
     }
@@ -64,6 +65,8 @@ export async function deleteUser(req: Request, res: Response) {
         res.status(400).json({ error: "A reason is required to delete a user" });
         return;
     }
+
+    if (!await requireNonAdminAccount(req, res, targetUserId)) return;
 
     const profile = await prisma.userProfile.findUnique({
         where: { userId: targetUserId },

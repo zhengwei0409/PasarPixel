@@ -111,7 +111,8 @@ function UserOverview({ data }: { data: AdminUserDetail }) {
     const { user } = useAuth();
     const authId = user ? Number(user.sub) : null;
     const currentUserId = authId !== null && Number.isSafeInteger(authId) ? authId : null;
-    const [moderationTarget, setModerationTarget] = useState<SuspensionTarget | null>(null);
+    const [moderationOpen, setModerationOpen] = useState(false);
+    const moderationTarget: SuspensionTarget | null = moderationOpen ? { ...account, name } : null;
     const [notice, setNotice] = useState("");
     const moderationButton = useRef<HTMLButtonElement>(null);
     const stats = [
@@ -134,10 +135,10 @@ function UserOverview({ data }: { data: AdminUserDetail }) {
                         {name !== account.email && <p className="mt-1 break-words text-sm text-secondary-foreground">{account.email}</p>}
                         <p className="mt-2 text-sm text-secondary-foreground">Joined <DateText value={account.createdAt} /></p>
                     </div>
-                    {currentUserId !== null && currentUserId !== account.userId && (
+                    {currentUserId !== null && currentUserId !== account.userId && !account.roles.includes("ADMIN") && (
                         <Button ref={moderationButton} variant="outline" className="h-11" onClick={() => {
                             setNotice("");
-                            setModerationTarget({ ...account, name });
+                            setModerationOpen(true);
                         }}>
                             {account.status === "SUSPENDED" ? "Unsuspend account" : "Suspend account"}
                         </Button>
@@ -146,7 +147,7 @@ function UserOverview({ data }: { data: AdminUserDetail }) {
                 <div role="status" className={notice ? "mt-4 break-words text-sm text-secondary-foreground" : "sr-only"}>{notice}</div>
             </header>
             <AccountSuspensionDialog target={moderationTarget} currentUserId={currentUserId}
-                onClose={() => setModerationTarget(null)} onSuccess={setNotice} restoreFocus={() => moderationButton.current?.focus()} />
+                onClose={() => setModerationOpen(false)} onSuccess={setNotice} restoreFocus={() => moderationButton.current?.focus()} />
 
             <div className="grid items-start lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 <section aria-labelledby="user-profile-heading" className="min-w-0 px-5 py-6 sm:px-8 sm:py-8">

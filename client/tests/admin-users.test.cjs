@@ -156,6 +156,21 @@ test('suspension switches the row action and moves the account between status fi
     assert.equal(view.button('Suspend user 2: User 2').disabled, false);
 });
 
+test('other admins are viewable but have no deletion or suspension actions', () => {
+    const view = harness({ data: [
+        account(1, { roles: ['ADMIN'] }),
+        account(2, { roles: ['BUYER', 'ADMIN'] }),
+        account(3, { roles: ['ADMIN'], status: 'SUSPENDED' }),
+        account(4),
+    ] });
+    const html = view.render();
+    assert.match(html, /href="\/admin\/users\/2"/);
+    assert.match(html, /Protected account/);
+    assert.doesNotMatch(html, /aria-label="(?:Delete|Suspend|Unsuspend) user [23]:/);
+    assert.match(html, /aria-label="Delete user 4:/);
+    assert.match(html, /aria-label="Suspend user 4:/);
+});
+
 test('account names open the dedicated detail route even before a profile is created', () => {
     const view = harness({ data: [account(1), account(2, { hasProfile: false })] });
     const html = view.render();
