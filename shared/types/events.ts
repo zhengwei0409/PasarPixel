@@ -10,6 +10,14 @@ export interface UserDeletedEvent {
   userId: number;
 }
 
+export interface AccountModerationEvent {
+  id: number;
+  userId: number;
+  suspended: boolean;
+  reason: string;
+  createdAt: string;
+}
+
 export interface SellerApprovedEvent {
   userId: number;
   email: string;

@@ -21,6 +21,7 @@ import AdminAssetsPage from './pages/AdminAssetsPage';
 import AdminAssetReviewDetailPage from './pages/AdminAssetReviewDetailPage';
 import AdminSellersPage from './pages/AdminSellersPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import AdminUserDetailPage from './pages/AdminUserDetailPage';
 import AdminReportsPage from './pages/AdminReportsPage';
 import ForbiddenPage from './pages/ForbiddenPage';
 import CheckoutSuccessPage from './pages/CheckoutSuccessPage';
@@ -87,6 +88,7 @@ function App() {
         <Route path="/admin/assets/:id/review" element={<AdminAssetReviewDetailPage />} />
         <Route path="/admin/sellers" element={<AdminSellersPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/users/:userId" element={<AdminUserDetailPage />} />
         <Route path="/admin/reports" element={<AdminReportsPage />} />
       </Route>
     </Routes>

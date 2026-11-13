@@ -3,43 +3,129 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { verify as verifyTotp } from "otplib";
-import type { Prisma, TwoFactorAuth } from "@prisma/client";
+import type { Prisma, TwoFactorAuth, User } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { publishUserRegistered, publishPasswordReset } from "../lib/publisher";
 import type { AuthedRequest } from "../middleware/requireAuth";
-import type { AdminAccount } from "../../../../shared/types/adminAccount";
+import {
+    ACCOUNT_MODERATION_REASON_LIMIT, ACCOUNT_SUSPENDED_CODE, ACCOUNT_SUSPENDED_MESSAGE, type AdminAccount,
+} from "../../../../shared/types/adminAccount";
+import type { AdminAccountDetail } from "../../../../shared/types/adminUserDetail";
+
+const adminAccountSelect = {
+    id: true,
+    email: true,
+    createdAt: true,
+    suspendedAt: true,
+    roles: { select: { role: { select: { name: true } } } },
+    twoFactorAuth: { select: { isEnabled: true, lockedUntil: true } },
+} satisfies Prisma.UserSelect;
+
+async function isAccountAdmin(userId: number) {
+    return Boolean(await prisma.userRole.findFirst({
+        where: { userId, role: { name: "ADMIN" } },
+        select: { userId: true },
+    }));
+}
+
+function toAdminAccount(
+    { id, email, createdAt, roles, suspendedAt, twoFactorAuth }: Prisma.UserGetPayload<{ select: typeof adminAccountSelect }>,
+    now: Date,
+): AdminAccount {
+    const locked = twoFactorAuth?.isEnabled && twoFactorAuth.lockedUntil && twoFactorAuth.lockedUntil > now;
+    return {
+        userId: id,
+        email,
+        createdAt: createdAt.toISOString(),
+        roles: roles.map(({ role }) => role.name).sort(),
+        status: suspendedAt ? "SUSPENDED" : locked ? "TWO_FACTOR_LOCKED" : "ACTIVE",
+    };
+}
 
 export async function listAdminAccounts(req: AuthedRequest, res: Response) {
-    const admin = await prisma.userRole.findFirst({
-        where: { userId: req.userId!, role: { name: "ADMIN" } },
-        select: { userId: true },
-    });
-    if (!admin) {
+    if (!await isAccountAdmin(req.userId!)) {
         res.status(403).json({ error: "Forbidden: insufficient role" });
         return;
     }
 
     const accounts = await prisma.user.findMany({
         orderBy: { createdAt: "desc" },
-        select: {
-            id: true,
-            email: true,
-            createdAt: true,
-            roles: { select: { role: { select: { name: true } } } },
-            twoFactorAuth: { select: { isEnabled: true, lockedUntil: true } },
-        },
+        select: adminAccountSelect,
     });
     const now = new Date();
-    const result: AdminAccount[] = accounts.map(({ id, email, createdAt, roles, twoFactorAuth }) => ({
-        userId: id,
-        email,
-        createdAt: createdAt.toISOString(),
-        roles: roles.map(({ role }) => role.name).sort(),
-        status: twoFactorAuth?.isEnabled && twoFactorAuth.lockedUntil && twoFactorAuth.lockedUntil > now
-            ? "TWO_FACTOR_LOCKED"
-            : "ACTIVE",
-    }));
-    res.set("Cache-Control", "no-store").json(result);
+    res.set("Cache-Control", "no-store").json(accounts.map((account) => toAdminAccount(account, now)));
+}
+
+export async function getAdminAccount(req: AuthedRequest, res: Response) {
+    if (!await isAccountAdmin(req.userId!)) {
+        res.status(403).json({ error: "Forbidden: insufficient role" });
+        return;
+    }
+
+    const rawId = req.params.userId;
+    const userId = Number(rawId);
+    if (typeof rawId !== "string" || !/^[1-9][0-9]*$/.test(rawId) || userId > 2_147_483_647) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+    }
+
+    const account = await prisma.user.findUnique({ where: { id: userId }, select: adminAccountSelect });
+    if (!account) {
+        res.status(404).json({ error: "User not found" });
+        return;
+    }
+    const detail: AdminAccountDetail = {
+        ...toAdminAccount(account, new Date()),
+        twoFactorEnabled: account.twoFactorAuth?.isEnabled ?? false,
+    };
+    res.set("Cache-Control", "no-store").json(detail);
+}
+
+export async function updateAccountSuspension(req: AuthedRequest, res: Response) {
+    const adminId = req.userId!;
+    if (!await isAccountAdmin(adminId)) {
+        res.status(403).json({ error: "Forbidden: insufficient role" });
+        return;
+    }
+
+    const rawId = req.params.userId;
+    const userId = Number(rawId);
+    if (typeof rawId !== "string" || !/^[1-9][0-9]*$/.test(rawId) || userId > 2_147_483_647) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+    }
+    if (userId === adminId) {
+        res.status(400).json({ error: "You cannot change the suspension of your own account" });
+        return;
+    }
+
+    const { suspended } = req.body ?? {};
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (typeof suspended !== "boolean" || !reason || reason.length > ACCOUNT_MODERATION_REASON_LIMIT) {
+        res.status(400).json({ error: `Choose Suspend or Unsuspend and provide a reason of 1–${ACCOUNT_MODERATION_REASON_LIMIT} characters.` });
+        return;
+    }
+
+    const now = new Date();
+    const result = await prisma.$transaction(async (tx) => {
+        const changed = await tx.user.updateMany({
+            where: { id: userId, suspendedAt: suspended ? null : { not: null } },
+            data: suspended ? { suspendedAt: now, sessionVersion: { increment: 1 } } : { suspendedAt: null },
+        });
+        const account = await tx.user.findUnique({ where: { id: userId }, select: adminAccountSelect });
+        if (!account) return { status: 404, error: "User not found" } as const;
+        if (!changed.count) {
+            return { status: 409, error: suspended ? "This account is already suspended" : "This account is not suspended" } as const;
+        }
+        await tx.accountModeration.create({ data: { userId, adminId, suspended, reason } });
+        return { status: 200, account: toAdminAccount(account, now) } as const;
+    });
+
+    if (result.status !== 200) {
+        res.status(result.status).json({ error: result.error });
+        return;
+    }
+    res.set("Cache-Control", "no-store").json(result.account);
 }
 
 export async function passwordStatus(req: AuthedRequest, res: Response) {
@@ -106,9 +192,9 @@ async function getUserRoles(userId: number, db: Prisma.TransactionClient = prism
     return userRoles.map((ur) => ur.role.name);
 }
 
-function generateTokens(userId: number, email: string, roles: string[], rememberMe = false) {
+function generateTokens(userId: number, email: string, roles: string[], sessionVersion: number, rememberMe = false) {
     const accessToken = jwt.sign(
-        { sub: userId, email, roles },
+        { sub: userId, email, roles, sessionVersion },
         process.env.JWT_SECRET!,
         { expiresIn: "15m" }
     );
@@ -123,9 +209,9 @@ function generateTokens(userId: number, email: string, roles: string[], remember
 // A short-lived token issued after the password check but before 2FA.
 // purpose: "2fa" marks it as NOT a normal login token — it can only be
 // exchanged at /auth/2fa/verify-login, never used to access real endpoints.
-function generateTempToken(userId: number, rememberMe = false) {
+function generateTempToken(userId: number, sessionVersion: number, rememberMe = false) {
     return jwt.sign(
-        { sub: userId, purpose: "2fa", rememberMe },
+        { sub: userId, purpose: "2fa", sessionVersion, rememberMe },
         process.env.JWT_SECRET!,
         { expiresIn: "5m" }
     );
@@ -134,13 +220,15 @@ function generateTempToken(userId: number, rememberMe = false) {
 // Issues the real login tokens and persists the refresh token. Shared by the
 // plain login path and the 2FA verify path so they stay consistent.
 async function issueLoginTokens(
-    userId: number, email: string, rememberMe = false, db: Prisma.TransactionClient = prisma,
+    { id: userId, email, sessionVersion }: Pick<User, "id" | "email" | "sessionVersion">,
+    rememberMe = false,
+    db: Prisma.TransactionClient = prisma,
 ) {
     const roles = await getUserRoles(userId, db);
-    const { accessToken, refreshToken, expiresAt } = generateTokens(userId, email, roles, rememberMe);
+    const { accessToken, refreshToken, expiresAt } = generateTokens(userId, email, roles, sessionVersion, rememberMe);
 
     await db.refreshToken.create({
-        data: { userId, token: refreshToken, expiresAt },
+        data: { userId, token: refreshToken, expiresAt, sessionVersion },
     });
 
     return { accessToken, refreshToken };
@@ -171,17 +259,10 @@ export async function register(req: Request, res: Response) {
         data: { userId: user.id, roleId: buyerRole!.id },
     });
 
-    const roles = await getUserRoles(user.id);
-
-    const { accessToken, refreshToken, expiresAt } = generateTokens(user.id, user.email, roles);
-
-    await prisma.refreshToken.create({
-        data: { userId: user.id, token: refreshToken, expiresAt },
-    });
-
+    const tokens = await issueLoginTokens(user);
     await publishUserRegistered({ userId: user.id, name: user.email, email: user.email });
 
-    res.status(201).json({ accessToken, refreshToken });
+    res.status(201).json(tokens);
 }
 
 export async function login(req: Request, res: Response) {
@@ -213,6 +294,18 @@ export async function login(req: Request, res: Response) {
         res.status(401).json({ error: "Invalid credentials" });
         return;
     }
+    if (user.suspendedAt) {
+        const decision = await prisma.accountModeration.findFirst({
+            where: { userId: user.id, suspended: true },
+            orderBy: { id: "desc" },
+            select: { reason: true },
+        });
+        res.status(403).json({
+            error: decision ? `${ACCOUNT_SUSPENDED_MESSAGE} Reason: ${decision.reason}` : ACCOUNT_SUSPENDED_MESSAGE,
+            code: ACCOUNT_SUSPENDED_CODE,
+        });
+        return;
+    }
 
     // Password is correct. If this account has 2FA enabled, don't log them in
     // yet — hand back a temp token and make them complete the second step.
@@ -220,13 +313,13 @@ export async function login(req: Request, res: Response) {
     if (twoFactor?.isEnabled) {
         res.json({
             twoFactorRequired: true,
-            tempToken: generateTempToken(user.id, rememberMe),
+            tempToken: generateTempToken(user.id, user.sessionVersion, rememberMe),
             ...getTwoFactorLoginState(twoFactor),
         });
         return;
     }
 
-    const tokens = await issueLoginTokens(user.id, user.email, rememberMe);
+    const tokens = await issueLoginTokens(user, rememberMe);
     res.json(tokens);
 }
 
@@ -272,24 +365,37 @@ export async function verifyLogin(req: Request, res: Response) {
     // The temp token must be valid, unexpired, and carry our 2fa marker —
     // a normal access token must not be accepted here.
     let userId: number;
+    let sessionVersion: number;
     let rememberMe = false;
     try {
         const payload = jwt.verify(tempToken, process.env.JWT_SECRET!) as unknown as {
             sub: number;
             purpose?: string;
             rememberMe?: boolean;
+            sessionVersion?: number;
         };
         if (payload.purpose !== "2fa" || !Number.isSafeInteger(payload.sub) || payload.sub <= 0) {
             res.status(401).json({ error: "Invalid token" });
             return;
         }
         userId = payload.sub;
+        sessionVersion = payload.sessionVersion ?? 0;
         rememberMe = payload.rememberMe === true;
     } catch {
         res.status(401).json({
             error: "Your sign-in session has expired. Please sign in again.",
             code: "TWO_FACTOR_CHALLENGE_EXPIRED",
         });
+        return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.suspendedAt) {
+        res.status(403).json({ error: ACCOUNT_SUSPENDED_MESSAGE, code: ACCOUNT_SUSPENDED_CODE });
+        return;
+    }
+    if (!user || user.sessionVersion !== sessionVersion) {
+        res.status(401).json({ error: "Your sign-in session has expired. Please sign in again.", code: "TWO_FACTOR_CHALLENGE_EXPIRED" });
         return;
     }
 
@@ -321,6 +427,13 @@ export async function verifyLogin(req: Request, res: Response) {
         if (!current?.isEnabled || current.secret !== twoFactor.secret) {
             return { status: "unavailable" } as const;
         }
+        // Check the account while holding the 2FA row, following the account deletion lock order.
+        const [account] = await tx.$queryRaw<Pick<User, "id" | "email" | "suspendedAt" | "sessionVersion">[]>`
+            SELECT "id", "email", "suspendedAt", "sessionVersion" FROM "users" WHERE "id" = ${userId} FOR SHARE
+        `;
+        if (account?.suspendedAt) return { status: "suspended" } as const;
+        if (!account || account.sessionVersion !== sessionVersion) return { status: "expired" } as const;
+
         const now = new Date();
         const state = getTwoFactorLoginState(current, now);
         if (state.lockedUntil) return { status: "locked", lockedUntil: state.lockedUntil } as const;
@@ -345,19 +458,23 @@ export async function verifyLogin(req: Request, res: Response) {
             return { status: "invalid", attemptsRemaining } as const;
         }
 
-        // The locked 2FA record references an existing user.
-        const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
         if (current.failedAttempts || current.lockedUntil) {
             await tx.twoFactorAuth.update({
                 where: { id: current.id },
                 data: { failedAttempts: 0, lockedUntil: null },
             });
         }
-        const tokens = await issueLoginTokens(userId, user.email, rememberMe, tx);
+        const tokens = await issueLoginTokens(account, rememberMe, tx);
         return { status: "accepted", tokens } as const;
     });
 
     switch (result.status) {
+        case "suspended":
+            res.status(403).json({ error: ACCOUNT_SUSPENDED_MESSAGE, code: ACCOUNT_SUSPENDED_CODE });
+            return;
+        case "expired":
+            res.status(401).json({ error: "Your sign-in session has expired. Please sign in again.", code: "TWO_FACTOR_CHALLENGE_EXPIRED" });
+            return;
         case "locked":
             sendTwoFactorLockout(res, result.lockedUntil);
             return;
@@ -388,14 +505,14 @@ export async function refreshToken(req: Request, res: Response) {
     }
 
     const user = await prisma.user.findUnique({ where: { id: stored.userId } });
-    if (!user) {
-        res.status(401).json({ error: "User not found" });
+    if (!user || user.suspendedAt || user.sessionVersion !== stored.sessionVersion) {
+        res.status(401).json({ error: "Invalid or expired refresh token" });
         return;
     }
 
     const roles = await getUserRoles(user.id);
     const accessToken = jwt.sign(
-        { sub: user.id, email: user.email, roles },
+        { sub: user.id, email: user.email, roles, sessionVersion: user.sessionVersion },
         process.env.JWT_SECRET!,
         { expiresIn: "15m" }
     );
@@ -494,7 +611,12 @@ export async function resetPassword(req: Request, res: Response) {
 }
 
 export async function googleCallback(req: Request, res: Response) {
-    const user = req.user as any;
+    const user = req.user as User & { displayName?: string };
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    if (user.suspendedAt) {
+        res.redirect(`${clientUrl}/auth/callback?error=${ACCOUNT_SUSPENDED_CODE}`);
+        return;
+    }
 
     const buyerRole = await prisma.role.findUnique({ where: { name: "BUYER" } });
 
@@ -521,16 +643,16 @@ export async function googleCallback(req: Request, res: Response) {
         const { attemptsRemaining, lockedUntil } = getTwoFactorLoginState(twoFactor);
         const params = new URLSearchParams({
             twoFactorRequired: "true",
-            tempToken: generateTempToken(user.id),
+            tempToken: generateTempToken(user.id, user.sessionVersion),
             attemptsRemaining: String(attemptsRemaining),
         });
         if (lockedUntil) params.set("lockedUntil", lockedUntil.toISOString());
-        res.redirect(`${process.env.CLIENT_URL || "http://localhost:5173"}/auth/callback?${params}`);
+        res.redirect(`${clientUrl}/auth/callback?${params}`);
         return;
     }
 
-    const { accessToken, refreshToken } = await issueLoginTokens(user.id, user.email);
-    res.redirect(`${process.env.CLIENT_URL || "http://localhost:5173"}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+    const { accessToken, refreshToken } = await issueLoginTokens(user);
+    res.redirect(`${clientUrl}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
 }
 
 export async function me(req: Request, res: Response) {
@@ -544,16 +666,19 @@ export async function me(req: Request, res: Response) {
     const token = authHeader.split(" ")[1];
 
     let userId: number;
+    let sessionVersion: number;
     try {
         const payload = jwt.verify(token, process.env.JWT_SECRET!) as unknown as {
             sub: number;
             purpose?: unknown;
+            sessionVersion?: number;
         };
         if (payload.purpose !== undefined || !Number.isSafeInteger(payload.sub) || payload.sub <= 0) {
             res.status(401).json({ error: "Invalid access token" });
             return;
         }
         userId = payload.sub;
+        sessionVersion = payload.sessionVersion ?? 0;
     } catch {
         res.status(401).json({ error: "Invalid or expired token" });
         return;
@@ -566,6 +691,14 @@ export async function me(req: Request, res: Response) {
         });
         if (!user) {
             res.status(401).json({ error: "User not found" });
+            return;
+        }
+        if (user.suspendedAt) {
+            res.status(401).json({ error: ACCOUNT_SUSPENDED_MESSAGE, code: ACCOUNT_SUSPENDED_CODE });
+            return;
+        }
+        if (user.sessionVersion !== sessionVersion) {
+            res.status(401).json({ error: "Invalid or expired token" });
             return;
         }
         res.json({ userId: user.id, email: user.email, roles: user.roles.map(({ role }) => role.name) });

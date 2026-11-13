@@ -15,6 +15,8 @@ model User {
   isVerified   Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  suspendedAt  DateTime?
+  sessionVersion Int    @default(0)
 
   roles          UserRole[]
   twoFactorAuth  TwoFactorAuth?
@@ -105,8 +107,22 @@ model RefreshToken {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime @default(now())
+  sessionVersion Int @default(0)
 
   user User @relation(fields: [userId], references: [id])
 
   @@map("refresh_tokens")
+}
+
+model AccountModeration {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  adminId     Int
+  suspended   Boolean
+  reason      String
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  @@index([publishedAt, id])
+  @@map("account_moderation")
 }

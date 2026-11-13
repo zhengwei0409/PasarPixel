@@ -1,5 +1,12 @@
 export const EXCHANGE_USER_REGISTERED = 'user.registered';
 export const EXCHANGE_USER_DELETED = 'user.deleted';
+export const ACCOUNT_MODERATION_QUEUE = 'account.moderation.notification';
+export const ACCOUNT_MODERATION_RETRY_QUEUE = 'account.moderation.notification.retry';
+export const ACCOUNT_MODERATION_QUEUE_OPTIONS = {
+    durable: true,
+    deadLetterExchange: '',
+    deadLetterRoutingKey: ACCOUNT_MODERATION_RETRY_QUEUE,
+};
 export const EXCHANGE_SELLER_APPROVED = 'seller.approved';
 export const EXCHANGE_SELLER_REJECTED = 'seller.rejected';
 export const EXCHANGE_SELLER_REVOKED = 'seller.revoked';

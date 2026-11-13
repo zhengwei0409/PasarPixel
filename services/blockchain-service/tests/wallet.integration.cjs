@@ -17,6 +17,7 @@ url.searchParams.set('schema', schema);
 const db = new PrismaClient({ datasourceUrl: url.toString() });
 let auth, server, base;
 let nextUser = 100;
+const adminId = 99;
 const listen = server => new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const close = server => server ? new Promise(resolve => server.close(resolve)) : Promise.resolve();
 function wallet() {
@@ -54,7 +55,8 @@ before(async () => {
         res.setHeader('content-type', 'application/json');
         const match = /^Bearer user-(\d+)$/.exec(req.headers.authorization ?? '');
         if (!match) { res.writeHead(401).end('{}'); return; }
-        res.end(JSON.stringify({ userId: Number(match[1]), email: 'test@example.com', roles: ['BUYER'] }));
+        const userId = Number(match[1]);
+        res.end(JSON.stringify({ userId, email: 'test@example.com', roles: [userId === adminId ? 'ADMIN' : 'BUYER'] }));
     });
     await listen(auth);
     server = createServer(createApp(db, `http://127.0.0.1:${auth.address().port}`, 'http://localhost:5173'));
@@ -74,6 +76,20 @@ test('database health is public; wallet operations require a valid authenticated
     assert.equal(initial.data.wallet, null);
     assert.equal(initial.data.canChange, true);
     assert.equal(initial.headers.get('cache-control'), 'no-store');
+});
+
+test('only an admin can read another user’s linked wallet address', async () => {
+    const userId = nextUser++;
+    const { key } = await bind(userId);
+    const path = `/admin/wallets/${userId}`;
+    assert.equal((await request(null, path)).status, 401);
+    assert.equal((await request(userId, path)).status, 403);
+    const linked = await request(adminId, path);
+    assert.equal(linked.status, 200);
+    assert.deepEqual(linked.data, { address: key.address });
+    assert.equal(linked.headers.get('cache-control'), 'no-store');
+    assert.deepEqual((await request(adminId, `/admin/wallets/${nextUser}`)).data, { address: null });
+    assert.equal((await request(adminId, '/admin/wallets/2147483648')).status, 400);
 });
 
 test('valid signatures bind; replay and cross-account challenge use are rejected', async () => {

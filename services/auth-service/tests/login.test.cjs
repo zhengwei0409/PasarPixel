@@ -12,15 +12,16 @@ const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true },
 }).outputText;
 
-function setup({ twoFactor = false, recovery = false, tokenPreference } = {}) {
+function setup({ twoFactor = false, recovery = false, tokenPreference, suspended = false } = {}) {
     const persisted = [];
     let signedChallenge;
     let timeOffset = 0;
-    const user = { id: 1, email: "buyer@example.com", passwordHash: "hash" };
+    const user = { id: 1, email: "buyer@example.com", passwordHash: "hash", sessionVersion: 0, suspendedAt: suspended ? new Date() : null };
     const twoFactorRecord = { id: 1, isEnabled: true, secret: "secret", failedAttempts: 0, lockedUntil: null };
     const recoveryCode = { id: 1, code: "recovery-hash", isUsed: false };
     const db = {
         user: { findUnique: async () => user, findUniqueOrThrow: async () => user },
+        accountModeration: { findFirst: async () => ({ reason: "Marketplace policy violation" }) },
         role: { findUnique: async () => ({ id: 1 }) },
         userRole: {
             findMany: async () => [],
@@ -31,7 +32,10 @@ function setup({ twoFactor = false, recovery = false, tokenPreference } = {}) {
             findUnique: async () => twoFactor ? { ...twoFactorRecord } : null,
             update: async ({ data }) => Object.assign(twoFactorRecord, data),
         },
-        refreshToken: { create: async ({ data }) => persisted.push(data) },
+        refreshToken: {
+            create: async ({ data }) => persisted.push(data),
+            findUnique: async () => ({ userId: user.id, expiresAt: new Date(Date.now() + 60_000), sessionVersion: 0 }),
+        },
         recoveryCode: {
             findMany: async () => recoveryCode.isUsed ? [] : [recoveryCode],
             updateMany: async () => {
@@ -40,7 +44,7 @@ function setup({ twoFactor = false, recovery = false, tokenPreference } = {}) {
                 return { count: 1 };
             },
         },
-        $queryRaw: async () => [{ ...twoFactorRecord }],
+        $queryRaw: async ([query]) => query.includes('FROM "users"') ? [{ ...user }] : [{ ...twoFactorRecord }],
         $transaction: async (callback) => callback(db),
     };
     const dependencies = {
@@ -64,6 +68,10 @@ function setup({ twoFactor = false, recovery = false, tokenPreference } = {}) {
         otplib: { verify: async ({ token }) => ({ valid: token === "123456" }) },
         "../lib/prisma": { prisma: db },
         "../lib/publisher": { publishUserRegistered: async () => {} },
+        "../../../../shared/types/adminAccount": {
+            ACCOUNT_SUSPENDED_CODE: "ACCOUNT_SUSPENDED",
+            ACCOUNT_SUSPENDED_MESSAGE: "Your PasarPixel account is suspended.",
+        },
     };
     const exports = {};
     runInNewContext(compiled, {
@@ -94,7 +102,7 @@ function setup({ twoFactor = false, recovery = false, tokenPreference } = {}) {
         return response;
     }
 
-    return { request, persisted, recoveryCode, advanceTime: (ms) => { timeOffset += ms; } };
+    return { request, persisted, recoveryCode, user, advanceTime: (ms) => { timeOffset += ms; } };
 }
 
 function assertDuration(record, days, startedAt) {
@@ -124,6 +132,31 @@ test("login rejects non-boolean rememberMe values", async () => {
     });
     assert.equal(response.statusCode, 400);
     assert.equal(persisted.length, 0);
+});
+
+test("suspension blocks password, Google, 2FA and refresh sign-in", async () => {
+    const { request, persisted } = setup({ twoFactor: true, suspended: true });
+    const login = await request("login", { email: "buyer@example.com", password: "password" });
+    assert.equal(login.statusCode, 403);
+    assert.match(login.body.error, /Marketplace policy violation/);
+    assert.equal(new URL((await request("googleCallback")).location).searchParams.get("error"), "ACCOUNT_SUSPENDED");
+    assert.equal((await request("verifyLogin", { tempToken: "challenge", code: "123456" })).statusCode, 403);
+    assert.equal((await request("refreshToken", { refreshToken: "old-token" })).statusCode, 401);
+    assert.equal(persisted.length, 0);
+});
+
+test("restored accounts reject old challenges and refresh tokens and can sign in again", async () => {
+    const { request, persisted, user } = setup({ twoFactor: true });
+    const login = () => request("login", { email: "buyer@example.com", password: "password" });
+    await login();
+    user.sessionVersion++;
+    const verification = { tempToken: "challenge", code: "123456" };
+    assert.equal((await request("verifyLogin", verification)).statusCode, 401);
+    assert.equal((await request("refreshToken", { refreshToken: "old-token" })).statusCode, 401);
+    assert.equal(persisted.length, 0);
+    await login();
+    assert.equal((await request("verifyLogin", verification)).statusCode, 200);
+    assert.equal(persisted[0].sessionVersion, 1);
 });
 
 for (const recovery of [false, true]) {

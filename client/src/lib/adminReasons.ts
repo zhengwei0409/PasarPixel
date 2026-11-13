@@ -34,3 +34,11 @@ export const USER_DELETE_REASONS = [
     "Impersonation",
     "User requested account deletion",
 ];
+
+export const USER_SUSPEND_REASONS = [
+    "Marketplace rule violations",
+    "Suspected fraud or payment abuse",
+    "Spam or scam activity",
+    "Impersonation",
+    "Suspected account compromise",
+];

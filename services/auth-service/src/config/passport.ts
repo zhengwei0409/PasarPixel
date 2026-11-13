@@ -27,6 +27,7 @@ passport.use(new GoogleStrategy({
         if (!user) {
             const existing = await prisma.user.findUnique({ where: { email } });
             if (existing) {
+                if (existing.suspendedAt) return done(null, existing);
                 user = await prisma.user.update({
                     where: { id: existing.id },
                     data: { googleId: profile.id, isVerified: true },

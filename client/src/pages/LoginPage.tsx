@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import { useLogin } from "../hooks/useLogin";
 import { getErrorMessage } from "../lib/errors";
 import TwoFactorChallenge from "../components/auth/TwoFactorChallenge";
 import type { TwoFactorChallenge as LoginChallenge } from "../types/auth";
+import { ACCOUNT_SUSPENDED_MESSAGE } from "../../../shared/types/adminAccount";
 
 const schema = z.object({
     email: z.string().email("Invalid email"),
@@ -21,6 +22,7 @@ const schema = z.object({
 type LoginForm = z.infer<typeof schema>;
 
 export default function LoginPage() {
+    const { state } = useLocation();
     const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
     const { mutate: login, isPending, error } = useLogin(setChallenge);
     const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
@@ -136,7 +138,11 @@ export default function LoginPage() {
                                         {errors.password && <p id="login-password-error" role="alert" className="text-sm text-red-600">{errors.password.message}</p>}
                                     </div>
 
-                                    {error && <p role="alert" className="mt-5 text-sm text-red-600">{getErrorMessage(error)}</p>}
+                                    {(error || state?.suspended === true) && (
+                                        <p role="alert" className="mt-5 break-words text-sm text-red-600">
+                                            {error ? getErrorMessage(error) : ACCOUNT_SUSPENDED_MESSAGE}
+                                        </p>
+                                    )}
 
                                     <Label htmlFor="login-remember" className="mt-5 flex cursor-pointer items-center gap-2.5 text-xs leading-relaxed font-normal text-[#73776e]">
                                         <input

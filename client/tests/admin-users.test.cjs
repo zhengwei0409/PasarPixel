@@ -9,24 +9,40 @@ const { renderToStaticMarkup } = require('react-dom/server');
 const code = ts.transpileModule(readFileSync(join(__dirname, '../src/pages/AdminUsersPage.tsx'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
+const accountStatus = {};
+runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/lib/accountStatus.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+}).outputText, { exports: accountStatus });
+const badge = {};
+runInNewContext(ts.transpileModule(readFileSync(join(__dirname, '../src/components/admin/AccountStatusBadge.tsx'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+}).outputText, { exports: badge, require: (name) => name === '../../lib/accountStatus' ? accountStatus : require(name) });
 const account = (id, overrides = {}) => ({ userId: id, name: `User ${id}`, email: `user${id}@example.com`, avatarUrl: null, createdAt: new Date(Date.UTC(2026, 10, id)).toISOString(), roles: ['BUYER'], status: 'ACTIVE', hasProfile: true, ...overrides });
 function harness({ data = [account(1), account(2)], loading = false, loadError = false, missingData = false, authUser = { sub: '1' } } = {}) {
     const state = [];
-    let cursor = 0, buttons, inputs, selects, reason;
+    let locationState;
+    let cursor = 0, buttons, inputs, selects, reason, moderation;
     const calls = [], refreshes = [];
     const mutation = { isPending: false, error: null, reset() { this.error = null; }, mutate(value, options) { calls.push({ value, options }); } };
     const modules = {
         react: { ...React, useState: (initial) => { const index = cursor++; if (!(index in state)) state[index] = initial; return [state[index], (value) => { state[index] = typeof value === 'function' ? value(state[index]) : value; }]; }, useRef: (value) => { const index = cursor++; return state[index] ??= { current: value }; } },
         'react/jsx-runtime': require('react/jsx-runtime'),
-        'react-router-dom': { Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) },
+        'react-router-dom': {
+            Link: ({ to, state, children, ...props }) => React.createElement('a', { href: to, ...props }, children),
+            useLocation: () => ({ pathname: '/admin/users', state: locationState }),
+            useNavigate: () => (_, { state }) => { locationState = state; },
+        },
         'lucide-react': new Proxy({}, { get: () => () => null }),
         '../components/ui/button': { Button: ({ asChild, children, variant, size, ...props }) => { buttons.push({ children, ...props }); return asChild ? React.cloneElement(children, props) : React.createElement('button', props, children); } },
         '../components/ui/input': { Input: (props) => { inputs.push(props); return React.createElement('input', props); } },
         '../components/ui/select': { Select: (props) => { selects.push(props); return React.createElement('div', null, props.children); }, SelectContent: 'div', SelectItem: 'span', SelectTrigger: 'button', SelectValue: 'span' },
         '../components/ui/avatar': { Avatar: 'span', AvatarFallback: 'span', AvatarImage: 'img' },
+        '../components/admin/AccountStatusBadge': badge,
+        '../components/admin/AccountSuspensionDialog': { AccountSuspensionDialog: (props) => { moderation = props; return null; } },
         '../components/ui/dialog': { Dialog: ({ open, children }) => open ? React.createElement('div', null, children) : null, DialogContent: ({ children }) => React.createElement('div', null, children), DialogDescription: 'p', DialogFooter: 'div', DialogHeader: 'header', DialogTitle: 'h2' },
         '../components/ReasonPicker': { __esModule: true, default: (props) => { reason = props; return null; } },
         '../lib/adminReasons': { USER_DELETE_REASONS: ['Spam or scam activity', 'User requested account deletion'] },
+        '../lib/accountStatus': accountStatus,
         '../lib/errors': { getErrorMessage: (_, fallback) => fallback },
         '../hooks/useUsers': { useUsers: () => ({ data: missingData ? undefined : data, isLoading: loading, error: loadError ? new Error('failed') : null, refetch: () => refreshes.push('users') }), useDeleteUser: () => mutation },
         '../hooks/useAuth': { useAuth: () => ({ user: authUser }) },
@@ -34,7 +50,7 @@ function harness({ data = [account(1), account(2)], loading = false, loadError =
     const exports = {};
     runInNewContext(code, { exports, require: (name) => { assert.ok(name in modules, name); return modules[name]; } });
     const render = () => { cursor = 0; buttons = []; inputs = []; selects = []; reason = null; return renderToStaticMarkup(React.createElement(exports.default)); };
-    return { render, calls, refreshes, mutation,
+    return { render, calls, refreshes, mutation, moderation: () => moderation,
         button: (label) => { const button = buttons.findLast((item) => item['aria-label'] === label || React.Children.toArray(item.children).filter((child) => typeof child === 'string').join('') === label); assert.ok(button, label); return button; },
         open: (label) => buttons.find((item) => item['aria-label'] === label).onClick({ currentTarget: { isConnected: true, focus() {} } }),
         search: (value) => inputs[0].onChange({ target: { value } }),
@@ -75,7 +91,9 @@ test('pagination, newest/oldest/name sorting and result shrinkage keep pages val
     assert.match(view.render(), /1–10 of 10/);
     view.search('user12@');
     assert.match(view.render(), /1–1 of 1/);
-    view.search(''); view.select('Sort users', 'oldest');
+    view.search('');
+    view.render();
+    view.select('Sort users', 'oldest');
     const oldest = view.render();
     assert.ok(oldest.indexOf('User 3<') < oldest.indexOf('User 4<'));
     view.select('Sort users', 'name');
@@ -112,9 +130,38 @@ test('the signed-in account is labeled and has no delete action', () => {
     const html = view.render();
     assert.match(html, />You</);
     assert.doesNotMatch(html, /aria-label="Delete user 1:/);
+    assert.doesNotMatch(html, /aria-label="Suspend user 1:/);
     assert.match(html, /aria-label="Delete user 2:/);
     const unknown = harness({ authUser: null }); unknown.render();
     assert.equal(unknown.button('Delete user 2: User 2').disabled, true);
+});
+
+test('suspension switches the row action and moves the account between status filters', () => {
+    const data = [account(1), account(2, { hasProfile: false })];
+    const view = harness({ data });
+    view.render();
+    view.select('Filter by account status', 'SUSPENDED');
+    assert.match(view.render(), /No users found/);
+    data[1].status = 'SUSPENDED';
+    assert.match(view.render(), />Suspended</);
+    view.open('Unsuspend user 2: User 2');
+    view.render();
+    assert.equal(view.moderation().target.userId, 2);
+    assert.equal(view.moderation().target.status, 'SUSPENDED');
+    data[1].status = 'ACTIVE';
+    view.moderation().onClose();
+    assert.match(view.render(), /No users found/);
+    view.select('Filter by account status', 'ACTIVE');
+    assert.match(view.render(), /aria-label="Suspend user 2: User 2"/);
+    assert.equal(view.button('Suspend user 2: User 2').disabled, false);
+});
+
+test('account names open the dedicated detail route even before a profile is created', () => {
+    const view = harness({ data: [account(1), account(2, { hasProfile: false })] });
+    const html = view.render();
+    assert.match(html, /href="\/admin\/users\/1" aria-label="View details for User 1, user 1"/);
+    assert.match(html, /href="\/admin\/users\/2" aria-label="View details for User 2, user 2"/);
+    assert.equal(view.button('Delete user 2: User 2').disabled, true);
 });
 
 test('deleting requires confirmation, sends the user ID and allows Cancel', () => {

@@ -1,13 +1,16 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Loader2, Search, Users } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowUpRight, Check, ChevronLeft, ChevronRight, Loader2, Search, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { AccountStatusBadge } from "../components/admin/AccountStatusBadge";
+import { AccountSuspensionDialog } from "../components/admin/AccountSuspensionDialog";
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useUsers, useDeleteUser } from "../hooks/useUsers";
 import { useAuth } from "../hooks/useAuth";
+import { ACCOUNT_STATUS_LABELS } from "../lib/accountStatus";
 import { getErrorMessage } from "../lib/errors";
 import ReasonPicker from "../components/ReasonPicker";
 import { USER_DELETE_REASONS } from "../lib/adminReasons";
@@ -15,14 +18,11 @@ import type { AdminUser } from "../types/user";
 
 const PAGE_SIZE = 10;
 const ROLE_LABELS: Record<string, string> = { ADMIN: "Admin", SELLER: "Seller", BUYER: "Buyer" };
-const STATUS_LABELS: Record<AdminUser["status"], string> = { ACTIVE: "Active", TWO_FACTOR_LOCKED: "2FA locked" };
 const FILTER_CLASS = "h-11 w-full bg-background/60 data-[size=default]:h-11";
+const ROW_ACTION_CLASS = "h-11 w-full bg-card px-1.5 text-xs motion-reduce:transition-none";
+const defaultFilters = { search: "", role: "ALL", status: "ALL", sort: "newest", page: 1 };
 const userName = (user: AdminUser) => user.name.trim() || "Unnamed user";
 const dateLabel = (date: string) => new Date(date).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-
-function AccountStatusBadge({ status }: { status: AdminUser["status"] }) {
-    return <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${status === "TWO_FACTOR_LOCKED" ? "bg-amber-100 text-amber-900" : "bg-accent text-accent-foreground"}`}>{STATUS_LABELS[status]}</span>;
-}
 
 export default function AdminUsersPage() {
     const { user } = useAuth();
@@ -32,12 +32,12 @@ export default function AdminUsersPage() {
     const remove = useDeleteUser();
     const searchRef = useRef<HTMLInputElement>(null);
     const actionButtonRef = useRef<HTMLButtonElement | null>(null);
-    const [search, setSearch] = useState("");
-    const [role, setRole] = useState("ALL");
-    const [status, setStatus] = useState("ALL");
-    const [sort, setSort] = useState("newest");
-    const [page, setPage] = useState(1);
+    const { pathname, state } = useLocation();
+    const navigate = useNavigate();
+    const filters: typeof defaultFilters = { ...defaultFilters, ...state?.filters };
+    const { search, role, status, sort, page } = filters;
     const [selected, setSelected] = useState<AdminUser | null>(null);
+    const [moderationTarget, setModerationTarget] = useState<AdminUser | null>(null);
     const [deleteReason, setDeleteReason] = useState("");
     const [notice, setNotice] = useState("");
     const [deletedIds, setDeletedIds] = useState<number[]>([]);
@@ -57,11 +57,12 @@ export default function AdminUsersPage() {
     const visible = filtered.slice(start, start + PAGE_SIZE);
     const canDelete = currentUserId !== null && selected !== null && selected.hasProfile && selected.userId !== currentUserId;
 
+    function updateList(next: Partial<typeof defaultFilters>) {
+        navigate(pathname, { replace: true, preventScrollReset: true, state: { filters: { ...filters, page: 1, ...next } } });
+    }
+
     function clearCriteria() {
-        setSearch("");
-        setRole("ALL");
-        setStatus("ALL");
-        setPage(1);
+        updateList({ ...defaultFilters, sort });
     }
 
     function openDelete(target: AdminUser, button: HTMLButtonElement) {
@@ -98,22 +99,22 @@ export default function AdminUsersPage() {
                     <div className="flex flex-col gap-4 border-b border-border px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
                         <h2 id="user-list-heading" className="flex h-11 items-center gap-2 px-1 text-sm font-medium">All users<span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs tabular-nums text-secondary-foreground">{allUsers?.length.toLocaleString() ?? "—"}</span></h2>
                         <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] lg:w-[680px]">
-                            <div className="relative col-span-2 min-w-0 sm:col-span-1"><Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={searchRef} type="search" aria-label="Search users" placeholder="Search users…" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} className="h-11 bg-background/60 pl-9 text-sm" /></div>
-                            <Select value={role} onValueChange={(value) => { setRole(value); setPage(1); }}>
+                            <div className="relative col-span-2 min-w-0 sm:col-span-1"><Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" /><Input ref={searchRef} type="search" aria-label="Search users" placeholder="Search users…" value={search} onChange={(event) => updateList({ search: event.target.value })} className="h-11 bg-background/60 pl-9 text-sm" /></div>
+                            <Select value={role} onValueChange={(value) => updateList({ role: value })}>
                                 <SelectTrigger aria-label="Filter by role" className={FILTER_CLASS}><SelectValue /></SelectTrigger>
                                 <SelectContent className="admin-dashboard-theme">
                                     <SelectItem value="ALL">All roles</SelectItem>
                                     {Object.entries(ROLE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}>
+                            <Select value={status} onValueChange={(value) => updateList({ status: value })}>
                                 <SelectTrigger aria-label="Filter by account status" className={FILTER_CLASS}><SelectValue /></SelectTrigger>
                                 <SelectContent className="admin-dashboard-theme">
                                     <SelectItem value="ALL">All statuses</SelectItem>
-                                    {Object.entries(STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                                    {Object.entries(ACCOUNT_STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Select value={sort} onValueChange={(value) => { setSort(value); setPage(1); }}><SelectTrigger aria-label="Sort users" className={`${FILTER_CLASS} col-span-2 sm:col-span-1`}><SelectValue /></SelectTrigger><SelectContent className="admin-dashboard-theme"><SelectItem value="newest">Newest first</SelectItem><SelectItem value="oldest">Oldest first</SelectItem><SelectItem value="name">Name A–Z</SelectItem></SelectContent></Select>
+                            <Select value={sort} onValueChange={(value) => updateList({ sort: value })}><SelectTrigger aria-label="Sort users" className={`${FILTER_CLASS} col-span-2 sm:col-span-1`}><SelectValue /></SelectTrigger><SelectContent className="admin-dashboard-theme"><SelectItem value="newest">Newest first</SelectItem><SelectItem value="oldest">Oldest first</SelectItem><SelectItem value="name">Name A–Z</SelectItem></SelectContent></Select>
                         </div>
                     </div>
                     {users.isLoading ? <div role="status" className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Loading users…</div>
@@ -127,23 +128,55 @@ export default function AdminUsersPage() {
                                 <th scope="col" className="hidden w-32 px-4 py-3 font-medium lg:table-cell">Role</th>
                                 <th scope="col" className="hidden w-36 px-4 py-3 font-medium lg:table-cell">Account status</th>
                                 <th scope="col" className="hidden w-32 px-4 py-3 font-medium sm:table-cell">Joined</th>
-                                <th scope="col" className="w-24 px-4 py-3 text-right font-medium sm:w-28 sm:px-6"><span className="sr-only">Actions</span></th>
+                                <th scope="col" className="w-28 px-4 py-3 text-right font-medium sm:w-32 sm:px-6 xl:w-56"><span className="sr-only">Actions</span></th>
                             </tr></thead>
                             <tbody className="divide-y divide-border">{visible.map((item) => {
                                 const roleLabel = item.roles.map((value) => ROLE_LABELS[value] ?? value).join(", ") || "No role";
+                                const moderationAction = item.status === "SUSPENDED" ? "Unsuspend" : "Suspend";
                                 return <tr key={item.userId} className="transition-colors hover:bg-background/70 motion-reduce:transition-none">
-                                <th scope="row" className="px-4 py-5 font-normal sm:px-6"><div className="flex min-w-0 items-center gap-3"><Avatar className="hidden size-10 sm:flex" aria-hidden="true">{item.avatarUrl && <AvatarImage src={item.avatarUrl} alt="" />}<AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{userName(item).split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="min-w-0 max-w-full break-words font-semibold leading-5 tracking-tight">{userName(item)}</p>{item.userId === currentUserId && <span className="rounded-md bg-accent px-2 py-0.5 text-xs font-medium text-[#425137]">You</span>}</div><p className="mt-1.5 break-words text-xs text-muted-foreground md:hidden">{item.email || "No email"}</p><div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground lg:hidden"><span className="break-words">{roleLabel}</span><AccountStatusBadge status={item.status} /></div><p className="mt-1.5 text-xs text-muted-foreground sm:hidden">Joined <time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time></p></div></div></th>
+                                <th scope="row" className="px-4 py-5 font-normal sm:px-6"><div className="flex min-w-0 items-center gap-3"><Avatar className="hidden size-10 sm:flex" aria-hidden="true">{item.avatarUrl && <AvatarImage src={item.avatarUrl} alt="" />}<AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{userName(item).split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase()}</AvatarFallback></Avatar><div className="min-w-0"><div className="flex flex-wrap items-center gap-2">
+                                    <Link to={`/admin/users/${item.userId}`} state={{ filters }} aria-label={`View details for ${userName(item)}, user ${item.userId}`} className="inline-flex min-h-8 min-w-0 max-w-full items-center gap-1.5 rounded-sm font-semibold leading-5 tracking-tight underline decoration-border underline-offset-4 transition-colors hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none">
+                                        <span className="min-w-0 break-words">{userName(item)}</span><ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                    </Link>
+                                    {item.userId === currentUserId && <span className="rounded-md bg-accent px-2 py-0.5 text-xs font-medium text-[#425137]">You</span>}</div><p className="mt-1.5 break-words text-xs text-muted-foreground md:hidden">{item.email || "No email"}</p><div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground lg:hidden"><span className="break-words">{roleLabel}</span><AccountStatusBadge status={item.status} /></div><p className="mt-1.5 text-xs text-muted-foreground sm:hidden">Joined <time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time></p></div></div></th>
                                 <td className="hidden break-words px-4 py-5 text-sm text-muted-foreground md:table-cell">{item.email || "—"}</td>
                                 <td className="hidden break-words px-4 py-5 text-xs text-muted-foreground lg:table-cell">{roleLabel}</td>
                                 <td className="hidden px-4 py-5 lg:table-cell"><AccountStatusBadge status={item.status} /></td>
                                 <td className="hidden px-4 py-5 text-xs text-muted-foreground sm:table-cell"><time dateTime={item.createdAt}>{dateLabel(item.createdAt)}</time></td>
-                                <td className="px-4 py-5 text-right sm:px-6">{item.userId === currentUserId ? <span className="text-muted-foreground" aria-label="Your account">—</span> : <Button variant="outline" className="h-10 bg-card px-3 text-xs hover:border-red-200 hover:bg-red-50 hover:text-red-700 motion-reduce:transition-none" aria-label={`Delete user ${item.userId}: ${userName(item)}`} title={!item.hasProfile ? "User profile not available" : undefined} disabled={remove.isPending || users.isFetching || currentUserId === null || !item.hasProfile} onClick={(event) => openDelete(item, event.currentTarget)}>Delete</Button>}</td>
+                                <td className="px-4 py-5 text-right sm:px-6">
+                                    {item.userId === currentUserId ? <span className="text-muted-foreground" aria-label="Your account">—</span> : (
+                                        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                                            <Button variant="outline" className={ROW_ACTION_CLASS} disabled={remove.isPending || currentUserId === null}
+                                                aria-label={`${moderationAction} user ${item.userId}: ${userName(item)}`}
+                                                onClick={(event) => {
+                                                    actionButtonRef.current = event.currentTarget;
+                                                    setNotice("");
+                                                    setModerationTarget(item);
+                                                }}>{moderationAction}</Button>
+                                            <Button variant="outline" className={`${ROW_ACTION_CLASS} hover:border-red-200 hover:bg-red-50 hover:text-red-700`}
+                                                aria-label={`Delete user ${item.userId}: ${userName(item)}`}
+                                                title={!item.hasProfile ? "User profile not available" : undefined}
+                                                disabled={remove.isPending || users.isFetching || currentUserId === null || !item.hasProfile}
+                                                onClick={(event) => openDelete(item, event.currentTarget)}>Delete</Button>
+                                        </div>
+                                    )}
+                                </td>
                             </tr>;
                             })}</tbody>
                         </table>}
-                    {!users.isLoading && !users.error && users.data && <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4 sm:px-6"><p role="status" className="text-xs text-muted-foreground">{filtered.length ? `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length.toLocaleString()}` : "0"} {filtered.length === 1 ? "user" : "users"}</p>{totalPages > 1 && <nav aria-label="User pages" className="flex items-center gap-2"><span className="mr-2 text-xs text-muted-foreground">Page {currentPage} of {totalPages}</span><Button variant="outline" size="icon" className="size-10" aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft aria-hidden="true" /></Button><Button variant="outline" size="icon" className="size-10" aria-label="Next page" disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)}><ChevronRight aria-hidden="true" /></Button></nav>}</footer>}
+                    {!users.isLoading && !users.error && users.data && <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4 sm:px-6"><p role="status" className="text-xs text-muted-foreground">{filtered.length ? `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length.toLocaleString()}` : "0"} {filtered.length === 1 ? "user" : "users"}</p>{totalPages > 1 && <nav aria-label="User pages" className="flex items-center gap-2"><span className="mr-2 text-xs text-muted-foreground">Page {currentPage} of {totalPages}</span><Button variant="outline" size="icon" className="size-10" aria-label="Previous page" disabled={currentPage === 1} onClick={() => updateList({ page: currentPage - 1 })}><ChevronLeft aria-hidden="true" /></Button><Button variant="outline" size="icon" className="size-10" aria-label="Next page" disabled={currentPage === totalPages} onClick={() => updateList({ page: currentPage + 1 })}><ChevronRight aria-hidden="true" /></Button></nav>}</footer>}
                 </section>
             </div>
+            <AccountSuspensionDialog
+                target={moderationTarget}
+                currentUserId={currentUserId}
+                onClose={() => setModerationTarget(null)}
+                onSuccess={setNotice}
+                restoreFocus={() => {
+                    if (actionButtonRef.current?.isConnected) actionButtonRef.current.focus();
+                    else searchRef.current?.focus();
+                }}
+            />
             <Dialog open={selected !== null} onOpenChange={(open) => { if (!open && !remove.isPending) setSelected(null); }}>
                 <DialogContent className="admin-dashboard-theme max-h-[calc(100dvh-2rem)] gap-6 overflow-y-auto p-6 sm:max-w-md" showCloseButton={!remove.isPending} onCloseAutoFocus={(event) => { event.preventDefault(); if (actionButtonRef.current?.isConnected) actionButtonRef.current.focus(); else searchRef.current?.focus(); }} onEscapeKeyDown={(event) => { if (remove.isPending) event.preventDefault(); }} onInteractOutside={(event) => { if (remove.isPending) event.preventDefault(); }}>
                     <DialogHeader className="gap-3"><DialogTitle className="text-xl font-semibold tracking-tight">Delete user?</DialogTitle><DialogDescription className="leading-6">This permanently deletes the account and its listings, orders, and files. This cannot be undone.</DialogDescription></DialogHeader>

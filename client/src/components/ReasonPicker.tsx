@@ -15,12 +15,18 @@ interface ReasonPickerProps {
     onChange: (reason: string) => void;
     placeholder?: string;
     contentClassName?: string;
+    id?: string;
+    maxLength?: number;
+    "aria-describedby"?: string;
 }
 
 // Dropdown of preset reasons with an "Other" option that reveals a free-text box.
 // Emits the final reason string via onChange ("" while nothing valid is chosen),
 // so the parent only needs to keep a single reason string.
-export default function ReasonPicker({ presets, onChange, placeholder = "Select a reason", contentClassName }: ReasonPickerProps) {
+export default function ReasonPicker({
+    presets, onChange, placeholder = "Select a reason", contentClassName, id, maxLength,
+    "aria-describedby": describedBy,
+}: ReasonPickerProps) {
     const [selected, setSelected] = useState("");
     const [customText, setCustomText] = useState("");
 
@@ -37,7 +43,7 @@ export default function ReasonPicker({ presets, onChange, placeholder = "Select 
     return (
         <div className="space-y-2">
             <Select value={selected} onValueChange={handleSelect}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={id} aria-describedby={describedBy} className="w-full">
                     <SelectValue placeholder={placeholder} />
                 </SelectTrigger>
                 <SelectContent className={contentClassName}>
@@ -52,9 +58,12 @@ export default function ReasonPicker({ presets, onChange, placeholder = "Select 
 
             {selected === OTHER && (
                 <Textarea
+                    aria-label="Custom reason"
+                    aria-describedby={describedBy}
                     rows={3}
                     placeholder="Type the reason"
                     value={customText}
+                    maxLength={maxLength}
                     onChange={(e) => handleCustomText(e.target.value)}
                 />
             )}

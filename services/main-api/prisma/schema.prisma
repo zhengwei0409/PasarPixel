@@ -18,7 +18,6 @@ model UserProfile {
   country        String?  // country / region, for billing + display
   billingAddress String?  // free-text billing address used on invoices
   socialLinks    Json?
-  walletAddress  String?
   preferredCurrency Currency @default(MYR)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

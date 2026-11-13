@@ -1,6 +1,6 @@
 import { Router } from "express";
 import passport from "../config/passport";
-import { register, login, verifyLogin, refreshToken, logout, googleCallback, forgotPassword, resetPassword, me, passwordStatus, changePassword, listAdminAccounts } from "../controllers/auth.controller";
+import { register, login, verifyLogin, refreshToken, logout, googleCallback, forgotPassword, resetPassword, me, passwordStatus, changePassword, listAdminAccounts, getAdminAccount, updateAccountSuspension } from "../controllers/auth.controller";
 import { twoFactorStatus, setupTwoFactor, enableTwoFactor, disableTwoFactor } from "../controllers/twoFactor.controller";
 import { requireAuth } from "../middleware/requireAuth";
 import { validInternalToken } from "../../../../shared/utils/internalAuth";
@@ -13,7 +13,11 @@ router.get("/internal/accounts/:id", async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id <= 0) { res.status(400).end(); return; }
     const user = await prisma.user.findUnique({ where: { id }, include: { roles: { include: { role: true } } } });
-    res.set("Cache-Control", "no-store").json({ exists: Boolean(user), roles: user?.roles.map(({ role }) => role.name) ?? [] });
+    res.set("Cache-Control", "no-store").json({
+        exists: Boolean(user),
+        suspended: Boolean(user?.suspendedAt),
+        roles: user?.roles.map(({ role }) => role.name) ?? [],
+    });
 });
 
 router.post("/register", register);
@@ -25,6 +29,8 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/me", me);
 router.get("/admin/accounts", requireAuth, listAdminAccounts);
+router.get("/admin/accounts/:userId", requireAuth, getAdminAccount);
+router.patch("/admin/accounts/:userId/suspension", requireAuth, updateAccountSuspension);
 router.get("/password/status", requireAuth, passwordStatus);
 router.post("/change-password", requireAuth, changePassword);
 

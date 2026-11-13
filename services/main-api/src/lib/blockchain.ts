@@ -19,5 +19,5 @@ export function purchaseProof(reference: string) {
 export async function activeAccount(userId: number, role: string) {
     const account = await internalJson(process.env.AUTH_SERVICE_URL || "http://auth-service:3001",
         `/auth/internal/accounts/${userId}`);
-    return account.exists && account.roles.includes(role);
+    return account.exists && !account.suspended && account.roles.includes(role);
 }

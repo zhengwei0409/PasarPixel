@@ -20,6 +20,8 @@ enum NotificationType {
   ORDER_PAID
   ASSET_SOLD
   REVIEW_RECEIVED
+  ACCOUNT_SUSPENDED
+  ACCOUNT_UNSUSPENDED
 }
 
 model Notification {
@@ -30,6 +32,7 @@ model Notification {
   body      String
   readAt    DateTime?
   createdAt DateTime         @default(now())
+  accountModerationId Int?   @unique
 
   @@index([userId, createdAt])
 }

@@ -9,13 +9,16 @@ const compiled = ts.transpileModule(readFileSync(join(__dirname, '../src/control
     compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true },
 }).outputText;
 
-async function me(payload, user = { id: 7, email: 'current@example.com', roles: [{ role: { name: 'BUYER' } }] }, unavailable = false) {
+const currentUser = { id: 7, email: 'current@example.com', sessionVersion: 0, roles: [{ role: { name: 'BUYER' } }] };
+
+async function me(payload, user = currentUser, unavailable = false) {
     let lookups = 0;
     const exports = {};
     runInNewContext(compiled, {
         exports, process: { env: { JWT_SECRET: 'test-only-secret' } },
         require: name => {
             if (name === 'jsonwebtoken') return jwt;
+            if (name === '../../../../shared/types/adminAccount') return { ACCOUNT_SUSPENDED_CODE: 'ACCOUNT_SUSPENDED' };
             if (name === '../lib/prisma') return { prisma: { user: { findUnique: async () => { lookups++; if (unavailable) throw new Error('Offline'); return user; } } } };
             return {};
         },
@@ -39,6 +42,15 @@ test('/auth/me rejects 2FA and other purpose tokens before querying the user', a
 
 test('/auth/me rejects deleted accounts even if their access token has not expired', async () => {
     assert.equal((await me({ sub: 7 }, null)).statusCode, 401);
+});
+
+test('/auth/me rejects suspended accounts and keeps pre-suspension access tokens invalid after restoration', async () => {
+    const suspended = await me({ sub: 7, sessionVersion: 1 }, { ...currentUser, sessionVersion: 1, suspendedAt: new Date() });
+    assert.equal(suspended.statusCode, 401);
+    assert.equal(suspended.data.code, 'ACCOUNT_SUSPENDED');
+    const restored = { ...currentUser, sessionVersion: 1 };
+    assert.equal((await me({ sub: 7 }, restored)).statusCode, 401);
+    assert.equal((await me({ sub: 7, sessionVersion: 1 }, restored)).statusCode, 200);
 });
 
 test('/auth/me returns current roles and email instead of stale token claims', async () => {
@@ -70,7 +82,10 @@ test('admin account listing uses current permissions and only reports an ongoing
         } },
         user: { findMany: async () => {
             reads++;
-            return [account(1, true, future), account(2, true, createdAt), account(3, false, future)];
+            return [
+                account(1, true, future), account(2, true, createdAt), account(3, false, future),
+                { ...account(4, true, future), suspendedAt: createdAt },
+            ];
         } },
     };
     runInNewContext(compiled, { exports, require: (name) => name === '../lib/prisma' ? { prisma } : {} });
@@ -89,9 +104,77 @@ test('admin account listing uses current permissions and only reports an ongoing
     canAdmin = true;
     const result = await list();
     assert.equal(result.statusCode, 200);
-    assert.deepEqual(result.body.map(({ status }) => status), ['TWO_FACTOR_LOCKED', 'ACTIVE', 'ACTIVE']);
+    assert.deepEqual(result.body.map(({ status }) => status), ['TWO_FACTOR_LOCKED', 'ACTIVE', 'ACTIVE', 'SUSPENDED']);
     assert.deepEqual(result.body[0], {
         userId: 1, email: 'user1@example.com', createdAt: createdAt.toISOString(),
         roles: ['BUYER', 'SELLER'], status: 'TWO_FACTOR_LOCKED',
     });
+});
+
+test('moderation requires an admin and a reason, records one decision per transition, and preserves a 2FA lock', async () => {
+    const exports = {};
+    const target = {
+        id: 8, email: 'target@example.com', createdAt: new Date(), suspendedAt: null, sessionVersion: 0,
+        roles: [{ role: { name: 'BUYER' } }],
+        twoFactorAuth: { isEnabled: true, lockedUntil: new Date(Date.now() + 60_000) },
+    };
+    const decisions = [];
+    let isAdmin = false;
+    let transactionActive = false;
+    const prisma = {
+        userRole: { findFirst: async () => isAdmin ? { userId: 7 } : null },
+        $transaction: async (callback) => {
+            transactionActive = true;
+            try { return await callback(prisma); } finally { transactionActive = false; }
+        },
+        user: {
+            updateMany: async ({ where, data }) => {
+                assert.equal(transactionActive, true);
+                if (where.id !== target.id || (where.suspendedAt === null) !== (target.suspendedAt === null)) return { count: 0 };
+                target.suspendedAt = data.suspendedAt;
+                target.sessionVersion += data.sessionVersion?.increment ?? 0;
+                return { count: 1 };
+            },
+            findUnique: async ({ where }) => where.id === target.id ? target : null,
+        },
+        accountModeration: { create: async ({ data }) => {
+            assert.equal(transactionActive, true);
+            decisions.push(JSON.parse(JSON.stringify(data)));
+        } },
+    };
+    runInNewContext(compiled, { exports, require: (name) => {
+        if (name === '../lib/prisma') return { prisma };
+        if (name === '../../../../shared/types/adminAccount') return { ACCOUNT_MODERATION_REASON_LIMIT: 500 };
+        return {};
+    } });
+    async function update(suspended, reason, userId = '8') {
+        const res = {
+            statusCode: 200,
+            status(code) { this.statusCode = code; return this; },
+            set() { return this; },
+            json(body) { this.body = body; },
+        };
+        await exports.updateAccountSuspension({ userId: 7, params: { userId }, body: { suspended, reason } }, res);
+        return res;
+    }
+
+    assert.equal((await update(true, 'Policy violation')).statusCode, 403);
+    isAdmin = true;
+    assert.equal((await update(true, 'Policy violation', '7')).statusCode, 400);
+    assert.equal((await update(true, 'Policy violation', '99')).statusCode, 404);
+    assert.equal((await update('true', 'Policy violation')).statusCode, 400);
+    assert.equal((await update(true, ' ')).statusCode, 400);
+    assert.equal((await update(true, 'x'.repeat(501))).statusCode, 400);
+    assert.equal(decisions.length, 0);
+
+    assert.equal((await update(true, '  Policy violation  ')).body.status, 'SUSPENDED');
+    assert.equal(target.sessionVersion, 1);
+    assert.equal((await update(true, 'Duplicate')).statusCode, 409);
+    assert.equal((await update(false, ' ')).statusCode, 400);
+    assert.equal((await update(false, '  Appeal accepted  ')).body.status, 'TWO_FACTOR_LOCKED');
+    assert.equal(target.sessionVersion, 1);
+    assert.deepEqual(decisions, [
+        { userId: 8, adminId: 7, suspended: true, reason: 'Policy violation' },
+        { userId: 8, adminId: 7, suspended: false, reason: 'Appeal accepted' },
+    ]);
 });

@@ -50,6 +50,17 @@ export function createApp(db: PrismaClient, authServiceUrl: string, clientOrigin
     app.get("/blockchain/wallet", async (req, res) => {
         res.json(await wallets.getStatus(req.user!.userId));
     });
+    app.get("/blockchain/admin/wallets/:userId", async (req, res) => {
+        if (!req.user!.roles.includes("ADMIN")) {
+            throw new HttpError(403, "Admin access is required");
+        }
+        const userId = Number(req.params.userId);
+        if (!/^[1-9][0-9]*$/.test(req.params.userId) || userId > 2_147_483_647) {
+            throw new HttpError(400, "Invalid user ID");
+        }
+        const wallet = await db.wallet.findUnique({ where: { userId }, select: { address: true } });
+        res.json({ address: wallet?.address ?? null });
+    });
     app.post("/blockchain/wallet/challenge", limit, async (req, res) => {
         res.status(201).json(await wallets.createChallenge(req.user!.userId, req.body?.address));
     });

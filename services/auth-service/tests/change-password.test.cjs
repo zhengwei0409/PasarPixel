@@ -28,6 +28,7 @@ function setup({ hasPassword = true, concurrentChange = false, googleId = null }
             $transaction: async (fn) => fn(tx),
         } },
         "../lib/publisher": {},
+        "../../../../shared/types/adminAccount": {},
     };
     const exports = {};
     runInNewContext(compiled, {
@@ -104,8 +105,15 @@ test("concurrent changes cannot overwrite a password verified against an outdate
     assert.equal(writes.length, 1);
 });
 
-for (const payload of [{ sub: 7 }, { sub: 7, purpose: "2fa" }, { sub: "7" }]) {
-    test(`authenticated password routes reject incomplete login tokens: ${JSON.stringify(payload)}`, () => {
+for (const [payload, account, valid] of [
+    [{ sub: 7 }, { sessionVersion: 0 }, true],
+    [{ sub: 7, purpose: "2fa" }, { sessionVersion: 0 }, false],
+    [{ sub: "7" }, { sessionVersion: 0 }, false],
+    [{ sub: 7, sessionVersion: 1 }, { sessionVersion: 1, suspendedAt: new Date() }, false],
+    [{ sub: 7 }, { sessionVersion: 1 }, false],
+    [{ sub: 7, sessionVersion: 1 }, { sessionVersion: 1 }, true],
+]) {
+    test(`authenticated password routes check token ${JSON.stringify(payload)} against ${JSON.stringify(account)}`, async () => {
         const middleware = ts.transpileModule(
             readFileSync(join(__dirname, "../src/middleware/requireAuth.ts"), "utf8"),
             { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } },
@@ -114,6 +122,7 @@ for (const payload of [{ sub: 7 }, { sub: 7, purpose: "2fa" }, { sub: "7" }]) {
         runInNewContext(middleware, {
             exports,
             require: (name) => {
+                if (name === "../lib/prisma") return { prisma: { user: { findUnique: async () => account } } };
                 assert.equal(name, "jsonwebtoken");
                 return { verify: () => payload };
             },
@@ -122,8 +131,7 @@ for (const payload of [{ sub: 7 }, { sub: 7, purpose: "2fa" }, { sub: "7" }]) {
         const req = { headers: { authorization: "Bearer token" } };
         const res = { status(code) { this.statusCode = code; return this; }, json() {} };
         let reachedHandler = false;
-        exports.requireAuth(req, res, () => { reachedHandler = true; });
-        const valid = typeof payload.sub === "number" && !payload.purpose;
+        await exports.requireAuth(req, res, () => { reachedHandler = true; });
         assert.equal(reachedHandler, valid);
         if (valid) assert.equal(req.userId, 7);
         else assert.equal(res.statusCode, 401);
