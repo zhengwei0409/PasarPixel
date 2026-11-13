@@ -31,14 +31,12 @@ function fixture() {
             currency: 'MYR', totalLamports: null, stripePaymentId: 'cs_test_example', blockchainSignature: null,
             purchaseRef: null, createdAt: time, updatedAt: time, _count: { orderItems: 2 } },
     ];
-    const withdrawals = [{ id: 9, seller: account, amount: 42.25, status: 'PAID', createdAt: time, updatedAt: time }];
-    const makeModel = (name, rows) => ({
-        findMany: async (query) => { calls.push({ name, query }); return rows; },
-        count: async ({ where }) => { calls.push({ name, where }); return 47; },
-    });
     const { listAdminTransactions } = load('../src/controllers/adminTransactions.controller.ts', {
         '../../../../shared/types/adminTransaction': shared,
-        '../lib/prisma': { prisma: { order: makeModel('orders', orders), withdrawalRequest: makeModel('withdrawals', withdrawals) } },
+        '../lib/prisma': { prisma: { order: {
+            findMany: async (query) => { calls.push({ query }); return orders; },
+            count: async ({ where }) => { calls.push({ where }); return 47; },
+        } } },
     });
     return { calls, listAdminTransactions, async request(query = {}) {
         const res = {
@@ -52,7 +50,7 @@ function fixture() {
     } };
 }
 
-test('the transaction ledger has a protected GET and no transaction write routes', () => {
+test('only admins can view purchase transactions', () => {
     const authenticate = () => {};
     const admin = () => {};
     const { listAdminTransactions } = fixture();
@@ -69,6 +67,7 @@ test('the transaction ledger has a protected GET and no transaction write routes
     assert.deepEqual(registrations.filter(({ path }) => path.startsWith('/transactions')), [
         { method: 'get', path: '/transactions', handlers: [authenticate, admin, listAdminTransactions] },
     ]);
+    assert.equal(registrations.some(({ path }) => path.startsWith('/withdrawals')), false);
 });
 
 test('purchases span all buyers, methods and statuses by default and preserve recorded amounts', async () => {
@@ -102,24 +101,10 @@ test('status, method and exact references are applied before purchase pagination
     assert.equal(where, view.calls[1].where);
 });
 
-test('withdrawals use their own statuses and can be searched by request or seller ID', async () => {
-    const view = fixture();
-    const { body } = await view.request({ kind: 'withdrawal', status: 'PAID', search: 'Withdrawal #9' });
-    assert.ok(view.calls.every(({ name }) => name === 'withdrawals'));
-    const { where } = view.calls[0].query;
-    assert.equal(where.status, 'PAID');
-    assert.ok(where.OR.some((entry) => entry.id === 9));
-    assert.ok(where.OR.some((entry) => entry.seller?.OR.some((field) => field.userId === 9)));
-    assert.deepEqual(body.items[0], {
-        id: 9, kind: 'withdrawal', account, amount: '42.25', currency: 'USD', status: 'PAID',
-        createdAt: time.toISOString(), updatedAt: time.toISOString(),
-    });
-});
-
 test('invalid or ambiguous filters do not query the database', async () => {
     for (const query of [
         { page: '0' }, { page: '1e2' }, { page: ['1', '2'] }, { page: '1000001' }, { kind: 'other' },
-        { status: 'PAID' }, { kind: 'withdrawal', status: 'COMPLETED' }, { kind: 'withdrawal', method: 'SOL' },
+        { status: 'PAID' }, { kind: 'withdrawal' },
         { method: 'USD' }, { search: 'x'.repeat(201) }, { search: ['one', 'two'] },
     ]) {
         const view = fixture();

@@ -23,16 +23,24 @@ model UserProfile {
   updatedAt      DateTime @updatedAt
 
   sellerApplications SellerApplication[]
+  stripeAccount      SellerStripeAccount?
   store              Store?
   assets             Asset[]
   cartItems          CartItem[]
   orders             Order[]
   reviews            Review[]
   reports            Report[]
-  withdrawalRequests WithdrawalRequest[]
   activityLogs       ActivityLog[]
 
   @@map("user_profiles")
+}
+
+model SellerStripeAccount {
+  sellerId        Int         @id
+  stripeAccountId String      @unique
+  seller          UserProfile @relation(fields: [sellerId], references: [userId], onDelete: Cascade)
+
+  @@map("seller_stripe_accounts")
 }
 
 // Immutable content snapshot, retained independently of listing/account deletion.
@@ -240,6 +248,7 @@ model Order {
   currency       Currency    @default(USD)
   paymentStatus  PaymentStatus @default(PENDING)
   stripePaymentId String?
+  stripeConnectedAccountId String?
   paymentMethod PaymentMethod @default(STRIPE)
   purchaseRef String? @unique
   totalLamports String? @db.VarChar(20)
@@ -332,26 +341,6 @@ enum ReportStatus {
   PENDING
   TAKEN_DOWN
   DISMISSED
-}
-
-model WithdrawalRequest {
-  id        Int              @id @default(autoincrement())
-  sellerId  Int
-  amount    Decimal
-  status    WithdrawalStatus @default(PENDING)
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-
-  seller UserProfile @relation(fields: [sellerId], references: [userId])
-
-  @@map("withdrawal_requests")
-}
-
-enum WithdrawalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  PAID
 }
 
 model ActivityLog {

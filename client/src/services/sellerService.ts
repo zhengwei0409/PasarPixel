@@ -2,8 +2,7 @@ import apiClient from "../lib/apiClient";
 import type {
     SellerDashboard,
     SellerRecentOrdersResponse,
-    Withdrawal,
-    WithdrawalsResponse,
+    SellerStripeStatus,
 } from "../types/seller";
 
 export async function getSellerDashboard(): Promise<SellerDashboard> {
@@ -11,16 +10,14 @@ export async function getSellerDashboard(): Promise<SellerDashboard> {
     return res.data;
 }
 
-export async function getWithdrawals(): Promise<WithdrawalsResponse> {
-    const res = await apiClient.get<WithdrawalsResponse>("/seller/withdrawals");
-    return res.data;
+export async function getSellerStripeStatus(): Promise<SellerStripeStatus> {
+    const { data } = await apiClient.get<{ status: SellerStripeStatus }>("/seller/stripe/status");
+    return data.status;
 }
 
-export async function requestWithdrawal(
-    amount: number,
-): Promise<{ withdrawal: Withdrawal; availableBalance: number }> {
-    const res = await apiClient.post("/seller/withdrawals", { amount });
-    return res.data;
+export async function startSellerStripeOnboarding(): Promise<string> {
+    const { data } = await apiClient.post<{ url: string }>("/seller/stripe/onboarding");
+    return data.url;
 }
 
 export async function getSellerRecentOrders(): Promise<SellerRecentOrdersResponse> {

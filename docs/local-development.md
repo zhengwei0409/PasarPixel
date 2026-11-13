@@ -32,21 +32,23 @@ Use the generated value for `JWT_SECRET`, and generate a different value for `DO
 
 `INTERNAL_SERVICE_TOKEN` is needed for SOL checkout. The value must match in your local auth-service, main-api, and blockchain-service. It can differ from another developer's token or the EC2 token.
 
-## Test Stripe payments
+## Test direct seller payments with Stripe Connect
 
-Install and sign in to the [Stripe CLI](https://stripe.com/docs/stripe-cli), then forward webhook events to your local API:
+Buyer payments go directly to the seller's Stripe Connected Account. Each Stripe Checkout session covers one seller. Sellers manage bank payouts in Stripe, and PasarPixel admins can view purchase records.
 
-```bash
-stripe listen --forward-to http://localhost:8000/checkout/webhook
-```
+1. In the [Stripe Dashboard](https://dashboard.stripe.com/sandboxes), select the Sandbox used by `STRIPE_SECRET_KEY`. Open **Connect**, choose the **Platform** model, and complete the platform setup. [Stripe Direct Charges](https://docs.stripe.com/connect/charges#direct)
+2. Sign in to the [Stripe CLI](https://docs.stripe.com/cli) using the same Sandbox. Forward platform and Connected Account events to the Checkout webhook. Keep the listener running and copy its `whsec_...` into `STRIPE_WEBHOOK_SECRET` in `services/main-api/.env` before rebuilding.
 
-Keep this command running. Copy its `whsec_...` signing secret into `STRIPE_WEBHOOK_SECRET` in `services/main-api/.env`, then recreate main-api so it loads the updated setting:
+   ```bash
+   stripe listen --forward-to http://localhost:8000/checkout/webhook --forward-connect-to http://localhost:8000/checkout/webhook
+   docker compose -f infra/docker/docker-compose.yml up -d --build main-api
+   ```
 
-```bash
-docker compose -f infra/docker/docker-compose.yml up -d --build main-api
-```
+3. As an approved Seller, open **Settings → Stripe payments → Connect Stripe**. The Seller Dashboard reminder also links to this section. Complete the Stripe-hosted form using Sandbox test information. PasarPixel saves the connected account for that seller and checks whether card payments are enabled when the seller returns to Settings. Use **Continue Stripe setup** if Stripe needs more information. [Stripe onboarding](https://docs.stripe.com/api/v2/core/account-links/create)
+4. As a Buyer, add a paid listing from that seller to your cart and click **Pay**. If you selected items from multiple sellers, use the **Pay** button below the relevant items and amount. Pay using test card `4242 4242 4242 4242`, a future expiry, and any three-digit CVC. Confirm the order is **Completed** and any items from other sellers remain in your cart. [Stripe test cards](https://docs.stripe.com/testing#cards)
+5. In the same Stripe Sandbox, open the seller's Connected Account and confirm the test payment appears under that account. PasarPixel also records it under **Admin → Transactions**.
 
-Use test card `4242 4242 4242 4242`, a future expiry, and any three-digit CVC. A successful webhook marks the order `COMPLETED` and clears the cart.
+For hosted deployments, subscribe to Connected Account Checkout events and set `STRIPE_CONNECT_WEBHOOK_SECRET` to that endpoint's signing secret when it differs from the platform endpoint's secret.
 
 ## Common setup issues
 

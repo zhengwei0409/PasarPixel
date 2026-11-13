@@ -1,18 +1,24 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Package, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useAuth } from "../hooks/useAuth";
 import { useSyncRoles } from "../hooks/useSyncRoles";
 import SellerDashboardSection from "../components/SellerDashboardSection";
+import SellerStripeReminder from "../components/SellerStripeReminder";
 import AdminDashboardSection from "../components/AdminDashboardSection";
 
 export default function DashboardPage() {
     const { user } = useAuth();
     const { newRoles } = useSyncRoles();
+    const [params] = useSearchParams();
     const isAdmin = user?.roles.includes("ADMIN");
     const isSeller = !isAdmin && user?.roles.includes("SELLER");
     const isThemed = isAdmin || isSeller;
+
+    if (isSeller && params.get("stripe") === "refresh") {
+        return <Navigate to="/settings?stripe=refresh#stripe-payments" replace />;
+    }
 
     return (
         <div className={isThemed ? `${isAdmin ? "admin-dashboard-theme" : "seller-dashboard-theme"} min-h-screen bg-background px-4 py-8 text-foreground sm:px-8 sm:py-10` : "min-h-screen p-8"}>
@@ -49,7 +55,12 @@ export default function DashboardPage() {
                     )}
                 </header>}
 
-                {isSeller && <SellerDashboardSection />}
+                {isSeller && user && (
+                    <>
+                        <SellerStripeReminder key={user.sub} sellerId={user.sub} />
+                        <SellerDashboardSection />
+                    </>
+                )}
 
                 {!isSeller && !isAdmin && (
                     <div className="grid gap-4 sm:grid-cols-2">

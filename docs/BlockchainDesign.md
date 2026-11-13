@@ -131,7 +131,7 @@ v1 不新增自动 SOL refund、chargeback 或自动 NFT revocation 功能。需
 
 Public `/verify` 区分“购买凭证已验证”和“当前授权状态”，返回必要的 NFT / transaction references，避免公开 buyer 的站内身份及付款明细。NFT 存在本身不代表当前 entitlement 有效。
 
-SOL 已直接进入 seller wallet，不计入现有 fiat withdrawal balance；seller / admin dashboard 单独显示 SOL 金额与平台 commission。
+SOL 已直接进入 seller wallet。Seller / admin dashboard 单独显示 SOL 金额与平台 commission。
 
 ## 7. 后续实现验收依据
 

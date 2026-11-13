@@ -19,7 +19,7 @@ function response() {
     };
 }
 
-function fixture() {
+function fixture({ sandbox = true, accounts = { 3: 'acct_seller3', 4: 'acct_seller4' }, ready = true } = {}) {
     const cart = [
         { id: 1, userId: 7, assetId: 10, licenseType: 'PERSONAL', asset: { id: 10, title: 'Model', status: 'PUBLISHED', isDeleted: false, pricePersonal: '25', priceCommercial: '50', currency: 'USD', sellerId: 3 } },
         { id: 2, userId: 7, assetId: 20, licenseType: 'COMMERCIAL', asset: { id: 20, title: 'Image', status: 'PUBLISHED', isDeleted: false, pricePersonal: '10', priceCommercial: '30', currency: 'USD', sellerId: 4 } },
@@ -27,6 +27,9 @@ function fixture() {
     ];
     const state = { cart, notifications: [] };
     const prisma = {
+        sellerStripeAccount: {
+            findUnique: async ({ where }) => ({ stripeAccountId: accounts[where.sellerId] }),
+        },
         cartItem: {
             findMany: async ({ where }) => {
                 state.query = plain(where);
@@ -38,10 +41,14 @@ function fixture() {
             },
         },
         order: {
-            updateMany: async () => {},
+            updateMany: async ({ where, data }) => {
+                if (!state.persisted || state.persisted.id !== where.id || state.persisted.paymentStatus !== where.paymentStatus) return { count: 0 };
+                Object.assign(state.persisted, data);
+                return { count: 1 };
+            },
             create: async ({ data }) => {
                 state.order = plain(data);
-                state.persisted = { id: 9, buyerId: 7, paymentStatus: 'PENDING', stripePaymentId: 'cs_9', orderItems: data.orderItems.create.map(item => ({ ...item, asset: cart.find(row => row.assetId === item.assetId).asset })) };
+                state.persisted = { id: 9, buyerId: 7, paymentStatus: 'PENDING', stripeConnectedAccountId: data.stripeConnectedAccountId, orderItems: data.orderItems.create.map(item => ({ ...item, asset: cart.find(row => row.assetId === item.assetId).asset })) };
                 return { id: 9 };
             },
             findUnique: async () => state.persisted,
@@ -49,11 +56,21 @@ function fixture() {
         },
     };
     const stripe = {
+        accounts: { retrieve: async () => ({ charges_enabled: ready, capabilities: { card_payments: ready ? 'active' : 'pending' } }) },
         checkout: { sessions: {
-            create: async (args) => { state.session = plain(args); return { id: 'cs_9', url: 'https://checkout.example/session' }; },
-            retrieve: async () => ({ payment_status: 'paid' }),
+            create: async (args, options) => {
+                state.session = plain(args);
+                state.sessionAccount = options.stripeAccount;
+                return { id: 'cs_9', url: 'https://checkout.example/session' };
+            },
+            retrieve: async (_id, _params, options) => {
+                state.retrievedAccount = options.stripeAccount;
+                return { payment_status: 'paid' };
+            },
         } },
-        webhooks: { constructEvent: () => ({ type: 'checkout.session.completed', data: { object: { metadata: { orderId: '9' } } } }) },
+        webhooks: { constructEvent: () => ({ type: 'checkout.session.completed', account: state.sessionAccount, ...state.webhookEvent, data: { object: {
+            id: 'cs_9', payment_status: 'paid', metadata: { orderId: '9' }, ...state.webhookSession,
+        } } }) },
     };
     const exports = {};
     runInNewContext(compiled, {
@@ -62,7 +79,10 @@ function fixture() {
         console,
         require: name => {
             if (name === '../lib/prisma') return { prisma };
-            if (name === '../lib/stripe') return { stripe };
+            if (name === '../lib/stripe') return {
+                stripe, isStripeSandbox: sandbox,
+                canAcceptStripeCards: (account) => account.charges_enabled && account.capabilities.card_payments === 'active',
+            };
             if (name === '../lib/currency') return { convert: async amount => amount };
             if (name === '../lib/publisher') return {
                 publishOrderPaid: async payload => state.notifications.push(plain(payload)),
@@ -81,13 +101,15 @@ test('checkout charges only selected assets at the stored license price', async 
     // An unavailable unselected asset must not prevent checkout.
     state.cart[0].asset.status = 'TAKEN_DOWN';
     const res = response();
-    await handlers.createCheckoutSession(request({ currency: 'USD', cartItemIds: [2], total: 0 }), res);
+    await handlers.createCheckoutSession(request({ currency: 'USD', cartItemIds: [2], total: 0, stripeAccount: 'acct_wrong' }), res);
     assert.equal(res.statusCode, 200);
     assert.deepEqual(state.query, { userId: 7, id: { in: [2] } });
     assert.equal(state.order.totalAmount, 30);
     assert.deepEqual(state.order.orderItems.create, [{ assetId: 20, licenseType: 'COMMERCIAL', price: 30 }]);
     assert.equal(state.session.line_items.length, 1);
     assert.equal(state.session.line_items[0].price_data.unit_amount, 3000);
+    assert.equal(state.sessionAccount, 'acct_seller4');
+    assert.equal(state.order.stripeConnectedAccountId, 'acct_seller4');
 });
 
 test('empty and malformed selections are rejected before querying or charging', async () => {
@@ -119,12 +141,33 @@ test('repeated IDs are charged once', async () => {
     assert.equal(state.order.totalAmount, 25);
 });
 
-test('older clients omitting selection still checkout their own full cart', async () => {
+test('older clients omitting selection can still pay for a full cart from one seller', async () => {
     const { handlers, state } = fixture();
+    state.cart[1].asset.sellerId = 3;
     await handlers.createCheckoutSession(request({ currency: 'USD' }), response());
     assert.deepEqual(state.query, { userId: 7 });
     assert.equal(state.session.line_items.length, 2);
     assert.equal(state.order.totalAmount, 55);
+});
+
+test('a mixed-seller cart cannot be charged as one payment', async () => {
+    const { handlers, state } = fixture();
+    const res = response();
+    await handlers.createCheckoutSession(request({ currency: 'MYR', cartItemIds: [1, 2] }), res);
+    assert.equal(res.statusCode, 409);
+    assert.equal(state.order, undefined);
+    assert.equal(state.session, undefined);
+});
+
+test('missing or incomplete seller setup and live mode never charge the platform', async () => {
+    for (const [options, expectedStatus] of [[{ accounts: {} }, 409], [{ ready: false }, 409], [{ sandbox: false }, 503]]) {
+        const { handlers, state } = fixture(options);
+        const res = response();
+        await handlers.createCheckoutSession(request({ currency: 'MYR', cartItemIds: [2] }), res);
+        assert.equal(res.statusCode, expectedStatus);
+        assert.equal(state.session, undefined);
+        assert.equal(state.order, undefined);
+    }
 });
 
 for (const path of ['verify', 'webhook']) {
@@ -138,9 +181,38 @@ for (const path of ['verify', 'webhook']) {
             : handlers.handleWebhook({ headers: { 'stripe-signature': 'test' }, body: Buffer.from('test') }, response());
         await fulfil();
         assert.equal(state.persisted.paymentStatus, 'COMPLETED');
+        if (path === 'verify') assert.equal(state.retrievedAccount, 'acct_seller4');
         assert.deepEqual(state.remaining.map(item => item.id), [1, 3, 4]);
         assert.equal(state.notifications[0].itemCount, 1);
         await fulfil();
         assert.equal(state.notifications.length, 1);
     });
 }
+
+test('an unpaid or unrelated Checkout session cannot release the seller’s earnings', async () => {
+    const { handlers, state } = fixture();
+    await handlers.createCheckoutSession(request({ currency: 'USD', cartItemIds: [2] }), response());
+    for (const session of [{ payment_status: 'unpaid' }, { id: 'cs_unrelated' }]) {
+        state.webhookSession = session;
+        await handlers.handleWebhook({ headers: { 'stripe-signature': 'test' }, body: Buffer.from('test') }, response());
+        assert.equal(state.persisted.paymentStatus, 'PENDING');
+        assert.equal(state.notifications.length, 0);
+    }
+});
+
+test('a matching session from another Stripe account cannot complete the order', async () => {
+    const { handlers, state } = fixture();
+    await handlers.createCheckoutSession(request({ currency: 'USD', cartItemIds: [2] }), response());
+    state.webhookEvent = { account: 'acct_seller3' };
+    await handlers.handleWebhook({ headers: { 'stripe-signature': 'test' }, body: Buffer.from('test') }, response());
+    assert.equal(state.persisted.paymentStatus, 'PENDING');
+});
+
+test('a legacy platform checkout can still be verified without a Stripe account header', async () => {
+    const { handlers, state } = fixture();
+    await handlers.createCheckoutSession(request({ currency: 'USD', cartItemIds: [2] }), response());
+    state.persisted.stripeConnectedAccountId = null;
+    await handlers.verifyCheckout({ user: { userId: 7 }, params: { orderId: '9' } }, response());
+    assert.equal(state.retrievedAccount, undefined);
+    assert.equal(state.persisted.paymentStatus, 'COMPLETED');
+});

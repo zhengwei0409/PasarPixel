@@ -114,7 +114,6 @@ export async function deleteUser(req: Request, res: Response) {
         await tx.report.deleteMany({ where: { userId: targetUserId } });
         await tx.orderItem.deleteMany({ where: { order: { buyerId: targetUserId } } });
         await tx.order.deleteMany({ where: { buyerId: targetUserId } });
-        await tx.withdrawalRequest.deleteMany({ where: { sellerId: targetUserId } });
         await tx.activityLog.deleteMany({ where: { userId: targetUserId } });
         await tx.sellerApplication.deleteMany({ where: { userId: targetUserId } });
 

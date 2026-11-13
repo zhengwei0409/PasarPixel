@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Currency, LicenseType } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { stripe } from "../lib/stripe";
+import { canAcceptStripeCards, isStripeSandbox, stripe } from "../lib/stripe";
 import { convert } from "../lib/currency";
 import { publishOrderPaid, publishAssetSold } from "../lib/publisher";
 
@@ -22,10 +22,11 @@ async function fulfilOrder(orderId: number): Promise<void> {
     });
     if (!order || order.paymentStatus !== "PENDING" || order.paymentMethod === "SOL") return;
 
-    await prisma.order.update({
-        where: { id: orderId },
+    const completed = await prisma.order.updateMany({
+        where: { id: orderId, paymentStatus: "PENDING" },
         data: { paymentStatus: "COMPLETED" },
     });
+    if (completed.count === 0) return;
     await prisma.cartItem.deleteMany({
         where: {
             userId: order.buyerId,
@@ -73,8 +74,7 @@ export async function createCheckoutSession(req: Request, res: Response) {
         return;
     }
 
-    // Omitted IDs retain full-cart checkout for older clients. An explicit
-    // selection must be nonempty and belong entirely to this buyer's cart.
+    // An explicit selection must be nonempty and belong to this buyer's cart.
     const requestedIds: unknown = req.body.cartItemIds;
     if (requestedIds !== undefined && (
         !Array.isArray(requestedIds) || requestedIds.length === 0 ||
@@ -97,6 +97,36 @@ export async function createCheckoutSession(req: Request, res: Response) {
 
     if (cartItems.length === 0) {
         res.status(400).json({ error: "Cart is empty" });
+        return;
+    }
+
+    const sellerIds = new Set(cartItems.map(({ asset }) => asset.sellerId));
+    if (sellerIds.size !== 1) {
+        res.status(409).json({ error: "Pay for items from one seller at a time." });
+        return;
+    }
+    if (!isStripeSandbox) {
+        res.status(503).json({ error: "Seller checkout requires a Stripe Sandbox API key." });
+        return;
+    }
+    const sellerId = cartItems[0].asset.sellerId;
+    const connected = await prisma.sellerStripeAccount.findUnique({
+        where: { sellerId }, select: { stripeAccountId: true },
+    });
+    const accountId = connected?.stripeAccountId;
+    if (!accountId) {
+        res.status(409).json({ error: "This seller hasn't set up Stripe payments yet." });
+        return;
+    }
+    try {
+        const account = await stripe.accounts.retrieve(accountId);
+        if (!canAcceptStripeCards(account)) {
+            res.status(409).json({ error: "This seller is still setting up Stripe payments." });
+            return;
+        }
+    } catch (error) {
+        console.error("Could not verify seller Stripe account", { sellerId, error: (error as Error).name });
+        res.status(502).json({ error: "Could not verify this seller’s payment setup. Try again." });
         return;
     }
 
@@ -160,15 +190,6 @@ export async function createCheckoutSession(req: Request, res: Response) {
         });
     }
 
-    // Abandon any earlier PENDING orders for this buyer before creating a new
-    // one. Otherwise a buyer who re-clicks Checkout (e.g. because the webhook was
-    // slow) accumulates duplicate PENDING orders that never resolve. The new
-    // order below reflects the current selection; older pending attempts are stale.
-    await prisma.order.updateMany({
-        where: { buyerId: userId, paymentStatus: "PENDING", paymentMethod: "STRIPE" },
-        data: { paymentStatus: "FAILED" },
-    });
-
     // Create the PENDING order with its items in one transaction. Prices are
     // locked in now; fulfilment removes only the purchased assets from the cart.
     const order = await prisma.order.create({
@@ -178,22 +199,31 @@ export async function createCheckoutSession(req: Request, res: Response) {
             totalAmount: Math.round(total * 100) / 100,
             currency, // lock in the currency the buyer paid in
             paymentStatus: "PENDING",
+            stripeConnectedAccountId: accountId,
             orderItems: { create: orderItemsData },
         },
     });
 
     const clientUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
 
-    const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: lineItems,
-        success_url: `${clientUrl}/checkout/success?orderId=${order.id}`,
-        cancel_url: `${clientUrl}/cart`,
-        metadata: {
-            orderId: String(order.id),
-            buyerId: String(userId),
-        },
-    });
+    let session;
+    try {
+        session = await stripe.checkout.sessions.create({
+            mode: "payment",
+            line_items: lineItems,
+            success_url: `${clientUrl}/checkout/success?orderId=${order.id}`,
+            cancel_url: `${clientUrl}/cart`,
+            metadata: {
+                orderId: String(order.id),
+                buyerId: String(userId),
+            },
+        }, { stripeAccount: accountId });
+    } catch (error) {
+        await prisma.order.updateMany({ where: { id: order.id, paymentStatus: "PENDING" }, data: { paymentStatus: "FAILED" } });
+        console.error("Unable to start seller checkout", { orderId: order.id, error: (error as Error).name });
+        res.status(502).json({ error: "Stripe could not start this seller’s checkout. Check that their Stripe account can accept payments." });
+        return;
+    }
 
     // Remember which Stripe session this order belongs to.
     await prisma.order.update({
@@ -208,44 +238,51 @@ export async function createCheckoutSession(req: Request, res: Response) {
 // body (see index.ts) so the signature check works.
 export async function handleWebhook(req: Request, res: Response) {
     const signature = req.headers["stripe-signature"];
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const platformSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const connectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || platformSecret;
 
-    if (!webhookSecret) {
+    if (!platformSecret && !connectSecret) {
         console.error("STRIPE_WEBHOOK_SECRET is not set");
         res.status(500).send("Webhook not configured");
         return;
     }
 
-    let event;
-    try {
-        // Verifies the request really came from Stripe (and wasn't tampered with).
-        event = stripe.webhooks.constructEvent(
-            req.body, // raw Buffer
-            signature as string,
-            webhookSecret,
-        );
-    } catch (err) {
-        console.error("Webhook signature verification failed:", (err as Error).message);
+    let event: ReturnType<typeof stripe.webhooks.constructEvent> | undefined;
+    for (const secret of new Set([platformSecret, connectSecret])) {
+        if (!secret || typeof signature !== "string") continue;
+        try {
+            const verified = stripe.webhooks.constructEvent(req.body, signature, secret);
+            if (secret === (verified.account ? connectSecret : platformSecret)) {
+                event = verified;
+                break;
+            }
+        } catch {
+            // Platform and Connect endpoints may have different signing secrets.
+        }
+    }
+    if (!event) {
         res.status(400).send("Invalid signature");
         return;
     }
 
-    if (event.type === "checkout.session.completed") {
-        const session = event.data.object as { metadata?: { orderId?: string } };
+    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded"
+        || event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+        const session = event.data.object;
         const orderId = Number(session.metadata?.orderId);
 
-        if (!Number.isInteger(orderId)) {
-            console.error("Webhook missing valid orderId in metadata");
-            res.status(400).send("Missing orderId");
-            return;
+        if (Number.isInteger(orderId) && orderId > 0 && orderId <= 2_147_483_647) {
+            const order = await prisma.order.findUnique({
+                where: { id: orderId }, select: { stripePaymentId: true, stripeConnectedAccountId: true },
+            });
+            if (order && order.stripePaymentId === session.id && (order.stripeConnectedAccountId ?? null) === (event.account ?? null)) {
+                if (session.payment_status === "paid") await fulfilOrder(orderId);
+                else if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+                    await prisma.order.updateMany({ where: { id: orderId, paymentStatus: "PENDING" }, data: { paymentStatus: "FAILED" } });
+                }
+            }
         }
-
-        // Idempotent: Stripe may resend the same event, or the verify endpoint
-        // may have already handled it. fulfilOrder no-ops if not PENDING.
-        await fulfilOrder(orderId);
     }
 
-    // Always 200 so Stripe stops retrying.
     res.json({ received: true });
 }
 
@@ -275,10 +312,16 @@ export async function verifyCheckout(req: Request, res: Response) {
 
     // Ask Stripe directly whether this session was paid. Never trust the client.
     if (order.stripePaymentId) {
-        const session = await stripe.checkout.sessions.retrieve(order.stripePaymentId);
+        const options = order.stripeConnectedAccountId ? { stripeAccount: order.stripeConnectedAccountId } : {};
+        const session = await stripe.checkout.sessions.retrieve(order.stripePaymentId, {}, options);
         if (session.payment_status === "paid") {
             await fulfilOrder(orderId);
             res.json({ paymentStatus: "COMPLETED" });
+            return;
+        }
+        if (session.status === "expired") {
+            await prisma.order.updateMany({ where: { id: orderId, paymentStatus: "PENDING" }, data: { paymentStatus: "FAILED" } });
+            res.json({ paymentStatus: "FAILED" });
             return;
         }
     }

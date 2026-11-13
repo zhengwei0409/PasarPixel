@@ -10,7 +10,6 @@ import {
 import { useSellerDashboard } from "../hooks/useSellerDashboard";
 import { formatPrice, convertFiat, formatLamportsSol } from "../lib/price";
 import { useCurrencyStore } from "../stores/currencyStore";
-import WithdrawalSection from "./WithdrawalSection";
 import SellerRecentOrdersSection from "./SellerRecentOrdersSection";
 
 const chartConfig = {
@@ -64,7 +63,7 @@ export default function SellerDashboardSection() {
         <section aria-label="Seller performance" className="space-y-6">
             <div className="rounded-xl border border-border bg-card px-5 py-4 text-sm">
                 <p className="font-medium">SOL earnings · Devnet: {formatLamportsSol(data.solRevenueLamports ?? "0")}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Paid directly to your wallet after the 5% platform commission. Separate from your fiat withdrawal balance.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Paid directly to your wallet after the 5% platform commission.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard title="Total revenue" value={formatPrice(data.revenue, "USD", displayCurrency, { zeroAsFree: false })} description="Earnings from your asset sales" icon={<Banknote className="size-5" />} />
@@ -73,7 +72,7 @@ export default function SellerDashboardSection() {
                 <StatCard title="Pending review" value={data.pendingReviewCount.toLocaleString()} description="Assets awaiting approval" icon={<Clock className="size-5" />} />
             </div>
 
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_350px]">
+            <div className="grid items-start gap-6">
                 <div className="min-w-0 space-y-6">
                     <Card className="min-w-0 gap-6 rounded-xl py-6 ring-border">
                         <CardHeader className="px-6">
@@ -108,7 +107,6 @@ export default function SellerDashboardSection() {
                     </Card>
                     <SellerRecentOrdersSection />
                 </div>
-                <WithdrawalSection />
             </div>
         </section>
     );

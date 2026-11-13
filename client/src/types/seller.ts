@@ -2,6 +2,8 @@ import type { Currency } from "./asset";
 import type { LicenseType } from "./cart";
 import type { PaymentStatus } from "./order";
 
+export type SellerStripeStatus = "not_connected" | "needs_onboarding" | "ready" | "unavailable";
+
 export interface RevenuePoint {
     month: string; // "YYYY-MM"
     revenue: number;
@@ -14,26 +16,9 @@ export interface SellerDashboard {
     pendingReviewCount: number;
     productsByStatus: Record<string, number>;
     revenueSeries: RevenuePoint[];
-    availableBalance: number;
     solRevenueLamports?: string;
     solCommissionLamports?: string;
     solSalesCount?: number;
-}
-
-export type WithdrawalStatus = "PENDING" | "APPROVED" | "REJECTED" | "PAID";
-
-export interface Withdrawal {
-    id: number;
-    sellerId: number;
-    amount: string; // Prisma Decimal serialised as string
-    status: WithdrawalStatus;
-    createdAt: string;
-    updatedAt: string;
-}
-
-export interface WithdrawalsResponse {
-    withdrawals: Withdrawal[];
-    availableBalance: number;
 }
 
 export interface SellerRecentOrder {

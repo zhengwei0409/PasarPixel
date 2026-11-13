@@ -1,4 +1,5 @@
 import FloatingShapes from "@/components/home/FloatingShapes";
+import { isAxiosError } from "axios";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Box, CreditCard, Download, Info, LockKeyhole, Music, ShieldCheck, ShoppingBag, Trash2, Type } from "lucide-react";
@@ -46,6 +47,13 @@ export default function CartPage() {
     const items = data?.items ?? [];
     const selectedItems = items.filter((item) => !excludedItemIds.has(item.id));
     const allSelected = items.length > 0 && selectedItems.length === items.length;
+    const sellerGroups = new Map<number, CartItemWithAsset[]>();
+    for (const item of selectedItems) {
+        const group = sellerGroups.get(item.asset.sellerId);
+        if (group) group.push(item);
+        else sellerGroups.set(item.asset.sellerId, [item]);
+    }
+    const checkoutError = isAxiosError<{ error?: string }>(checkout.error) ? checkout.error.response?.data?.error : undefined;
 
     function toggleItem(itemId: number) {
         setExcludedItemIds((previous) => {
@@ -56,9 +64,9 @@ export default function CartPage() {
         });
     }
 
-    function handleCheckout() {
-        if (cartBusy || selectedItems.length === 0) return;
-        checkout.mutate({ currency, cartItemIds: selectedItems.map((item) => item.id) }, {
+    function handleCheckout(sellerItems: CartItemWithAsset[]) {
+        if (cartBusy || sellerItems.length === 0) return;
+        checkout.mutate({ currency, cartItemIds: sellerItems.map((item) => item.id) }, {
             onSuccess: (url) => {
                 window.location.href = url;
             },
@@ -238,12 +246,35 @@ export default function CartPage() {
                                         <dd className="text-2xl font-semibold tracking-tight tabular-nums" aria-live="polite">{totalLabel}</dd>
                                     </div>
                                 </dl>
-                                <Button size="lg" onClick={handleCheckout} disabled={cartBusy || selectedItems.length === 0} className="mt-6 h-12 w-full gap-2 rounded-lg bg-[#30392b] text-white hover:bg-[#444f3a] focus-visible:ring-[#7a8568]/40">
-                                    <LockKeyhole className="size-4" aria-hidden="true" />
-                                    {checkout.isPending ? "Redirecting…" : "Secure Checkout"}
-                                </Button>
+                                {sellerGroups.size > 1 && <p className="mt-4 text-xs leading-5 text-[#73776e]">Each seller is paid separately. Other items stay in your cart.</p>}
+                                <div className="mt-6 space-y-2">
+                                    {Array.from(sellerGroups, ([sellerId, sellerItems]) => {
+                                        const firstItem = sellerItems[0];
+                                        const extraItems = sellerItems.length - 1;
+                                        const groupLabel = extraItems > 0 ? `${firstItem.asset.title} + ${extraItems} more` : firstItem.asset.title;
+                                        const redirecting = checkout.isPending && checkout.variables?.cartItemIds[0] === sellerItems[0].id;
+                                        return (
+                                            <div key={sellerId} className="space-y-1.5">
+                                                {sellerGroups.size > 1 && (
+                                                    <div id={`checkout-group-${sellerId}`} className="flex items-baseline justify-between gap-2 text-xs">
+                                                        <span className="min-w-0 break-words text-[#73776e]">{groupLabel}</span>
+                                                        <span className="shrink-0 font-medium tabular-nums">
+                                                            {formatPrice(sellerItems.reduce((sum, item) => sum + itemPriceIn(item, currency), 0), currency, currency, { zeroAsFree: false })}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <Button size="lg" onClick={() => handleCheckout(sellerItems)} disabled={cartBusy}
+                                                    aria-describedby={sellerGroups.size > 1 ? `checkout-group-${sellerId}` : undefined}
+                                                    className="min-h-12 w-full gap-2 rounded-lg bg-[#30392b] text-white hover:bg-[#444f3a] focus-visible:ring-[#7a8568]/40">
+                                                    <LockKeyhole className="size-4 shrink-0" aria-hidden="true" />
+                                                    {redirecting ? "Redirecting…" : "Pay"}
+                                                </Button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                                 {selectedItems.length === 0 && <p className="mt-3 text-center text-xs text-[#73776e]">Select at least one asset to check out.</p>}
-                                {checkout.isError && <p role="alert" className="mt-3 text-xs leading-5 text-destructive">Could not start checkout. Please try again.</p>}
+                                {checkout.isError && <p role="alert" className="mt-3 text-xs leading-5 text-destructive">{checkoutError ?? "Could not start checkout. Please try again."}</p>}
                                 <p className="mt-4 text-center text-[9px] font-medium tracking-[0.14em] text-[#85897f]">SECURE PAYMENTS POWERED BY STRIPE</p>
                                 <div className="mt-3 flex items-center justify-center gap-5 text-[#85897f]" aria-hidden="true">
                                     <CreditCard className="size-5" />

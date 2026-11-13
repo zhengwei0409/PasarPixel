@@ -18,7 +18,6 @@
 - ORDER contains many ORDER_ITEMs (one-to-many).
 - USER_PROFILE writes many REVIEWs on ASSETs (one-to-many on both sides).
 - USER_PROFILE submits many REPORTs on ASSETs (one-to-many on both sides).
-- USER_PROFILE submits many WITHDRAWAL_REQUESTs (one-to-many).
 - USER_PROFILE receives many NOTIFICATIONs (one-to-many).
 - USER_PROFILE generates many ACTIVITY_LOGs (one-to-many).
 
